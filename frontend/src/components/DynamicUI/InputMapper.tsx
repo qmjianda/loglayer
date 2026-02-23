@@ -38,7 +38,7 @@ export const InputMapper: React.FC<InputMapperProps> = ({
             return (
                 <input
                     type="text"
-                    className="bg-[#1e1e1e] border border-[#444] px-2 py-1 text-[11px] rounded text-gray-200 w-full focus:outline-none focus:border-blue-500"
+                    className="bg-dark-2 border border-[#444] px-2 py-1 text-[11px] rounded text-gray-200 w-full focus:outline-none focus:border-blue-500"
                     value={value || ''}
                     onChange={(e) => onChange(e.target.value)}
                     placeholder={field.display_name}
@@ -64,7 +64,7 @@ export const InputMapper: React.FC<InputMapperProps> = ({
             return (
                 <input
                     type="number"
-                    className="bg-[#1e1e1e] border border-[#444] px-2 py-1 text-[11px] rounded text-gray-200 w-20 focus:outline-none focus:border-blue-500"
+                    className="bg-dark-2 border border-[#444] px-2 py-1 text-[11px] rounded text-gray-200 w-20 focus:outline-none focus:border-blue-500"
                     value={value || 0}
                     min={field.min}
                     max={field.max}
@@ -110,7 +110,7 @@ export const InputMapper: React.FC<InputMapperProps> = ({
         case 'dropdown':
             return (
                 <select
-                    className="bg-[#1e1e1e] border border-[#444] px-1 py-1 text-[11px] rounded text-gray-200 focus:outline-none focus:border-blue-500"
+                    className="bg-dark-2 border border-[#444] px-1 py-1 text-[11px] rounded text-gray-200 focus:outline-none focus:border-blue-500"
                     value={value || ''}
                     onChange={(e) => onChange(e.target.value)}
                 >

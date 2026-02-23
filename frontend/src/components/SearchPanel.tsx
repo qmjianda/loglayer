@@ -221,7 +221,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         {showHistory && searchHistory.length > 0 && (
           <div 
             ref={historyRef}
-            className="absolute top-full left-0 right-0 mt-1 bg-[#2d2d2d] border border-white/10 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar"
+            className="absolute top-full left-0 right-0 mt-1 bg-dark-3 border border-white/10 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar"
           >
             <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
               <span className="text-[10px] text-gray-500 uppercase font-bold">搜索历史</span>

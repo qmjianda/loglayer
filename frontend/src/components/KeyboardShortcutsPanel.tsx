@@ -77,7 +77,7 @@ export const KeyboardShortcutsPanel: React.FC<KeyboardShortcutsPanelProps> = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setIsOpen(false)}>
       <div 
-        className="bg-[#252526] border border-[#454545] rounded-lg shadow-2xl w-[600px] max-h-[80vh] overflow-hidden"
+        className="bg-dark-1 border border-[#454545] rounded-lg shadow-2xl w-[600px] max-h-[80vh] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#333]">
@@ -97,7 +97,7 @@ export const KeyboardShortcutsPanel: React.FC<KeyboardShortcutsPanelProps> = ({
                   {category.shortcuts.map(shortcut => (
                     <div key={shortcut.keys} className="flex items-center justify-between text-xs">
                       <span className="text-gray-400">{shortcut.description}</span>
-                      <kbd className="px-1.5 py-0.5 bg-[#1e1e1e] border border-[#333] rounded text-gray-300 font-mono text-[10px]">
+                      <kbd className="px-1.5 py-0.5 bg-dark-2 border border-[#333] rounded text-gray-300 font-mono text-[10px]">
                         {shortcut.keys}
                       </kbd>
                     </div>

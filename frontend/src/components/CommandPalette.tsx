@@ -82,7 +82,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-[500px] bg-[#252526] border border-[#454545] rounded-lg shadow-2xl overflow-hidden">
+      <div className="relative w-[500px] bg-dark-1 border border-[#454545] rounded-lg shadow-2xl overflow-hidden">
         <div className="p-2 border-b border-[#333]">
           <input
             ref={inputRef}
@@ -97,7 +97,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         <div className="max-h-[60vh] overflow-y-auto">
           {Object.entries(groupedCommands).map(([category, cmds]) => (
             <div key={category}>
-              <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-gray-500 bg-[#2d2d2d]">
+              <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-gray-500 bg-dark-3">
                 {category}
               </div>
               {cmds.map(cmd => {

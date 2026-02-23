@@ -31,7 +31,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
     >
       <input
         type="text"
-        className="bg-[#1e1e1e] border border-[#444] px-2 py-1 pr-20 text-[11px] rounded text-gray-200 w-full focus:outline-none focus:border-blue-500 select-text"
+        className="bg-dark-2 border border-[#444] px-2 py-1 pr-20 text-[11px] rounded text-gray-200 w-full focus:outline-none focus:border-blue-500 select-text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

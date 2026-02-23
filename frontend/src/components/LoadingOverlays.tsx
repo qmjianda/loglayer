@@ -6,8 +6,8 @@ interface IndexingOverlayProps {
 }
 
 export const IndexingOverlay: React.FC<IndexingOverlayProps> = ({ progress, fileName }) => (
-    <div className="absolute inset-x-0 bottom-0 top-0 z-50 flex flex-col items-center justify-center bg-[#1e1e1e]/80 backdrop-blur-sm transition-all">
-        <div className="flex flex-col items-center p-8 rounded-2xl bg-[#252526] border border-white/10 shadow-2xl scale-in-center overflow-hidden relative">
+    <div className="absolute inset-x-0 bottom-0 top-0 z-50 flex flex-col items-center justify-center bg-dark-2/80 backdrop-blur-sm transition-all">
+        <div className="flex flex-col items-center p-8 rounded-2xl bg-dark-1 border border-white/10 shadow-2xl scale-in-center overflow-hidden relative">
             <div className="absolute inset-0 bg-blue-500/5 animate-pulse" />
             <div className="relative w-24 h-24 mb-6">
                 <svg className="w-full h-full rotate-[-90deg]" viewBox="0 0 100 100">
@@ -34,7 +34,7 @@ interface FileLoadingSkeletonProps {
 }
 
 export const FileLoadingSkeleton: React.FC<FileLoadingSkeletonProps> = ({ fileName }) => (
-    <div className="absolute inset-x-0 bottom-0 top-0 z-40 bg-[#1e1e1e] overflow-hidden">
+    <div className="absolute inset-x-0 bottom-0 top-0 z-40 bg-dark-2 overflow-hidden">
         {/* Animated gradient shimmer overlay */}
         <div className="absolute inset-0 pointer-events-none">
             <div
@@ -70,7 +70,7 @@ export const FileLoadingSkeleton: React.FC<FileLoadingSkeletonProps> = ({ fileNa
         </div>
 
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="flex flex-col items-center gap-4 bg-[#252526]/95 px-8 py-6 rounded-xl border border-white/10 shadow-2xl backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-4 bg-dark-1/95 px-8 py-6 rounded-xl border border-white/10 shadow-2xl backdrop-blur-sm">
                 <div className="relative w-12 h-12">
                     <svg className="w-full h-full animate-spin" viewBox="0 0 50 50">
                         <circle cx="25" cy="25" r="20" fill="none" stroke="#333" strokeWidth="3" />

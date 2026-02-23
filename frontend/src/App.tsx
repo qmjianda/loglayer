@@ -41,11 +41,11 @@ import { useLayerManagement } from './hooks/useLayerManagement';
 import { useSearchLogic } from './hooks/useSearchLogic';
 import { useBookmarkLogic } from './hooks/useBookmarkLogic';
 import { useBookmarks } from './hooks/useBookmarks';
-import { useSettings } from './hooks/useSettings';
+import { useSettings, SettingsProvider } from './hooks/useSettings';
 import { useResponsive } from './hooks/useResponsive';
 
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   // ===== 设置管理 (Settings Management) =====
   const { settings, resolvedTheme } = useSettings();
 
@@ -568,7 +568,7 @@ const App: React.FC = () => {
 
   return (
     <div
-      className="flex flex-col h-screen select-none overflow-hidden text-sm bg-[#1e1e1e] text-[#cccccc]"
+      className="flex flex-col h-screen select-none overflow-hidden text-sm bg-dark-2 text-[#cccccc]"
       onDragOver={(e) => {
         // 关键修复：防止浏览器默认的拖拽操作（如直接打开文件）
         // 这样组件内部的 Drop 区域才能正常工作。
@@ -597,7 +597,7 @@ const App: React.FC = () => {
       />
 
       {/* 顶部标题栏 */}
-      <div className="h-9 bg-[#2d2d2d] flex items-center px-4 border-b border-[#111] shrink-0 justify-between">
+      <div className="h-9 bg-dark-3 flex items-center px-4 border-b border-[#111] shrink-0 justify-between">
         <div className="flex items-center space-x-4">
           <span className="text-blue-400 font-black tracking-tighter flex items-center cursor-default">
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5-10-5zM2 17l10 5 10-5-10-5-10 5zM2 12l10 5 10-5-10-5-10 5z" /></svg>
@@ -620,11 +620,11 @@ const App: React.FC = () => {
 
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧侧边栏按钮（Explorer, Search, Help） */}
-        <Sidebar activeView={activeView} onSetActiveView={setActiveView} />
+        <Sidebar activeView={activeView} onSetActiveView={setActiveView} onOpenSettings={() => setIsSettingsVisible(true)} />
 
         {/* 侧边栏面板容器 */}
         <div
-          className={`bg-[#252526] border-r border-[#111] flex flex-col shrink-0 shadow-lg relative group/sidebar 
+          className={`bg-dark-1 border-r border-[#111] flex flex-col shrink-0 shadow-lg relative group/sidebar 
             ${responsive.isMobile ? 'absolute inset-y-0 left-10 z-40' : ''}`}
           style={{ 
             width: responsive.isMobile ? (sidebarWidth > 0 ? sidebarWidth : 280) : sidebarWidth,
@@ -709,7 +709,7 @@ const App: React.FC = () => {
         </div>
 
         {/* 主内容区域：显示日志视图或帮助文档 */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#1e1e1e] relative select-text overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-dark-2 relative select-text overflow-hidden">
           {activeView === 'help' ? (
             <HelpPanel />
           ) : (
@@ -763,13 +763,13 @@ const App: React.FC = () => {
                   const paneStats = processedData?.layerStats || {};
 
                   return (
-                    <div key={pane.id} className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#1e1e1e] relative border-r border-[#111] overflow-hidden">
+                    <div key={pane.id} className="flex-1 flex flex-col min-w-0 min-h-0 bg-dark-2 relative border-r border-[#111] overflow-hidden">
                       <div
                         className={`flex-1 flex flex-col min-h-0 relative ${activePaneId === pane.id ? 'ring-1 ring-blue-500/30' : ''}`}
                         onClick={() => setActivePaneId(pane.id)}
                       >
                         {/* 标签栏（目前显示当前文件名） */}
-                        <div className="h-8 bg-[#252526] flex items-center px-4 text-xs text-gray-400 border-b border-[#111] shrink-0 select-none">
+                        <div className="h-8 bg-dark-1 flex items-center px-4 text-xs text-gray-400 border-b border-[#111] shrink-0 select-none">
                           <span className="truncate">{paneFileId ? (files.find(f => f.id === paneFileId)?.name || 'Unknown File') : 'Empty Pane'}</span>
                           <div className="ml-auto flex gap-2">
                             {panes.length > 1 && (
@@ -881,6 +881,14 @@ const App: React.FC = () => {
       />
       
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <SettingsProvider>
+      <AppContent />
+    </SettingsProvider>
   );
 };
 

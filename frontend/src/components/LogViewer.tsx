@@ -782,7 +782,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-auto bg-[#1e1e1e] relative custom-scrollbar"
+      className={`flex-1 overflow-auto relative custom-scrollbar ${theme === 'light' ? 'bg-white' : 'bg-[#1e1e1e]'}`}
       onScroll={(e) => {
         const now = performance.now();
         const st = e.currentTarget.scrollTop;
@@ -836,7 +836,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
       {contextMenu && (
         <div
-          className="context-menu-popup fixed bg-[#252526] border border-[#454545] shadow-2xl rounded py-1 min-w-[160px] z-[1000] text-[12px]"
+          className="context-menu-popup fixed bg-dark-1 border border-[#454545] shadow-2xl rounded py-1 min-w-[160px] z-[1000] text-[12px]"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onMouseDown={e => e.stopPropagation()}
         >

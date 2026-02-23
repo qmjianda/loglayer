@@ -35,7 +35,7 @@ export const BookmarkPopover: React.FC<BookmarkPopoverProps> = ({
                 left: x,
                 zIndex: 1001,
             }}
-            className="bookmark-popover bg-[#252526]/90 backdrop-blur-md border border-[#454545] shadow-2xl rounded-lg p-3 min-w-[280px] flex flex-col ring-1 ring-black/50 animate-in fade-in slide-in-from-left-2 duration-200"
+            className="bookmark-popover bg-dark-1/90 backdrop-blur-md border border-[#454545] shadow-2xl rounded-lg p-3 min-w-[280px] flex flex-col ring-1 ring-black/50 animate-in fade-in slide-in-from-left-2 duration-200"
             onMouseDown={e => e.stopPropagation()}
         >
             <div className="flex items-center justify-between mb-3">
@@ -55,7 +55,7 @@ export const BookmarkPopover: React.FC<BookmarkPopoverProps> = ({
 
             <textarea
                 autoFocus
-                className="bg-[#1e1e1e]/50 border border-[#3e3e42] text-gray-200 p-2.5 text-xs rounded-md outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition-all resize-none h-28 mb-3 placeholder:text-gray-600"
+                className="bg-dark-2/50 border border-[#3e3e42] text-gray-200 p-2.5 text-xs rounded-md outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition-all resize-none h-28 mb-3 placeholder:text-gray-600"
                 placeholder="在此输入您的书签说明（Markdown 支持）..."
                 value={comment}
                 onChange={e => setComment(e.target.value)}

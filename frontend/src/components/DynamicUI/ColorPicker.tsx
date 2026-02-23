@@ -38,7 +38,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 type="text"
                 value={selectedColor.toUpperCase()}
                 onChange={(e) => onColorChange(e.target.value)}
-                className="bg-[#1e1e1e] border border-[#444] px-1.5 py-0.5 text-[10px] rounded text-gray-300 w-16 focus:outline-none focus:border-blue-500 font-mono"
+                className="bg-dark-2 border border-[#444] px-1.5 py-0.5 text-[10px] rounded text-gray-300 w-16 focus:outline-none focus:border-blue-500 font-mono"
             />
         </div>
     );

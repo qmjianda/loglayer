@@ -81,7 +81,7 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
     <div
       ref={widgetRef}
       style={{ width: `${width}px` }}
-      className={`absolute top-2 right-8 z-30 bg-[#252526] border border-[#454545] shadow-2xl rounded flex items-center p-1 space-x-1 animate-in slide-in-from-top-2 duration-150 select-none ${isResizing ? 'ring-1 ring-blue-500/50' : ''}`}
+      className={`absolute top-2 right-8 z-30 bg-dark-1 border border-[#454545] shadow-2xl rounded flex items-center p-1 space-x-1 animate-in slide-in-from-top-2 duration-150 select-none ${isResizing ? 'ring-1 ring-blue-500/50' : ''}`}
     >
       {/* Resizer Handle */}
       <div

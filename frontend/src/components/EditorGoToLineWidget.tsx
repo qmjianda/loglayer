@@ -33,7 +33,7 @@ export const EditorGoToLineWidget: React.FC<EditorGoToLineWidgetProps> = ({
 
   return (
     <div className="absolute top-0 left-1/2 -translate-x-1/2 z-40 w-[400px] animate-in slide-in-from-top-4 duration-150">
-      <div className="bg-[#252526] shadow-2xl rounded-b border border-t-0 border-[#454545] p-2">
+      <div className="bg-dark-1 shadow-2xl rounded-b border border-t-0 border-[#454545] p-2">
         <div className={`flex items-center bg-[#3c3c3c] border rounded overflow-hidden transition-colors ${isValid ? 'border-blue-500/50' : 'border-red-500'}`}>
           <div className="px-2 text-gray-500 text-xs select-none">:</div>
           <input

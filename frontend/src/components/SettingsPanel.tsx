@@ -56,17 +56,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={cancel}>
       <div 
-        className="bg-[#252526] border border-[#454545] rounded-lg shadow-2xl w-[700px] h-[550px] overflow-hidden flex flex-col"
+        className="bg-theme-surface border border-theme-default rounded-lg shadow-2xl w-[700px] h-[550px] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* 头部 */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#333] shrink-0">
-          <h2 className="text-sm font-semibold text-white">设置</h2>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-theme-subtle shrink-0">
+          <h2 className="text-sm font-semibold text-theme-primary">设置</h2>
           <div className="flex items-center gap-2">
             {hasChanges && (
               <span className="text-xs text-yellow-500">有未保存的更改</span>
             )}
-            <button onClick={cancel} className="text-gray-400 hover:text-white">
+            <button onClick={cancel} className="text-theme-secondary hover:text-theme-primary">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -77,15 +77,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
         {/* 内容区 */}
         <div className="flex flex-1 overflow-hidden">
           {/* 侧边栏 */}
-          <div className="w-40 border-r border-[#333] p-2 shrink-0">
+          <div className="w-40 border-r border-theme-subtle p-2 shrink-0">
             {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`w-full text-left px-3 py-2 text-sm rounded flex items-center gap-2 ${
                   activeTab === tab.id 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-gray-400 hover:bg-[#2a2d2e]'
+                    ? 'bg-blue-600 text-theme-primary' 
+                    : 'text-theme-secondary hover:bg-[#2a2d2e]'
                 }`}
               >
                 <span>{tab.icon}</span>
@@ -142,8 +142,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                         onClick={() => handleChange('theme', t)}
                         className={`px-4 py-3 text-sm rounded border flex-1 ${
                           currentSettings.theme === t
-                            ? 'border-blue-500 bg-blue-500/20 text-white'
-                            : 'border-[#454545] text-gray-400 hover:border-gray-500'
+                            ? 'border-blue-500 bg-blue-500/20 text-theme-primary'
+                            : 'border-theme-default text-theme-secondary hover:border-gray-500'
                         }`}
                       >
                         <div className="text-center">
@@ -299,7 +299,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                 <Section title="数据">
                   <button
                     onClick={resetToDefault}
-                    className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded"
+                    className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-theme-primary rounded"
                   >
                     重置所有设置为默认
                   </button>
@@ -310,16 +310,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
         </div>
 
         {/* 底部按钮 */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-[#333] shrink-0">
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-theme-subtle shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-400 hover:text-white"
+            className="px-4 py-2 text-sm text-theme-secondary hover:text-theme-primary"
           >
             取消
           </button>
           <button
             onClick={saveSettings}
-            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded"
+            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-theme-primary rounded"
           >
             保存
           </button>
@@ -332,7 +332,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
 // 辅助组件
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div>
-    <h3 className="text-xs font-semibold text-gray-500 uppercase mb-3">{title}</h3>
+    <h3 className="text-xs font-semibold text-theme-muted uppercase mb-3">{title}</h3>
     <div className="space-y-3">{children}</div>
   </div>
 );
@@ -351,8 +351,8 @@ const Toggle: React.FC<{
       className="mt-1 w-4 h-4 rounded accent-blue-500"
     />
     <div>
-      <div className="text-sm text-gray-300">{label}</div>
-      {description && <div className="text-xs text-gray-500">{description}</div>}
+      <div className="text-sm text-theme-primary">{label}</div>
+      {description && <div className="text-xs text-theme-muted">{description}</div>}
     </div>
   </label>
 );
@@ -364,11 +364,11 @@ const Select: React.FC<{
   onChange: (v: string) => void;
 }> = ({ label, value, options, onChange }) => (
   <div>
-    <div className="text-sm text-gray-300 mb-1">{label}</div>
+    <div className="text-sm text-theme-primary mb-1">{label}</div>
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className="w-full bg-[#1e1e1e] border border-[#454545] rounded px-3 py-2 text-sm text-gray-300"
+      className="w-full bg-theme-base border border-theme-default rounded px-3 py-2 text-sm text-theme-primary"
     >
       {options.map(opt => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -388,18 +388,18 @@ const NumberInput: React.FC<{
 }> = ({ label, value, min, max, unit, description, onChange }) => (
   <div>
     <div className="flex items-center gap-2">
-      <span className="text-sm text-gray-300">{label}</span>
+      <span className="text-sm text-theme-primary">{label}</span>
       <input
         type="number"
         value={value}
         min={min}
         max={max}
         onChange={e => onChange(Number(e.target.value))}
-        className="w-20 bg-[#1e1e1e] border border-[#454545] rounded px-2 py-1 text-sm text-gray-300"
+        className="w-20 bg-theme-base border border-theme-default rounded px-2 py-1 text-sm text-theme-primary"
       />
-      {unit && <span className="text-xs text-gray-500">{unit}</span>}
+      {unit && <span className="text-xs text-theme-muted">{unit}</span>}
     </div>
-    {description && <div className="text-xs text-gray-500 mt-1">{description}</div>}
+    {description && <div className="text-xs text-theme-muted mt-1">{description}</div>}
   </div>
 );
 
@@ -410,13 +410,13 @@ const TextInput: React.FC<{
   onChange: (v: string) => void;
 }> = ({ label, value, placeholder, onChange }) => (
   <div>
-    <div className="text-sm text-gray-300 mb-1">{label}</div>
+    <div className="text-sm text-theme-primary mb-1">{label}</div>
     <input
       type="text"
       value={value}
       placeholder={placeholder}
       onChange={e => onChange(e.target.value)}
-      className="w-full bg-[#1e1e1e] border border-[#454545] rounded px-3 py-2 text-sm text-gray-300"
+      className="w-full bg-theme-base border border-theme-default rounded px-3 py-2 text-sm text-theme-primary"
     />
   </div>
 );

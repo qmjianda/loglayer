@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
 export interface AppSettings {
   autoOpenLastFile: boolean;
@@ -53,7 +53,21 @@ function getSystemTheme(): 'dark' | 'light' {
   return 'dark';
 }
 
-export function useSettings() {
+interface UseSettingsReturn {
+  settings: AppSettings;
+  resolvedTheme: 'dark' | 'light';
+  isLoaded: boolean;
+  updateSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
+  resetToDefault: () => void;
+}
+
+const SettingsContext = createContext<UseSettingsReturn | null>(null);
+
+interface SettingsProviderProps {
+  children: ReactNode;
+}
+
+export function SettingsProvider({ children }: SettingsProviderProps) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isLoaded, setIsLoaded] = useState(false);
   const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('dark');
@@ -93,14 +107,16 @@ export function useSettings() {
   }, [settings.theme, settings.fontSize, settings.lineHeight, isLoaded]);
 
   const saveSettings = useCallback((newSettings: Partial<AppSettings>) => {
-    const updated = { ...settings, ...newSettings };
-    setSettings(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.error('Failed to save settings:', e);
-    }
-  }, [settings]);
+    setSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save settings:', e);
+      }
+      return updated;
+    });
+  }, []);
 
   const updateSetting = useCallback(<K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     saveSettings({ [key]: value });
@@ -110,12 +126,17 @@ export function useSettings() {
     saveSettings(DEFAULT_SETTINGS);
   }, [saveSettings]);
 
-  return {
-    settings,
-    resolvedTheme,
-    isLoaded,
-    saveSettings,
-    updateSetting,
-    resetToDefault,
-  };
+  return (
+    <SettingsContext.Provider value={{ settings, resolvedTheme, isLoaded, updateSetting, resetToDefault }}>
+      {children}
+    </SettingsContext.Provider>
+  );
+}
+
+export function useSettings(): UseSettingsReturn {
+  const context = useContext(SettingsContext);
+  if (!context) {
+    throw new Error('useSettings must be used within a SettingsProvider');
+  }
+  return context;
 }

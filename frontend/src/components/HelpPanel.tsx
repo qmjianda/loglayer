@@ -2,7 +2,7 @@ import React from 'react';
 
 export const HelpPanel: React.FC = () => {
   return (
-    <div className="p-8 flex flex-col h-full overflow-y-auto custom-scrollbar bg-[#1e1e1e] text-gray-300 select-text">
+    <div className="p-8 flex flex-col h-full overflow-y-auto custom-scrollbar bg-dark-2 text-gray-300 select-text">
       <div className="max-w-4xl mx-auto">
         <header className="mb-10 border-b border-white/10 pb-6">
           <h2 className="text-2xl font-black text-blue-400 mb-2 flex items-center tracking-tight">
@@ -16,7 +16,7 @@ export const HelpPanel: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
           {/* Quick Start Card */}
-          <div className="bg-[#252526] p-5 rounded-lg border border-white/5 hover:border-blue-500/30 transition-colors">
+          <div className="bg-dark-1 p-5 rounded-lg border border-white/5 hover:border-blue-500/30 transition-colors">
             <h3 className="text-sm font-bold text-white mb-3 flex items-center">
               <span className="w-6 h-6 rounded-md bg-blue-500/20 text-blue-400 flex items-center justify-center mr-2 text-xs">1</span>
               打开文件与工作区
@@ -29,7 +29,7 @@ export const HelpPanel: React.FC = () => {
           </div>
 
           {/* Layers Card */}
-          <div className="bg-[#252526] p-5 rounded-lg border border-white/5 hover:border-purple-500/30 transition-colors">
+          <div className="bg-dark-1 p-5 rounded-lg border border-white/5 hover:border-purple-500/30 transition-colors">
             <h3 className="text-sm font-bold text-white mb-3 flex items-center">
               <span className="w-6 h-6 rounded-md bg-purple-500/20 text-purple-400 flex items-center justify-center mr-2 text-xs">2</span>
               图层系统 (Layers)
@@ -42,7 +42,7 @@ export const HelpPanel: React.FC = () => {
           </div>
 
           {/* Bookmarks Card */}
-          <div className="bg-[#252526] p-5 rounded-lg border border-white/5 hover:border-yellow-500/30 transition-colors">
+          <div className="bg-dark-1 p-5 rounded-lg border border-white/5 hover:border-yellow-500/30 transition-colors">
             <h3 className="text-sm font-bold text-white mb-3 flex items-center">
               <span className="w-6 h-6 rounded-md bg-yellow-500/20 text-yellow-400 flex items-center justify-center mr-2 text-xs">3</span>
               书签与标注 (Bookmarks)
@@ -55,7 +55,7 @@ export const HelpPanel: React.FC = () => {
           </div>
 
           {/* Performance Card */}
-          <div className="bg-[#252526] p-5 rounded-lg border border-white/5 hover:border-green-500/30 transition-colors">
+          <div className="bg-dark-1 p-5 rounded-lg border border-white/5 hover:border-green-500/30 transition-colors">
             <h3 className="text-sm font-bold text-white mb-3 flex items-center">
               <span className="w-6 h-6 rounded-md bg-green-500/20 text-green-400 flex items-center justify-center mr-2 text-xs">4</span>
               性能与核心
@@ -88,7 +88,7 @@ export const HelpPanel: React.FC = () => {
           </section>
 
           {/* Config Persistence */}
-          <section className="bg-[#252526] p-6 rounded-lg border border-white/5 shadow-xl">
+          <section className="bg-dark-1 p-6 rounded-lg border border-white/5 shadow-xl">
             <h3 className="text-xs font-black uppercase text-green-500 mb-4 tracking-widest flex items-center">
               <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
               配置自动保存

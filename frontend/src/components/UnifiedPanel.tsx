@@ -178,7 +178,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
         transform: <svg className="w-3.5 h-3.5 text-orange-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M4 4h16v16H4V4zm4 4h8v8H8V8z" /></svg>,
         level: <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
         plugin: <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>,
-        default: <svg className="w-3.5 h-3.5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+        default: <svg className="w-3.5 h-3.5 text-theme-muted" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
     };
 
     const getIcon = (entry: LayerRegistryEntry) => {
@@ -209,10 +209,10 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     const renderAddMenu = (fileId: string) => (
         <div
             ref={menuRef}
-            className="absolute right-0 top-full mt-1 w-40 bg-[#252526] border border-[#454545] shadow-2xl rounded py-1 z-[100] animate-in fade-in zoom-in-95 duration-100"
+            className="absolute right-0 top-full mt-1 w-40 bg-theme-surface border border-theme-default shadow-2xl rounded py-1 z-[100] animate-in fade-in zoom-in-95 duration-100"
         >
             {/* Built-in Layers */}
-            <div className="px-3 py-1.5 text-[9px] uppercase font-black text-gray-500 tracking-wider bg-[#2d2d2d] border-b border-[#333]">核心图层</div>
+            <div className="px-3 py-1.5 text-[9px] uppercase font-black text-theme-muted tracking-wider bg-theme-elevated border-b border-theme-subtle">核心图层</div>
             {Object.values(registry as Record<string, LayerRegistryEntry>).filter(entry => entry.is_builtin).map(entry => (
                 <button
                     key={entry.type}
@@ -222,7 +222,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                         setActiveMenuId(null);
                         setExpandedFiles(prev => ({ ...prev, [fileId]: true }));
                     }}
-                    className="w-full flex items-center px-3 py-1.5 text-[11px] text-gray-300 hover:bg-blue-600 hover:text-white transition-colors"
+                    className="w-full flex items-center px-3 py-1.5 text-[11px] text-theme-primary hover:bg-blue-600 hover:text-white transition-colors"
                 >
                     <span className="mr-3 w-4 flex justify-center shrink-0">{getIcon(entry)}</span>
                     <span className="truncate text-left">{entry.display_name}</span>
@@ -232,7 +232,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
             {/* Plugin Layers */}
             {Object.values(registry as Record<string, LayerRegistryEntry>).some(entry => !entry.is_builtin) && (
                 <>
-                    <div className="px-3 py-1.5 text-[9px] uppercase font-black text-gray-500 tracking-wider bg-[#2d2d2d] border-y border-[#333] mt-1">扩展插件</div>
+                    <div className="px-3 py-1.5 text-[9px] uppercase font-black text-theme-muted tracking-wider bg-theme-elevated border-y border-theme-subtle mt-1">扩展插件</div>
                     {Object.values(registry as Record<string, LayerRegistryEntry>).filter(entry => !entry.is_builtin).map(entry => (
                         <button
                             key={entry.type}
@@ -242,7 +242,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                 setActiveMenuId(null);
                                 setExpandedFiles(prev => ({ ...prev, [fileId]: true }));
                             }}
-                            className="w-full flex items-center px-3 py-1.5 text-[11px] text-gray-300 hover:bg-blue-600 hover:text-white transition-colors"
+                            className="w-full flex items-center px-3 py-1.5 text-[11px] text-theme-primary hover:bg-blue-600 hover:text-white transition-colors"
                         >
                             <span className="mr-3 w-4 flex justify-center shrink-0">{getIcon(entry)}</span>
                             <span className="truncate text-left">{entry.display_name}</span>
@@ -253,7 +253,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
 
             {presets.length > 0 && (
                 <>
-                    <div className="px-3 py-1.5 text-[9px] uppercase font-black text-gray-500 tracking-wider bg-[#2d2d2d] border-y border-[#333] mt-1">预设库</div>
+                    <div className="px-3 py-1.5 text-[9px] uppercase font-black text-theme-muted tracking-wider bg-theme-elevated border-y border-theme-subtle mt-1">预设库</div>
                     {presets.map(p => (
                         <button
                             key={p.id}
@@ -262,7 +262,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                 onPresetApply(p);
                                 setActiveMenuId(null);
                             }}
-                            className="w-full flex items-center px-3 py-1.5 text-[11px] text-gray-300 hover:bg-blue-600 hover:text-white transition-colors group"
+                            className="w-full flex items-center px-3 py-1.5 text-[11px] text-theme-primary hover:bg-blue-600 hover:text-white transition-colors group"
                             title={p.name}
                         >
                             <span className="mr-3 w-4 flex justify-center shrink-0">
@@ -279,11 +279,11 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     return (
         <div className="flex-1 flex flex-col overflow-hidden">
             {/* 全局工具栏 (Actions for Active File) */}
-            <div className="shrink-0 p-2 bg-[#2d2d2d] border-b border-[#111] flex flex-wrap gap-1">
+            <div className="shrink-0 p-2 bg-theme-elevated border-b border-theme-subtle flex flex-wrap gap-1">
 
                 {/* Undo/Redo - Left aligned for quick access */}
-                <button onClick={onUndo} disabled={!canUndo} className={`w-6 h-6 flex items-center justify-center rounded ${canUndo ? 'hover:bg-[#444] text-gray-300' : 'opacity-30 cursor-not-allowed text-gray-600'}`} title="撤销 (Ctrl+Z)"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>
-                <button onClick={onRedo} disabled={!canRedo} className={`w-6 h-6 flex items-center justify-center rounded ${canRedo ? 'hover:bg-[#444] text-gray-300' : 'opacity-30 cursor-not-allowed text-gray-600'}`} title="重做 (Ctrl+Y)"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 10H11a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" /></svg></button>
+                <button onClick={onUndo} disabled={!canUndo} className={`w-6 h-6 flex items-center justify-center rounded ${canUndo ? 'hover:bg-theme-elevated text-theme-primary' : 'opacity-30 cursor-not-allowed text-gray-600'}`} title="撤销 (Ctrl+Z)"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>
+                <button onClick={onRedo} disabled={!canRedo} className={`w-6 h-6 flex items-center justify-center rounded ${canRedo ? 'hover:bg-theme-elevated text-theme-primary' : 'opacity-30 cursor-not-allowed text-gray-600'}`} title="重做 (Ctrl+Y)"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 10H11a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" /></svg></button>
 
 
             </div>
@@ -291,7 +291,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
             {/* 1. 已打开文件 & 图层 (Flattened List with nested layers) */}
             <div className={`flex flex-col overflow-hidden min-h-0 ${collapsedSections.explorer ? 'flex-1' : 'shrink-0'}`}>
                 <div
-                    className="flex items-center px-3 py-2 bg-header border-b border-[#111] cursor-pointer hover:bg-[#333] select-none shrink-0"
+                    className="flex items-center px-3 py-2 bg-header border-b border-theme-subtle cursor-pointer hover:bg-theme-elevated select-none shrink-0"
                     onClick={() => toggleSection('openFiles')}
                 >
                     <svg className={`w-3 h-3 mr-2 transition-transform ${collapsedSections.openFiles ? '' : 'rotate-90'}`} fill="currentColor" viewBox="0 0 20 20">
@@ -301,21 +301,21 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                     {/* Debug toggle for system layers */}
                     <button
                         onClick={(e) => { e.stopPropagation(); setShowSystemLayers(prev => !prev); }}
-                        className={`ml-2 px-1 py-0.5 text-[8px] rounded transition-colors ${showSystemLayers ? 'bg-amber-500/30 text-amber-400' : 'bg-white/5 text-gray-500 hover:text-gray-300'}`}
+                        className={`ml-2 px-1 py-0.5 text-[8px] rounded transition-colors ${showSystemLayers ? 'bg-amber-500/30 text-amber-400' : 'bg-white/5 text-theme-muted hover:text-theme-primary'}`}
                         title={showSystemLayers ? '隐藏系统图层' : '显示系统图层'}
                     >
                         {showSystemLayers ? '系统' : '用户'}
                     </button>
-                    <span className="ml-auto text-[9px] text-gray-500">{files.length}</span>
+                    <span className="ml-auto text-[9px] text-theme-muted">{files.length}</span>
                 </div>
 
                 {!collapsedSections.openFiles && (
                     <div
-                        className="overflow-y-auto custom-scrollbar bg-dark-1"
+                        className="overflow-y-auto custom-scrollbar bg-theme-surface"
                         style={collapsedSections.explorer ? { flex: 1 } : { height: openedHeight }}
                     >
                         {files.length === 0 ? (
-                            <div className="p-4 text-center text-[10px] text-gray-500 italic">暂无文件 (从资源管理器中选取)</div>
+                            <div className="p-4 text-center text-[10px] text-theme-muted italic">暂无文件 (从资源管理器中选取)</div>
                         ) : (
                             files.map(file => {
                                 const isExpanded = expandedFiles[file.id] === true;
@@ -325,10 +325,10 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                 const hasLayers = visibleLayers.length > 0;
 
                                 return (
-                                    <div key={file.id} className="flex flex-col border-b border-[#111]">
+                                    <div key={file.id} className="flex flex-col border-b border-theme-subtle">
                                         {/* File Header Row - Click to activate AND toggle expand */}
                                         <div
-                                            className={`flex items-center py-1 px-2 cursor-pointer select-none group transition-colors relative ${isActive ? 'bg-[#37373d] text-blue-400' : 'hover:bg-[#2a2d2e] text-gray-400'}`}
+                                            className={`flex items-center py-1 px-2 cursor-pointer select-none group transition-colors relative ${isActive ? 'bg-[#37373d] text-blue-400' : 'hover:bg-[#2a2d2e] text-theme-secondary'}`}
                                             onClick={() => {
                                                 if (file.id === activeFileId) {
                                                     // Toggle ONLY if already active (manual collapse/expand)
@@ -342,7 +342,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                             }}
                                         >
                                             {/* Expand/Collapse Arrow - Visual indicator only */}
-                                            <div className={`w-4 h-4 mr-1 shrink-0 flex items-center justify-center text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                                            <div className={`w-4 h-4 mr-1 shrink-0 flex items-center justify-center text-theme-muted transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
                                                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" /></svg>
                                             </div>
 
@@ -362,7 +362,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                         {/* Save as Preset */}
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); onPresetSave(); }}
-                                                            className="p-1 hover:bg-white/10 rounded transition-colors text-gray-500 hover:text-white"
+                                                            className="p-1 hover:bg-white/10 rounded transition-colors text-theme-muted hover:text-white"
                                                             title="保存为预设"
                                                         >
                                                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
@@ -370,7 +370,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                         {/* Add Folder */}
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); onAddLayer(LayerType.FOLDER); }}
-                                                            className="p-1 hover:bg-white/10 rounded transition-colors text-gray-500 hover:text-white"
+                                                            className="p-1 hover:bg-white/10 rounded transition-colors text-theme-muted hover:text-white"
                                                             title="新建分组"
                                                         >
                                                             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
@@ -382,7 +382,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                                     e.stopPropagation();
                                                                     setActiveMenuId(activeMenuId === file.id ? null : file.id);
                                                                 }}
-                                                                className={`p-1 hover:bg-white/10 rounded transition-colors ${activeMenuId === file.id ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                                                                className={`p-1 hover:bg-white/10 rounded transition-colors ${activeMenuId === file.id ? 'bg-blue-600 text-white' : 'text-theme-muted hover:text-theme-primary'}`}
                                                                 title="添加图层"
                                                             >
                                                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
@@ -394,7 +394,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                 {/* Close File */}
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); onFileRemove(file.id); }}
-                                                    className="p-1 hover:bg-red-500/20 rounded transition-colors text-gray-500 hover:text-red-400"
+                                                    className="p-1 hover:bg-red-500/20 rounded transition-colors text-theme-muted hover:text-red-400"
                                                     title="关闭文件"
                                                 >
                                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -426,17 +426,17 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
 
                                                 {/* Bookmarks Section */}
                                                 {isActive && (
-                                                    <div className="mt-1 border-t border-[#333] pt-1">
+                                                    <div className="mt-1 border-t border-theme-subtle pt-1">
                                                         {/* 书签列表区域 */}
-                                                        <div className="flex items-center justify-between px-3 py-1 bg-[#2d2d2d]/50">
-                                                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">该文件的书签 ({Object.keys(bookmarks).length})</span>
+                                                        <div className="flex items-center justify-between px-3 py-1 bg-theme-elevated/50">
+                                                            <span className="text-[10px] text-theme-muted font-bold uppercase tracking-wider">该文件的书签 ({Object.keys(bookmarks).length})</span>
                                                             {Object.keys(bookmarks).length > 0 && (
                                                                 <button
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         onClearBookmarks?.();
                                                                     }}
-                                                                    className="text-[9px] text-gray-500 hover:text-red-400 transition-colors"
+                                                                    className="text-[9px] text-theme-muted hover:text-red-400 transition-colors"
                                                                 >
                                                                     清除全部
                                                                 </button>
@@ -464,7 +464,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                                                 <div className="flex items-center gap-2">
                                                                                     <span className="text-amber-500 text-[10px] font-mono">#{(idx + 1).toLocaleString()}</span>
                                                                                     {comment && (
-                                                                                        <span className="text-[10px] text-gray-300 truncate max-w-[140px] font-medium">{comment}</span>
+                                                                                        <span className="text-[10px] text-theme-primary truncate max-w-[140px] font-medium">{comment}</span>
                                                                                     )}
                                                                                 </div>
                                                                                 <button
@@ -472,14 +472,14 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                                                         e.stopPropagation();
                                                                                         onToggleBookmark?.(idx);
                                                                                     }}
-                                                                                    className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all p-1"
+                                                                                    className="opacity-0 group-hover:opacity-100 text-theme-muted hover:text-red-400 transition-all p-1"
                                                                                     title="删除书签"
                                                                                 >
                                                                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                                                 </button>
                                                                             </div>
                                                                             {preview ? (
-                                                                                <div className="text-[10px] text-gray-500 font-mono truncate bg-black/20 rounded px-1.5 py-0.5 border border-white/5 italic">
+                                                                                <div className="text-[10px] text-theme-muted font-mono truncate bg-black/20 rounded px-1.5 py-0.5 border border-white/5 italic">
                                                                                     {preview}
                                                                                 </div>
                                                                             ) : (
@@ -503,7 +503,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
             </div>
 
             {/* 2. 资源管理器 (Pure Tree) */}
-            <div className={`${collapsedSections.explorer ? 'flex-none' : 'flex-1'} flex flex-col overflow-hidden min-h-0 border-t border-[#111] relative group/explorer`}>
+            <div className={`${collapsedSections.explorer ? 'flex-none' : 'flex-1'} flex flex-col overflow-hidden min-h-0 border-t border-theme-subtle relative group/explorer`}>
                 {/* Resizer Handle for Opened Section */}
                 <div
                     className="absolute -top-1 left-0 right-0 h-2 cursor-row-resize z-50 opacity-0 group-hover/explorer:opacity-100 hover:opacity-100 flex items-center justify-center transition-opacity"
@@ -513,7 +513,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                 </div>
 
                 <div
-                    className="flex items-center px-3 py-2 bg-header border-b border-[#111] cursor-pointer hover:bg-[#333] select-none shrink-0"
+                    className="flex items-center px-3 py-2 bg-header border-b border-theme-subtle cursor-pointer hover:bg-theme-elevated select-none shrink-0"
                     onClick={() => toggleSection('explorer')}
                 >
                     <svg className={`w-3 h-3 mr-2 transition-transform ${collapsedSections.explorer ? '' : 'rotate-90'}`} fill="currentColor" viewBox="0 0 20 20">
@@ -524,9 +524,9 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                 </div>
 
                 {!collapsedSections.explorer && (
-                    <div className="flex-1 flex flex-col overflow-hidden bg-dark-1">
+                    <div className="flex-1 flex flex-col overflow-hidden bg-theme-surface">
                         {/* 文件/文件夹选择操作 - 始终显示，以便于随时切换文件夹 */}
-                        <div className="flex gap-1 p-2 border-b border-[#111] bg-[#252526] shrink-0">
+                        <div className="flex gap-1 p-2 border-b border-theme-subtle bg-theme-surface shrink-0">
                             <button onClick={onOpen} className="flex-1 flex items-center justify-center gap-2 text-[10px] py-1.5 bg-[#0078d4] hover:bg-[#1084d8] text-white rounded transition-colors shadow-sm font-bold" title="打开文件或项目文件夹">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" /></svg>
                                 浏览并打开 (Open)
@@ -544,7 +544,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                         ) : (
                             <div className="p-8 text-center flex flex-col items-center justify-center gap-3">
                                 <svg className="w-12 h-12 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="1" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
-                                <p className="text-[11px] text-gray-500 leading-relaxed">未选择项目文件夹。<br />通过上方“浏览并打开”按钮选择目录或文件。</p>
+                                <p className="text-[11px] text-theme-muted leading-relaxed">未选择项目文件夹。<br />通过上方“浏览并打开”按钮选择目录或文件。</p>
                             </div>
                         )}
                     </div>
@@ -552,7 +552,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
             </div>
 
             {/* 预设面板 */}
-            <div className="shrink-0 border-t border-[#111] relative group/presets">
+            <div className="shrink-0 border-t border-theme-subtle relative group/presets">
                 {/* Resizer Handle */}
                 <div
                     className="absolute -top-1 left-0 right-0 h-2 cursor-row-resize z-50 opacity-0 group-hover/presets:opacity-100 hover:opacity-100 flex items-center justify-center"
@@ -562,23 +562,23 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                 </div>
 
                 <div
-                    className="flex items-center px-3 py-2 bg-[#2d2d2d] cursor-pointer hover:bg-[#333] select-none"
+                    className="flex items-center px-3 py-2 bg-theme-elevated cursor-pointer hover:bg-theme-elevated select-none"
                     onClick={() => toggleSection('presets')}
                 >
                     <svg className={`w-3 h-3 mr-2 transition-transform ${collapsedSections.presets ? '' : 'rotate-90'}`} fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                     </svg>
                     <span className="text-[10px] uppercase font-black tracking-wider opacity-60">预设</span>
-                    <span className="ml-auto text-[9px] text-gray-500">{presets.length}</span>
+                    <span className="ml-auto text-[9px] text-theme-muted">{presets.length}</span>
                 </div>
 
                 {!collapsedSections.presets && (
                     <div
-                        className="overflow-y-auto custom-scrollbar bg-[#252526] transition-none"
+                        className="overflow-y-auto custom-scrollbar bg-theme-surface transition-none"
                         style={{ height: presetHeight }}
                     >
                         {/* Save Button */}
-                        <div className="p-2 border-b border-[#111]">
+                        <div className="p-2 border-b border-theme-subtle">
                             <button
                                 onClick={onPresetSave}
                                 className={`w-full py-1.5 rounded text-[10px] font-bold uppercase tracking-wider ${saveStatus === 'saved' ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-500'} text-white shadow-lg transition-all`}
@@ -599,13 +599,13 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                             }`}
                                     >
                                         <div className="flex items-center justify-between">
-                                            <div className={`text-[11px] font-medium ${isDefault ? 'text-blue-400' : 'text-gray-300'}`}>
+                                            <div className={`text-[11px] font-medium ${isDefault ? 'text-blue-400' : 'text-theme-primary'}`}>
                                                 {preset.name}
                                             </div>
                                             {!isDefault && (
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); onPresetDelete(preset.id); }}
-                                                    className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-500 hover:text-red-400 transition-opacity"
+                                                    className="opacity-0 group-hover:opacity-100 p-0.5 text-theme-muted hover:text-red-400 transition-opacity"
                                                 >
                                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                 </button>
