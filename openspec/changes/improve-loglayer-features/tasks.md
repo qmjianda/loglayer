@@ -40,8 +40,8 @@
 
 ### 2.2 Performance Monitor UI
 
-- [ ] 2.2.1 Create PerformanceIndicator component
-- [ ] 2.2.2 Integrate with StatusBar
+- [x] 2.2.1 Create PerformanceIndicator component
+- [x] 2.2.2 Integrate with StatusBar
 - [ ] 2.2.3 Add toggle in Settings > Advanced > Debug Mode
 - [ ] 2.2.4 Persist visibility setting in localStorage
 

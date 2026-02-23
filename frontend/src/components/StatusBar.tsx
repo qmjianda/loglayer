@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { usePluginWidgets } from '../hooks/usePluginWidgets';
+import { useSettings } from '../hooks/useSettings';
+import { PerformanceIndicator } from './PerformanceIndicator';
+import { PerformanceMetrics } from '../hooks/usePerformanceOptimization';
 
 interface StatusBarProps {
   lines: number;
@@ -11,6 +14,7 @@ interface StatusBarProps {
   searchMatchCount?: number;
   currentLine?: number;
   pendingCliFiles?: number;
+  performanceMetrics?: PerformanceMetrics;
   onOpenSettings?: () => void;
   onOpenShortcuts?: () => void;
 }
@@ -18,9 +22,12 @@ interface StatusBarProps {
 export const StatusBar: React.FC<StatusBarProps> = ({ 
   lines, totalLines, size, isProcessing, isLayerProcessing, 
   operationStatus, searchMatchCount, currentLine, pendingCliFiles,
+  performanceMetrics,
   onOpenSettings, onOpenShortcuts 
 }) => {
   const { widgets, widgetData } = usePluginWidgets('statusbar');
+  const { settings } = useSettings();
+  const showPerformance = settings.debugMode && performanceMetrics;
 
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -79,6 +86,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         })}
 
         <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors opacity-80">UTF-8</div>
+        
+        {showPerformance && performanceMetrics && (
+          <PerformanceIndicator metrics={performanceMetrics} visible={true} />
+        )}
       </div>
       <div className="flex items-center space-x-6">
         {searchMatchCount !== undefined && searchMatchCount > 0 && (
