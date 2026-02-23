@@ -1,12 +1,36 @@
 /**
  * RemotePathPicker.css - 远程路径选择器样式
  * 
- * VS Code 风格的视觉效果，包含：
- * - 暗色主题
- * - 毛玻璃效果
- * - 平滑动画
- * - 键盘焦点指示器
+ * 使用 CSS 变量支持亮色/暗色主题
  */
+
+:root {
+  --rpp-bg-primary: #1e1e1e;
+  --rpp-bg-secondary: #252526;
+  --rpp-bg-tertiary: #2d2d2d;
+  --rpp-bg-input: #3c3c3c;
+  --rpp-text-primary: #cccccc;
+  --rpp-text-secondary: #6e6e6e;
+  --rpp-border-primary: #3c3c3c;
+  --rpp-border-secondary: #4c4c4c;
+  --rpp-accent: #0078d4;
+  --rpp-accent-hover: #1084d8;
+  --rpp-scrollbar: #424242;
+}
+
+[data-theme="light"] {
+  --rpp-bg-primary: #ffffff;
+  --rpp-bg-secondary: #f1f5f9;
+  --rpp-bg-tertiary: #e2e8f0;
+  --rpp-bg-input: #f1f5f9;
+  --rpp-text-primary: #0f172a;
+  --rpp-text-secondary: #64748b;
+  --rpp-border-primary: #cbd5e1;
+  --rpp-border-secondary: #e2e8f0;
+  --rpp-accent: #0078d4;
+  --rpp-accent-hover: #005a9e;
+  --rpp-scrollbar: #cbd5e1;
+}
 
 /* 遮罩层 */
 .remote-path-picker-overlay {
@@ -23,13 +47,8 @@
 }
 
 @keyframes rpp-fade-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* 主容器 */
@@ -45,7 +64,6 @@
     opacity: 0;
     transform: scale(0.96) translateY(-8px);
   }
-
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -54,8 +72,8 @@
 
 /* Command 主体 */
 .remote-path-picker-command {
-  background: #1e1e1e;
-  border: 1px solid #3c3c3c;
+  background: var(--rpp-bg-primary);
+  border: 1px solid var(--rpp-border-primary);
   border-radius: 8px;
   box-shadow:
     0 25px 50px -12px rgba(0, 0, 0, 0.5),
@@ -70,14 +88,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid #2d2d2d;
-  background: #252526;
+  border-bottom: 1px solid var(--rpp-bg-tertiary);
+  background: var(--rpp-bg-secondary);
 }
 
 .rpp-title {
   font-size: 13px;
   font-weight: 500;
-  color: #cccccc;
+  color: var(--rpp-text-primary);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -107,15 +125,15 @@
   background: transparent;
   border: none;
   border-radius: 4px;
-  color: #cccccc;
+  color: var(--rpp-text-primary);
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .rpp-header-btn:hover,
 .rpp-close-btn:hover {
-  background: #3c3c3c;
-  color: #ffffff;
+  background: var(--rpp-bg-tertiary);
+  color: var(--rpp-text-primary);
 }
 
 .rpp-header-btn:disabled {
@@ -125,23 +143,23 @@
 
 .rpp-header-btn:active,
 .rpp-close-btn:active {
-  background: #454545;
+  background: var(--rpp-border-primary);
 }
 
 /* 输入框容器 */
 .rpp-input-container {
   padding: 8px 12px;
-  background: #252526;
-  border-bottom: 1px solid #2d2d2d;
+  background: var(--rpp-bg-secondary);
+  border-bottom: 1px solid var(--rpp-bg-tertiary);
 }
 
 .rpp-input {
   width: 100%;
   padding: 8px 12px;
-  background: #3c3c3c;
-  border: 1px solid #4c4c4c;
+  background: var(--rpp-bg-input);
+  border: 1px solid var(--rpp-border-secondary);
   border-radius: 4px;
-  color: #ffffff;
+  color: var(--rpp-text-primary);
   font-size: 13px;
   font-family: "Consolas", "Monaco", "Courier New", monospace;
   outline: none;
@@ -149,12 +167,12 @@
 }
 
 .rpp-input::placeholder {
-  color: #808080;
+  color: var(--rpp-text-secondary);
 }
 
 .rpp-input:focus {
-  border-color: #0078d4;
-  box-shadow: 0 0 0 1px #0078d4;
+  border-color: var(--rpp-accent);
+  box-shadow: 0 0 0 1px var(--rpp-accent);
 }
 
 /* 面包屑导航 */
@@ -163,8 +181,8 @@
   align-items: center;
   gap: 2px;
   padding: 8px 12px;
-  background: #1e1e1e;
-  border-bottom: 1px solid #2d2d2d;
+  background: var(--rpp-bg-primary);
+  border-bottom: 1px solid var(--rpp-bg-tertiary);
   overflow-x: auto;
   white-space: nowrap;
 }
@@ -174,7 +192,7 @@
 }
 
 .rpp-breadcrumb::-webkit-scrollbar-thumb {
-  background: #424242;
+  background: var(--rpp-scrollbar);
   border-radius: 2px;
 }
 
@@ -183,7 +201,7 @@
   background: transparent;
   border: none;
   border-radius: 4px;
-  color: #0078d4;
+  color: var(--rpp-accent);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -196,7 +214,7 @@
 
 .rpp-breadcrumb-item:hover {
   background: rgba(0, 120, 212, 0.1);
-  color: #1a89dc;
+  color: var(--rpp-accent-hover);
 }
 
 .rpp-breadcrumb-item:active {
@@ -204,7 +222,7 @@
 }
 
 .rpp-breadcrumb-sep {
-  color: #6e6e6e;
+  color: var(--rpp-text-secondary);
   font-size: 12px;
   margin: 0 2px;
 }
@@ -225,9 +243,9 @@
 }
 
 .rpp-list::-webkit-scrollbar-thumb {
-  background: #424242;
+  background: var(--rpp-scrollbar);
   border-radius: 4px;
-  border: 2px solid #1e1e1e;
+  border: 2px solid var(--rpp-bg-primary);
 }
 
 /* 分组 */
@@ -239,7 +257,7 @@
   padding: 4px 12px 8px;
   font-size: 11px;
   font-weight: 600;
-  color: #6e6e6e;
+  color: var(--rpp-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -262,7 +280,7 @@
 }
 
 .rpp-item:not([data-selected="true"]):hover {
-  background: #2a2d2e;
+  background: var(--rpp-bg-tertiary);
 }
 
 .rpp-item-disabled {
@@ -271,7 +289,7 @@
 }
 
 .rpp-item-parent {
-  border-bottom: 1px solid #2d2d2d;
+  border-bottom: 1px solid var(--rpp-bg-tertiary);
   margin-bottom: 4px;
   padding-bottom: 12px;
 }
@@ -283,13 +301,13 @@
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  color: #6e6e6e;
+  color: var(--rpp-text-secondary);
 }
 
 .rpp-item-name {
   flex: 1;
   font-size: 13px;
-  color: #cccccc;
+  color: var(--rpp-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -301,7 +319,7 @@
 
 .rpp-item-path {
   font-size: 11px;
-  color: #6e6e6e;
+  color: var(--rpp-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -310,7 +328,7 @@
 
 .rpp-item-size {
   font-size: 11px;
-  color: #6e6e6e;
+  color: var(--rpp-text-secondary);
   flex-shrink: 0;
   min-width: 60px;
   text-align: right;
@@ -323,18 +341,13 @@
   justify-content: center;
   gap: 8px;
   padding: 24px;
-  color: #808080;
+  color: var(--rpp-text-secondary);
   font-size: 13px;
 }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .rpp-loading .animate-spin {
@@ -357,7 +370,7 @@
   align-items: center;
   justify-content: center;
   padding: 32px;
-  color: #808080;
+  color: var(--rpp-text-secondary);
   font-size: 13px;
 }
 
@@ -367,8 +380,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-top: 1px solid #2d2d2d;
-  background: #252526;
+  border-top: 1px solid var(--rpp-bg-tertiary);
+  background: var(--rpp-bg-secondary);
 }
 
 .rpp-footer-hint {
@@ -376,7 +389,7 @@
   align-items: center;
   gap: 12px;
   font-size: 11px;
-  color: #6e6e6e;
+  color: var(--rpp-text-secondary);
 }
 
 .rpp-footer-hint kbd {
@@ -387,12 +400,12 @@
   height: 18px;
   padding: 0 6px;
   margin-right: 4px;
-  background: #3c3c3c;
-  border: 1px solid #4c4c4c;
+  background: var(--rpp-bg-input);
+  border: 1px solid var(--rpp-border-secondary);
   border-radius: 3px;
   font-family: inherit;
   font-size: 10px;
-  color: #cccccc;
+  color: var(--rpp-text-primary);
 }
 
 .rpp-footer-actions {
@@ -403,29 +416,29 @@
 
 .rpp-btn {
   padding: 6px 14px;
-  background: #3c3c3c;
-  border: 1px solid #4c4c4c;
+  background: var(--rpp-bg-input);
+  border: 1px solid var(--rpp-border-secondary);
   border-radius: 4px;
-  color: #cccccc;
+  color: var(--rpp-text-primary);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .rpp-btn:hover {
-  background: #4c4c4c;
-  border-color: #5c5c5c;
+  background: var(--rpp-bg-tertiary);
+  border-color: var(--rpp-border-primary);
 }
 
 .rpp-btn-primary {
-  background: #0078d4;
-  border-color: #0078d4;
+  background: var(--rpp-accent);
+  border-color: var(--rpp-accent);
   color: #ffffff;
 }
 
 .rpp-btn-primary:hover {
-  background: #1084d8;
-  border-color: #1084d8;
+  background: var(--rpp-accent-hover);
+  border-color: var(--rpp-accent-hover);
 }
 
 /* 响应式适配 */

@@ -556,7 +556,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       if (showRuler) {
         const rulerWidth = 12;
         const rulerX = viewportWidth - rulerWidth;
-        ctx.fillStyle = '#252526';
+        ctx.fillStyle = colors.BACKGROUND;
         ctx.fillRect(rulerX, 0, rulerWidth, viewportHeight);
 
         // Draw markers for layers/search
@@ -597,7 +597,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
         if (bridgedLines.size === 0) {
           ctx.font = '14px "JetBrains Mono"';
-          ctx.fillStyle = '#aaa';
+          ctx.fillStyle = colors.TEXT;
           ctx.textAlign = 'center';
           
           const centerX = effectiveViewportWidth / 2;
@@ -606,12 +606,12 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           if (isIndexing) {
             ctx.fillText(`正在构建索引... ${Math.round(indexingProgress)}%`, centerX, centerY - 10);
             ctx.font = '12px "JetBrains Mono"';
-            ctx.fillStyle = '#666';
+            ctx.fillStyle = colors.GUTTER_TEXT;
             ctx.fillText('请稍候', centerX, centerY + 15);
           } else if (isSearching) {
             ctx.fillText('正在搜索...', centerX, centerY - 10);
             ctx.font = '12px "JetBrains Mono"';
-            ctx.fillStyle = '#666';
+            ctx.fillStyle = colors.GUTTER_TEXT;
             ctx.fillText(`${totalLines.toLocaleString()} 行待处理`, centerX, centerY + 15);
           } else {
             const linesRemaining = totalLines - endIndex;
@@ -782,7 +782,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`flex-1 overflow-auto relative custom-scrollbar ${theme === 'light' ? 'bg-white' : 'bg-[#1e1e1e]'}`}
+      className={`flex-1 overflow-auto relative custom-scrollbar ${theme === 'light' ? 'bg-theme-surface' : 'bg-theme-base'}`}
       onScroll={(e) => {
         const now = performance.now();
         const st = e.currentTarget.scrollTop;
@@ -836,7 +836,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
       {contextMenu && (
         <div
-          className="context-menu-popup fixed bg-dark-1 border border-[#454545] shadow-2xl rounded py-1 min-w-[160px] z-[1000] text-[12px]"
+          className="context-menu-popup fixed bg-theme-surface border border-theme-default shadow-2xl rounded py-1 min-w-[160px] z-[1000] text-[12px]"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onMouseDown={e => e.stopPropagation()}
         >
@@ -845,7 +845,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
               <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { navigator.clipboard.writeText(contextMenu.text); setContextMenu(null); }}>复制选中内容</button>
               <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onAddLayer?.(LayerType.HIGHLIGHT, { query: contextMenu.text, color: '#facc15' }); setContextMenu(null); }}>以此高亮</button>
               <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onAddLayer?.(LayerType.FILTER, { query: contextMenu.text }); setContextMenu(null); }}>以此过滤</button>
-              <div className="h-[1px] bg-[#333] my-1" />
+              <div className="h-[1px] bg-theme-subtle my-1" />
             </>
           )}
           <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onToggleBookmark?.(contextMenu.lineIndex!); setContextMenu(null); }}>切换书签</button>
