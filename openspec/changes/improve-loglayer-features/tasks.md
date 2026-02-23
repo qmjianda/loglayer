@@ -42,43 +42,43 @@
 
 - [x] 2.2.1 Create PerformanceIndicator component
 - [x] 2.2.2 Integrate with StatusBar
-- [ ] 2.2.3 Add toggle in Settings > Advanced > Debug Mode
-- [ ] 2.2.4 Persist visibility setting in localStorage
+- [x] 2.2.3 Add toggle in Settings > Advanced > Debug Mode
+- [x] 2.2.4 Persist visibility setting in localStorage
 
 ## 3. Search Status Bar
 
 ### 3.1 Search Results Counter
 
-- [ ] 3.1.1 Add match count state to useSearch hook
-- [ ] 3.1.2 Display "X matches" in SearchPanel header
-- [ ] 3.1.3 Handle zero matches display
-- [ ] 3.1.4 Handle large result sets (10,000+ cap)
+- [x] 3.1.1 Add match count state to useSearch hook
+- [x] 3.1.2 Display "X matches" in SearchPanel header
+- [x] 3.1.3 Handle zero matches display
+- [x] 3.1.4 Handle large result sets (10,000+ cap)
 
 ### 3.2 Current Position Indicator
 
-- [ ] 3.2.1 Add current position state to search logic
-- [ ] 3.2.2 Display "X of Y" format in SearchPanel
-- [ ] 3.2.3 Update on F3/Shift+F3 navigation
+- [x] 3.2.1 Add current position state to search logic
+- [x] 3.2.2 Display "X of Y" format in SearchPanel
+- [x] 3.2.3 Update on F3/Shift+F3 navigation
 
 ### 3.3 StatusBar Integration
 
-- [ ] 3.3.1 Add search indicator to StatusBar
-- [ ] 3.3.2 Show subtle search icon when search active
-- [ ] 3.3.3 Hide indicator when search cleared
+- [x] 3.3.1 Add search indicator to StatusBar
+- [x] 3.3.2 Show subtle search icon when search active
+- [x] 3.3.3 Hide indicator when search cleared
 
 ## 4. Settings Real-time Preview
 
 ### 4.1 Live Setting Updates
 
-- [ ] 4.1.1 Connect Settings changes to LogViewer in real-time
-- [ ] 4.1.2 Test fontSize changes apply immediately
-- [ ] 4.1.3 Test lineHeight changes apply immediately
-- [ ] 4.1.4 Test virtualScrollBuffer changes apply immediately
+- [x] 4.1.1 Connect Settings changes to LogViewer in real-time
+- [x] 4.1.2 Test fontSize changes apply immediately
+- [x] 4.1.3 Test lineHeight changes apply immediately
+- [x] 4.1.4 Test virtualScrollBuffer changes apply immediately
 
 ### 4.2 Theme Preview
 
-- [ ] 4.2.1 Add theme preview in Settings panel
-- [ ] 4.2.2 Show theme toggle effect before saving
+- [x] 4.2.1 Add theme preview in Settings panel
+- [x] 4.2.2 Show theme toggle effect before saving
 
 ## 5. Testing & Polish
 
