@@ -165,10 +165,10 @@ const FileIcon: React.FC<{ name: string; isDir: boolean; isExpanded: boolean }> 
         let folderColor = "text-[#858585]";
         let dot: React.ReactNode = null;
 
-        if (name === '.agent') { dot = <div className="absolute -right-0.5 -top-0.5 w-1.5 h-1.5 rounded-full bg-purple-500 border border-[#1e1e1e]" />; }
-        else if (name === 'docs') { dot = <div className="absolute -right-0.5 -top-0.5 w-1.5 h-1.5 rounded-full bg-blue-500 border border-[#1e1e1e]" />; }
-        else if (name === 'node_modules') { dot = <div className="absolute -right-0.5 -top-0.5 w-1.5 h-1.5 rounded-full bg-green-500 border border-[#1e1e1e]" />; }
-        else if (name === 'tests') { dot = <div className="absolute -right-0.5 -top-0.5 w-1.5 h-1.5 rounded-full bg-red-500 border border-[#1e1e1e]" />; }
+        if (name === '.agent') { dot = <div className="absolute -right-0.5 -top-0.5 w-1.5 h-1.5 rounded-full bg-purple-500 border border-theme-surface" />; }
+        else if (name === 'docs') { dot = <div className="absolute -right-0.5 -top-0.5 w-1.5 h-1.5 rounded-full bg-blue-500 border border-theme-surface" />; }
+        else if (name === 'node_modules') { dot = <div className="absolute -right-0.5 -top-0.5 w-1.5 h-1.5 rounded-full bg-green-500 border border-theme-surface" />; }
+        else if (name === 'tests') { dot = <div className="absolute -right-0.5 -top-0.5 w-1.5 h-1.5 rounded-full bg-red-500 border border-theme-surface" />; }
 
         return (
             <div className="relative">

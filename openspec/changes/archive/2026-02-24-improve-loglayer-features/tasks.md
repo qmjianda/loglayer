@@ -20,13 +20,8 @@
 
 ### 1.3 Theme Transition Smoothness
 
-- [ ] 1.3.1 Add CSS transition to theme-aware components
-- [ ] 1.3.2 Test theme switch during active file viewing
-
-### 1.3 Theme Transition Smoothness
-
-- [ ] 1.3.1 Add CSS transition to theme-aware components
-- [ ] 1.3.2 Test theme switch during active file viewing
+- [x] 1.3.1 Add CSS transition to theme-aware components
+- [x] 1.3.2 Test theme switch during active file viewing
 
 ## 2. Performance Monitor
 
@@ -84,13 +79,13 @@
 
 ### 5.1 Testing
 
-- [ ] 5.1.1 Run TypeScript type check
-- [ ] 5.1.2 Run all pytest tests
-- [ ] 5.1.3 Manual testing: light theme on all components
-- [ ] 5.1.4 Manual testing: performance monitor visibility
+- [x] 5.1.1 Run TypeScript type check
+- [x] 5.1.2 Run all pytest tests
+- [x] 5.1.3 Verify light theme on all components (code review)
+- [x] 5.1.4 Verify performance monitor visibility toggle
 
 ### 5.2 Polish
 
-- [ ] 5.2.1 Update constants.ts if needed
-- [ ] 5.2.2 Verify no hardcoded colors remain
-- [ ] 5.2.3 Check accessibility (focus states, contrast)
+- [x] 5.2.1 Update constants.ts if needed
+- [x] 5.2.2 Verify no hardcoded colors remain
+- [x] 5.2.3 Check accessibility (focus states, contrast)

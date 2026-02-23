@@ -97,13 +97,13 @@ export const PendingFilesWall: React.FC<{ count: number }> = ({ count }) => (
         <div className="flex flex-col items-center gap-5">
             <div className="relative w-16 h-16">
                 <svg className="w-full h-full" viewBox="0 0 64 64" fill="none">
-                    <rect x="12" y="8" width="36" height="44" rx="3" fill="#333" className="animate-pulse" style={{ animationDelay: '200ms' }} />
-                    <rect x="8" y="12" width="36" height="44" rx="3" fill="#3b3b3b" className="animate-pulse" style={{ animationDelay: '100ms' }} />
-                    <rect x="4" y="16" width="36" height="44" rx="3" fill="#444" />
-                    <rect x="10" y="26" width="20" height="2" rx="1" fill="#555" />
-                    <rect x="10" y="32" width="24" height="2" rx="1" fill="#555" />
-                    <rect x="10" y="38" width="16" height="2" rx="1" fill="#555" />
-                    <circle cx="50" cy="50" r="10" fill="#252526" />
+                    <rect x="12" y="8" width="36" height="44" rx="3" fill="var(--bg-elevated)" className="animate-pulse" style={{ animationDelay: '200ms' }} />
+                    <rect x="8" y="12" width="36" height="44" rx="3" fill="var(--bg-header)" className="animate-pulse" style={{ animationDelay: '100ms' }} />
+                    <rect x="4" y="16" width="36" height="44" rx="3" fill="var(--bg-surface)" />
+                    <rect x="10" y="26" width="20" height="2" rx="1" fill="var(--text-muted)" />
+                    <rect x="10" y="32" width="24" height="2" rx="1" fill="var(--text-muted)" />
+                    <rect x="10" y="38" width="16" height="2" rx="1" fill="var(--text-muted)" />
+                    <circle cx="50" cy="50" r="10" fill="var(--bg-surface)" />
                     <circle cx="50" cy="50" r="7" fill="none" stroke="url(#cliGradient)" strokeWidth="2" strokeDasharray="30 15" strokeLinecap="round" className="animate-spin origin-center" style={{ transformOrigin: '50px 50px' }} />
                     <defs>
                         <linearGradient id="cliGradient" x1="0%" y1="0%" x2="100%" y2="0%">

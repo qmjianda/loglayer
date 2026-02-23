@@ -290,7 +290,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                 <Section title="开发者">
                   <Toggle
                     label="调试模式"
-                    description="在控制台显示详细日志"
+                    description="显示性能监控和详细日志"
                     checked={currentSettings.debugMode}
                     onChange={v => handleChange('debugMode', v)}
                   />

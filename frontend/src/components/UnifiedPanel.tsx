@@ -595,7 +595,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                         onClick={() => onPresetApply(preset)}
                                         className={`group relative rounded p-2 transition-all cursor-pointer ${isDefault
                                             ? 'bg-blue-900/10 border border-blue-500/30 hover:bg-blue-900/20'
-                                            : 'bg-[#3c3c3c] border border-[#444] hover:border-blue-500/50'
+                                            : 'bg-theme-header border border-theme-default hover:border-blue-500/50'
                                             }`}
                                     >
                                         <div className="flex items-center justify-between">
