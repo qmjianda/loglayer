@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 export interface SearchHistoryItem {
     query: string;
@@ -11,34 +11,64 @@ export interface SearchHistoryItem {
 }
 
 const STORAGE_KEY = 'loglayer_search_history';
-const MAX_HISTORY = 20;
+const STORAGE_KEY_SETTINGS = 'loglayer_settings';
+
+function getHistoryLimit(): number {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY_SETTINGS);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            return parsed.searchHistoryLimit || 50;
+        }
+    } catch { }
+    return 50;
+}
 
 export function useSearchHistory() {
     const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
+    const limitRef = useRef(getHistoryLimit());
+
+    useEffect(() => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                setSearchHistory(parsed);
+            } catch { }
+        }
+    }, []);
+
+    useEffect(() => {
+        limitRef.current = getHistoryLimit();
+    }, [searchHistory]);
 
     const addToHistory = useCallback((query: string, config: SearchHistoryItem['config']) => {
         if (!query.trim()) return;
         
         setSearchHistory(prev => {
-            // Remove duplicate if exists (will move to front)
             const filtered = prev.filter(item => item.query !== query);
-            // Add new entry at the beginning
             const newItem: SearchHistoryItem = {
                 query,
                 timestamp: Date.now(),
                 config
             };
-            // Cap at MAX_HISTORY
-            return [newItem, ...filtered].slice(0, MAX_HISTORY);
+            const limited = [newItem, ...filtered].slice(0, limitRef.current);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(limited));
+            return limited;
         });
     }, []);
 
     const removeFromHistory = useCallback((index: number) => {
-        setSearchHistory(prev => prev.filter((_, i) => i !== index));
+        setSearchHistory(prev => {
+            const filtered = prev.filter((_, i) => i !== index);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+            return filtered;
+        });
     }, []);
 
     const clearHistory = useCallback(() => {
         setSearchHistory([]);
+        localStorage.removeItem(STORAGE_KEY);
     }, []);
 
     return {

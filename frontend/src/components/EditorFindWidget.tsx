@@ -6,8 +6,8 @@ export type SearchMode = 'highlight' | 'filter';
 interface EditorFindWidgetProps {
   query: string;
   onQueryChange: (q: string) => void;
-  config: { regex: boolean; caseSensitive: boolean; wholeWord: boolean };
-  onConfigChange: React.Dispatch<React.SetStateAction<{ regex: boolean; caseSensitive: boolean; wholeWord: boolean }>>;
+  config: { regex: boolean; caseSensitive: boolean; wholeWord?: boolean };
+  onConfigChange: React.Dispatch<React.SetStateAction<{ regex: boolean; caseSensitive: boolean; wholeWord?: boolean }>>;
   matchCount: number;
   currentMatch: number;
   onNavigate: (direction: 'next' | 'prev') => void;

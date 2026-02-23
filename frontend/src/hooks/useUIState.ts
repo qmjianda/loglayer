@@ -18,6 +18,11 @@ export interface UseUIStateProps {
     // 书签导航回调
     onNavigateToNextBookmark?: () => void;
     onNavigateToPrevBookmark?: () => void;
+    // 快捷键回调
+    onToggleSidebar?: () => void;
+    onOpenFile?: () => void;
+    onOpenFolder?: () => void;
+    onShowSearchHistory?: () => void;
 }
 
 export interface UseUIStateReturn {
@@ -67,7 +72,11 @@ export function useUIState({
     searchQuery,
     canvasSelectedText,
     onNavigateToNextBookmark,
-    onNavigateToPrevBookmark
+    onNavigateToPrevBookmark,
+    onToggleSidebar,
+    onOpenFile,
+    onOpenFolder,
+    onShowSearchHistory
 }: UseUIStateProps): UseUIStateReturn {
     // View state
     const [activeView, setActiveView] = useState<ActiveView>('main');
@@ -94,12 +103,46 @@ export function useUIState({
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement;
+            const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+            
             const isZ = e.key.toLowerCase() === 'z';
             const isY = e.key.toLowerCase() === 'y';
             const isF = e.key.toLowerCase() === 'f';
             const isG = e.key.toLowerCase() === 'g';
+            const isB = e.key.toLowerCase() === 'b';
+            const isO = e.key.toLowerCase() === 'o';
+            const isH = e.key.toLowerCase() === 'h';
             const isCmdOrCtrl = e.metaKey || e.ctrlKey;
             const isShift = e.shiftKey;
+
+            // Ctrl+B: 切换侧边栏
+            if (isCmdOrCtrl && isB && !isInput) {
+                e.preventDefault();
+                onToggleSidebar?.();
+                return;
+            }
+
+            // Ctrl+O: 打开文件
+            if (isCmdOrCtrl && isO && !isShift && !isInput) {
+                e.preventDefault();
+                onOpenFile?.();
+                return;
+            }
+
+            // Ctrl+Shift+O: 打开文件夹
+            if (isCmdOrCtrl && isO && isShift && !isInput) {
+                e.preventDefault();
+                onOpenFolder?.();
+                return;
+            }
+
+            // Ctrl+H: 搜索历史
+            if (isCmdOrCtrl && isH && !isInput) {
+                e.preventDefault();
+                onShowSearchHistory?.();
+                return;
+            }
 
             if (isCmdOrCtrl && isZ) {
                 e.preventDefault();
@@ -110,7 +153,6 @@ export function useUIState({
                 redo();
             } else if (isCmdOrCtrl && isF) {
                 e.preventDefault();
-                // Use canvas selection first, then fall back to native browser selection
                 const selText = canvasSelectedText || window.getSelection()?.toString() || '';
                 if (selText) {
                     const firstLine = selText.split(/\r?\n/)[0].trim();
@@ -123,7 +165,6 @@ export function useUIState({
                 e.preventDefault();
                 setIsGoToLineVisible(true);
             } else if (e.key === 'F2') {
-                // F2: Navigate to next/prev bookmark
                 e.preventDefault();
                 if (isShift) {
                     onNavigateToPrevBookmark?.();
@@ -138,7 +179,7 @@ export function useUIState({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undo, redo, isFindVisible, isGoToLineVisible, setSearchQuery, canvasSelectedText, onNavigateToNextBookmark, onNavigateToPrevBookmark]);
+    }, [undo, redo, isFindVisible, isGoToLineVisible, setSearchQuery, canvasSelectedText, onNavigateToNextBookmark, onNavigateToPrevBookmark, onToggleSidebar, onOpenFile, onOpenFolder, onShowSearchHistory]);
 
     // Jump to line
     const handleJumpToLine = useCallback((index: number, totalLines: number) => {

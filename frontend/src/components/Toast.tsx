@@ -34,27 +34,31 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
     setTimeout(() => onDismiss(toast.id), 300);
   };
 
-  const typeStyles = {
+  const typeStyles: Record<string, { bg: string; border: string; icon: string; text: string; accent: string }> = {
     error: {
-      bg: 'bg-red-500/10 border-red-500/30',
+      bg: 'bg-red-500/10',
+      border: 'border-red-500/30',
       icon: 'text-red-400',
       text: 'text-red-200',
       accent: 'bg-red-500'
     },
     success: {
-      bg: 'bg-green-500/10 border-green-500/30',
+      bg: 'bg-green-500/10',
+      border: 'border-green-500/30',
       icon: 'text-green-400',
       text: 'text-green-200',
       accent: 'bg-green-500'
     },
     warning: {
-      bg: 'bg-yellow-500/10 border-yellow-500/30',
+      bg: 'bg-yellow-500/10',
+      border: 'border-yellow-500/30',
       icon: 'text-yellow-400',
       text: 'text-yellow-200',
       accent: 'bg-yellow-500'
     },
     info: {
-      bg: 'bg-blue-500/10 border-blue-500/30',
+      bg: 'bg-blue-500/10',
+      border: 'border-blue-500/30',
       icon: 'text-blue-400',
       text: 'text-blue-200',
       accent: 'bg-blue-500'

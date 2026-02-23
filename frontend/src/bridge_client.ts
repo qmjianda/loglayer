@@ -245,7 +245,7 @@ export async function syncAll(fileId: string, layers: any[], search: any): Promi
  */
 export async function syncDecorations(fileId: string, layers: any[]): Promise<void> {
     if (!fileBridge) return;
-    (fileBridge as any).sync_decorations(fileId, JSON.stringify(layers));
+    await fileBridge.sync_decorations(fileId, JSON.stringify(layers));
 }
 
 export async function searchRipgrep(fileId: string, query: string, regex: boolean = false, caseSensitive: boolean = false): Promise<boolean> {
@@ -317,7 +317,7 @@ export async function selectFolder(): Promise<string> {
 export async function hasNativeDialogs(): Promise<boolean> {
     if (!fileBridge) return false;
     try {
-        return await (fileBridge as any).has_native_dialogs();
+        return await fileBridge.has_native_dialogs();
     } catch {
         return false;
     }
@@ -372,7 +372,7 @@ export async function loadWorkspaceConfig(folderPath: string): Promise<Workspace
 export async function toggleBookmark(fileId: string, lineIndex: number): Promise<Record<number, string>> {
     if (!fileBridge) return {};
     try {
-        const res = await (fileBridge as any).toggle_bookmark(fileId, lineIndex);
+        const res = await fileBridge.toggle_bookmark(fileId, lineIndex);
         return typeof res === 'string' ? JSON.parse(res) : res;
     } catch (e) {
         console.error('[Bridge] toggleBookmark error:', e);
@@ -386,7 +386,7 @@ export async function toggleBookmark(fileId: string, lineIndex: number): Promise
 export async function getBookmarks(fileId: string): Promise<Record<number, string>> {
     if (!fileBridge) return {};
     try {
-        const res = await (fileBridge as any).get_bookmarks(fileId);
+        const res = await fileBridge.get_bookmarks(fileId);
         return typeof res === 'string' ? JSON.parse(res) : res;
     } catch (e) {
         console.error('[Bridge] getBookmarks error:', e);
@@ -400,7 +400,7 @@ export async function getBookmarks(fileId: string): Promise<Record<number, strin
 export async function getNearestBookmarkIndex(fileId: string, currentIndex: number, direction: 'next' | 'prev'): Promise<number> {
     if (!fileBridge) return -1;
     try {
-        return await (fileBridge as any).get_nearest_bookmark_index(fileId, currentIndex, direction);
+        return await fileBridge.get_nearest_bookmark_index(fileId, currentIndex, direction);
     } catch (e) {
         console.error('[Bridge] getNearestBookmarkIndex error:', e);
         return -1;
@@ -413,7 +413,7 @@ export async function getNearestBookmarkIndex(fileId: string, currentIndex: numb
 export async function clearBookmarks(fileId: string): Promise<Record<number, string>> {
     if (!fileBridge) return {};
     try {
-        const res = await (fileBridge as any).clear_bookmarks(fileId);
+        const res = await fileBridge.clear_bookmarks(fileId);
         return typeof res === 'string' ? JSON.parse(res) : res;
     } catch (e) {
         console.error('[Bridge] clearBookmarks error:', e);
@@ -428,7 +428,7 @@ export async function updateBookmarkComment(fileId: string, lineIndex: number, c
     const bridge = await ensureBridge();
     if (!bridge) return {};
     try {
-        const res = await (bridge as any).update_bookmark_comment(fileId, lineIndex, comment);
+        const res = await bridge.update_bookmark_comment(fileId, lineIndex, comment);
         return typeof res === 'string' ? JSON.parse(res) : res;
     } catch (e) {
         console.error('[Bridge] updateBookmarkComment error:', e);
@@ -442,7 +442,7 @@ export async function updateBookmarkComment(fileId: string, lineIndex: number, c
 export async function getLinesByIndices(fileId: string, indices: number[]): Promise<{ index: number; text: string }[]> {
     if (!fileBridge) return [];
     try {
-        const res = await (fileBridge as any).get_lines_by_indices(fileId, indices);
+        const res = await fileBridge.get_lines_by_indices(fileId, indices);
         return typeof res === 'string' ? JSON.parse(res) : res;
     } catch (e) {
         console.error('[Bridge] getLinesByIndices error:', e);
@@ -456,7 +456,7 @@ export async function getLinesByIndices(fileId: string, indices: number[]): Prom
 export async function physicalToVisualIndex(fileId: string, physicalIndex: number): Promise<number> {
     if (!fileBridge) return physicalIndex;
     try {
-        const res = await (fileBridge as any).physical_to_visual_index(fileId, physicalIndex);
+        const res = await fileBridge.physical_to_visual_index(fileId, physicalIndex);
         return typeof res === 'number' ? res : physicalIndex;
     } catch (e) {
         console.error('[Bridge] physicalToVisualIndex error:', e);

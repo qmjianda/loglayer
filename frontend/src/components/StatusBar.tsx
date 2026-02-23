@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePluginWidgets } from '../hooks/usePluginWidgets';
 
 interface StatusBarProps {
@@ -11,9 +11,15 @@ interface StatusBarProps {
   searchMatchCount?: number;
   currentLine?: number;
   pendingCliFiles?: number;
+  onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
-export const StatusBar: React.FC<StatusBarProps> = ({ lines, totalLines, size, isProcessing, isLayerProcessing, operationStatus, searchMatchCount, currentLine, pendingCliFiles }) => {
+export const StatusBar: React.FC<StatusBarProps> = ({ 
+  lines, totalLines, size, isProcessing, isLayerProcessing, 
+  operationStatus, searchMatchCount, currentLine, pendingCliFiles,
+  onOpenSettings, onOpenShortcuts 
+}) => {
   const { widgets, widgetData } = usePluginWidgets('statusbar');
 
   const formatSize = (bytes: number) => {
@@ -96,6 +102,24 @@ export const StatusBar: React.FC<StatusBarProps> = ({ lines, totalLines, size, i
         <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors hidden sm:block">Tab Size: 2</div>
         <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors font-mono whitespace-nowrap">
           Ln {currentLine || 1}, Col 1
+        </div>
+        
+        {/* 功能按钮 */}
+        <div className="flex items-center space-x-1 ml-2">
+          <button
+            onClick={onOpenShortcuts}
+            className="hover:bg-white/10 px-1.5 py-0.5 rounded transition-colors text-[10px] opacity-70 hover:opacity-100"
+            title="快捷键"
+          >
+            ⌨
+          </button>
+          <button
+            onClick={onOpenSettings}
+            className="hover:bg-white/10 px-1.5 py-0.5 rounded transition-colors text-[10px] opacity-70 hover:opacity-100"
+            title="设置"
+          >
+            ⚙
+          </button>
         </div>
       </div>
     </div>

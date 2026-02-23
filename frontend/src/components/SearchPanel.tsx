@@ -3,8 +3,8 @@ import { useSearchHistory, SearchHistoryItem } from '../hooks/useSearchHistory';
 
 interface SearchPanelProps {
   onSearch: (query: string) => void;
-  config: { regex: boolean; caseSensitive: boolean; wholeWord: boolean };
-  setConfig: React.Dispatch<React.SetStateAction<{ regex: boolean; caseSensitive: boolean; wholeWord: boolean }>>;
+  config: { regex: boolean; caseSensitive: boolean; wholeWord?: boolean };
+  setConfig: React.Dispatch<React.SetStateAction<{ regex: boolean; caseSensitive: boolean; wholeWord?: boolean }>>;
   matchCount?: number;
   currentIndex?: number;
   onNavigate?: (direction: 'next' | 'prev') => void;

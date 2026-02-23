@@ -67,6 +67,11 @@ export interface LayerStats {
   distribution: number[];
 }
 
+export interface RowStyle {
+  backgroundColor?: string;
+  color?: string;
+}
+
 export interface LogLine {
   index: number;
   content: string;
@@ -74,10 +79,12 @@ export interface LogLine {
   highlights?: Array<{ start: number; end: number; color: string; opacity: number; isSearch?: boolean }>;
   isMarked?: boolean;
   bookmarkComment?: string;
+  rowStyle?: RowStyle;
 }
 
 export interface ProcessedCache {
   searchMatchCount?: number;
+  layerStats?: Record<string, { count: number; distribution: number[] }>;
   [key: string]: any;
 }
 
@@ -100,11 +107,18 @@ export interface FileBridgeAPI {
   get_bookmarks(fileId: string): Promise<Record<number, string>>;
   clear_bookmarks(fileId: string): Promise<Record<number, string>>;
   update_bookmark_comment(fileId: string, lineIndex: number, comment: string): Promise<Record<number, string>>;
+  get_nearest_bookmark_index(fileId: string, currentIndex: number, direction: string): Promise<number>;
+  get_lines_by_indices(fileId: string, indices: number[]): Promise<string>;
+  physical_to_visual_index(fileId: string, physicalIndex: number): Promise<number>;
 
   // Pipeline operations
   sync_layers(fileId: string, layersJson: string): Promise<boolean>;
   sync_all(fileId: string, layersJson: string, searchJson: string): Promise<boolean>;
+  sync_decorations(fileId: string, layersJson: string): Promise<boolean>;
   read_processed_lines(fileId: string, start: number, count: number): Promise<string>;
+
+  // Platform operations
+  has_native_dialogs(): Promise<boolean>;
 
   // Search operations
   search_ripgrep(fileId: string, query: string, regex: boolean, caseSensitive: boolean): Promise<boolean>;

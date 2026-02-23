@@ -1,7 +1,11 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { LogLine, LayerType } from '../types';
 import { readProcessedLines } from '../bridge_client';
 import { BookmarkPopover } from './BookmarkPopover';
+import { EditorGoToLineWidget } from './EditorGoToLineWidget';
+import { ErrorBoundary } from './ErrorBoundary';
+import { LOG_VIEWER, COLORS } from '../constants';
+import { AppSettings } from '../hooks/useSettings';
 
 interface LogViewerProps {
   totalLines: number;
@@ -10,6 +14,9 @@ interface LogViewerProps {
   searchConfig: { regex: boolean; caseSensitive: boolean; wholeWord?: boolean };
   scrollToIndex?: number | null;
   highlightedIndex?: number | null;
+  isSearching?: boolean;
+  isIndexing?: boolean;
+  indexingProgress?: number;
   onLineClick?: (index: number) => void;
   onAddLayer?: (type: LayerType, config?: any) => void;
   onVisibleRangeChange?: (startIndex: number, endIndex: number) => void;
@@ -19,6 +26,8 @@ interface LogViewerProps {
   updateTrigger?: number;
   layerStats?: Record<string, { count: number, distribution: number[] }>;
   bookmarks?: Record<number, string>;
+  settings?: AppSettings;
+  resolvedTheme?: 'dark' | 'light';
 }
 
 /**
@@ -65,6 +74,9 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   searchConfig,
   scrollToIndex,
   highlightedIndex,
+  isSearching = false,
+  isIndexing = false,
+  indexingProgress = 0,
   onLineClick,
   onAddLayer,
   onVisibleRangeChange,
@@ -73,7 +85,9 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   onSelectedTextChange,
   updateTrigger,
   layerStats = {},
-  bookmarks = {}
+  bookmarks = {},
+  settings,
+  resolvedTheme = 'dark'
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -85,6 +99,9 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const [maxLineWidth, setMaxLineWidth] = useState(viewportWidth);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, text: string, lineIndex?: number } | null>(null);
   const [commentPopover, setCommentPopover] = useState<{ x: number, y: number, lineIndex: number, comment: string } | null>(null);
+  const [showGoToLine, setShowGoToLine] = useState(false);
+  const [showPerformancePanel, setShowPerformancePanel] = useState(false);
+  const [performanceStats, setPerformanceStats] = useState({ fps: 60, visibleLines: 0, memory: 0 });
 
   const [selection, setSelection] = useState<{
     startLine: number, startChar: number,
@@ -95,28 +112,43 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
   const [bridgedLines, setBridgedLines] = useState<Map<number, LogLine | string>>(new Map());
   const lastFetchRef = useRef<{ start: number; end: number }>({ start: -1, end: -1 });
+  const scrollVelocityRef = useRef(0);
+  const lastScrollTimeRef = useRef(0);
+  const lastScrollTopRef = useRef(0);
 
-  const lineHeight = 20;
-  const gutterWidth = 80;
-  const VIRTUAL_HEIGHT_LIMIT = 10000000;
+  const { LINE_HEIGHT, GUTTER_WIDTH, VIRTUAL_HEIGHT_LIMIT, BUFFER_NORMAL, BUFFER_LARGE, SCROLL_MARGIN, CHAR_WIDTH_DEFAULT, FONT } = LOG_VIEWER;
+  
+  const fontSize = settings?.fontSize ?? 12;
+  const lineHeight = settings?.lineHeight ?? LINE_HEIGHT;
+  const wordWrap = settings?.wordWrap ?? false;
+  const showWhitespace = settings?.showWhitespace ?? false;
+  const showLineNumbers = settings?.showLineNumbers ?? true;
+  const showRuler = settings?.showRuler ?? true;
+  const virtualScrollBufferSetting = settings?.virtualScrollBuffer ?? 500;
+  const searchHighlightAll = settings?.searchHighlightAll ?? true;
+  const theme = resolvedTheme ?? 'dark';
+  const colors = COLORS[theme.toUpperCase() as 'DARK' | 'LIGHT'];
+  
+  const gutterWidth = GUTTER_WIDTH;
 
   const realTotalHeight = totalLines * lineHeight;
   const useScrollScaling = realTotalHeight > VIRTUAL_HEIGHT_LIMIT;
-  // 针对大文件增加缓冲区，防止滚动太快出现空白，增加到 500 行以应对快速滚动
-  const buffer = useScrollScaling ? 500 : 200;
+  const baseBuffer = useScrollScaling ? BUFFER_LARGE : BUFFER_NORMAL;
+  const dynamicBuffer = Math.min(virtualScrollBufferSetting, baseBuffer + Math.abs(scrollVelocityRef.current) * 50);
+  const buffer = dynamicBuffer;
   const scaleFactor = useScrollScaling ? VIRTUAL_HEIGHT_LIMIT / realTotalHeight : 1;
-  // 在总高度基础上增加 100px 的留白，提供更宽裕的底部空间
-  const virtualTotalHeight = (useScrollScaling ? VIRTUAL_HEIGHT_LIMIT : realTotalHeight) + 100;
+  const virtualTotalHeight = (useScrollScaling ? VIRTUAL_HEIGHT_LIMIT : realTotalHeight) + SCROLL_MARGIN;
 
-  const charWidthRef = useRef(7.22);
-  const font = '12px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+  const charWidthRef = useRef(CHAR_WIDTH_DEFAULT);
+  const font = `${fontSize}px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
 
   useEffect(() => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.font = font;
-      charWidthRef.current = ctx.measureText('M').width;
+      const testStr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      charWidthRef.current = ctx.measureText(testStr).width / testStr.length;
     }
   }, []);
 
@@ -179,16 +211,16 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
           if (newMaxInnerWidth > maxLineWidth) setMaxLineWidth(newMaxInnerWidth);
 
-          if (next.size > 5000) {
+          if (next.size > LOG_VIEWER.MAX_CACHED_LINES) {
             const center = Math.floor((startIndex + endIndex) / 2);
             for (const key of next.keys()) {
-              if (Math.abs(Number(key) - center) > 3000) next.delete(key);
+              if (Math.abs(Number(key) - center) > LOG_VIEWER.CACHE_CLEAR_DISTANCE) next.delete(key);
             }
           }
           return next;
         });
       } catch (e) { console.error('Failed to fetch lines:', e); }
-    }, 10);
+    }, LOG_VIEWER.FETCH_DEBOUNCE_MS);
 
     return () => { ignore = true; clearTimeout(timer); };
   }, [startIndex, endIndex, fileId, totalLines, updateTrigger]);
@@ -253,10 +285,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     if (!container) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const linesToScroll = 3;
-      // Calculate logical delta in pixels (3 lines)
+      const linesToScroll = LOG_VIEWER.WHEEL_LINES_PER_TICK;
       const logicalDelta = Math.sign(e.deltaY) * linesToScroll * lineHeight;
-      // Convert to physical scroll delta when scaling is active
       const physicalDelta = useScrollScaling && maxLogicalScroll > 0
         ? (logicalDelta / maxLogicalScroll) * maxPhysicalScroll
         : logicalDelta;
@@ -265,6 +295,101 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     container.addEventListener('wheel', onWheel, { passive: false });
     return () => container.removeEventListener('wheel', onWheel);
   }, [useScrollScaling, maxLogicalScroll, maxPhysicalScroll, lineHeight]);
+
+  // Keyboard navigation handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifier = isMac ? e.metaKey : e.ctrlKey;
+
+      if (e.key === 'g' && modifier && !e.shiftKey) {
+        e.preventDefault();
+        setShowGoToLine(true);
+        return;
+      }
+
+      if (showGoToLine) return;
+
+      if (e.key === 'l' && modifier && e.shiftKey) {
+        e.preventDefault();
+        if (hoveredLineIndex !== null) {
+          const line = bridgedLines.get(hoveredLineIndex);
+          const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
+          setSelection({
+            startLine: hoveredLineIndex,
+            startChar: 0,
+            endLine: hoveredLineIndex,
+            endChar: content.length
+          });
+        } else if (highlightedIndex !== null) {
+          const line = bridgedLines.get(highlightedIndex);
+          const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
+          setSelection({
+            startLine: highlightedIndex,
+            startChar: 0,
+            endLine: highlightedIndex,
+            endChar: content.length
+          });
+        }
+        return;
+      }
+
+      if (e.key === 'Enter' && modifier) {
+        e.preventDefault();
+        if (selection) {
+          const norm = normalizeSelection(selection);
+          onLineClick?.(norm.topLine);
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowUp' && e.altKey) {
+        e.preventDefault();
+        if (selection) {
+          const norm = normalizeSelection(selection);
+          const newTopLine = Math.max(0, norm.topLine - 1);
+          const newBottomLine = Math.max(0, norm.bottomLine - 1);
+          setSelection({
+            startLine: newTopLine,
+            startChar: norm.topChar,
+            endLine: newBottomLine,
+            endChar: norm.bottomChar
+          });
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowDown' && e.altKey) {
+        e.preventDefault();
+        if (selection) {
+          const norm = normalizeSelection(selection);
+          const newTopLine = Math.min(totalLines - 1, norm.topLine + 1);
+          const newBottomLine = Math.min(totalLines - 1, norm.bottomLine + 1);
+          setSelection({
+            startLine: newTopLine,
+            startChar: norm.topChar,
+            endLine: newBottomLine,
+            endChar: norm.bottomChar
+          });
+        }
+        return;
+      }
+
+      if (e.key === 'a' && modifier) {
+        e.preventDefault();
+        setSelection({
+          startLine: 0,
+          startChar: 0,
+          endLine: totalLines - 1,
+          endChar: 0
+        });
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showGoToLine, hoveredLineIndex, highlightedIndex, selection, bridgedLines, totalLines, onLineClick]);
 
   const handleClick = (e: React.MouseEvent) => {
     const pos = getPosFromEvent(e);
@@ -425,52 +550,77 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       const safeScrollLeft = Number.isFinite(currentScrollLeft) ? currentScrollLeft : 0;
 
       // --- Draw Overview Ruler ---
-      const rulerWidth = 12;
-      const rulerX = viewportWidth - rulerWidth;
-      ctx.fillStyle = '#252526';
-      ctx.fillRect(rulerX, 0, rulerWidth, viewportHeight);
+      const effectiveRulerWidth = showRuler ? 12 : 0;
+      const effectiveViewportWidth = viewportWidth - effectiveRulerWidth;
 
-      // Draw markers for layers/search
-      Object.entries(layerStats).forEach(([id, stats]: [string, any]) => {
-        const color = id === 'search' ? '#facc15' : '#3b82f6';
-        ctx.fillStyle = color;
-        stats.distribution.forEach((v: number, idx: number) => {
-          if (v > 0) {
-            const h = Math.max(2, v * (viewportHeight / 20));
-            ctx.globalAlpha = 0.5;
-            ctx.fillRect(rulerX + 2, idx * (viewportHeight / 20), rulerWidth - 4, h);
-            ctx.globalAlpha = 1.0;
-          }
-        });
-      });
+      if (showRuler) {
+        const rulerWidth = 12;
+        const rulerX = viewportWidth - rulerWidth;
+        ctx.fillStyle = '#252526';
+        ctx.fillRect(rulerX, 0, rulerWidth, viewportHeight);
 
-      // Draw markers for bookmarks
-      const bookmarkIndices = Object.keys(bookmarks).map(Number);
-      if (bookmarkIndices.length > 0) {
-        ctx.fillStyle = '#fbbf24';
-        bookmarkIndices.forEach(idx => {
-          const yPos = (idx / totalLines) * viewportHeight;
-          ctx.fillRect(rulerX, yPos, rulerWidth, 2);
+        // Draw markers for layers/search
+        Object.entries(layerStats).forEach(([id, stats]: [string, any]) => {
+          const color = id === 'search' ? colors.SEARCH_HIGHLIGHT : colors.LAYER_HIGHLIGHT;
+          ctx.fillStyle = color;
+          stats.distribution.forEach((v: number, idx: number) => {
+            if (v > 0) {
+              const h = Math.max(2, v * (viewportHeight / 20));
+              ctx.globalAlpha = 0.5;
+              ctx.fillRect(rulerX + 2, idx * (viewportHeight / 20), rulerWidth - 4, h);
+              ctx.globalAlpha = 1.0;
+            }
+          });
         });
+
+        // Draw markers for bookmarks
+        const bookmarkIndices = Object.keys(bookmarks).map(Number);
+        if (bookmarkIndices.length > 0) {
+          ctx.fillStyle = colors.BOOKMARK_INDICATOR;
+          bookmarkIndices.forEach(idx => {
+            const yPos = (idx / totalLines) * viewportHeight;
+            ctx.fillRect(rulerX, yPos, rulerWidth, 2);
+          });
+        }
+
+        // Draw viewport indicator in ruler (uses drawEffectiveScroll, not the outer effectiveScrollTop)
+        const viewStart = (drawEffectiveScroll / realTotalHeight) * viewportHeight;
+        const viewSize = (viewportHeight / realTotalHeight) * viewportHeight;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.strokeRect(rulerX, viewStart, rulerWidth, Math.max(5, viewSize));
       }
-
-      // Draw viewport indicator in ruler (uses drawEffectiveScroll, not the outer effectiveScrollTop)
-      const viewStart = (drawEffectiveScroll / realTotalHeight) * viewportHeight;
-      const viewSize = (viewportHeight / realTotalHeight) * viewportHeight;
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.strokeRect(rulerX, viewStart, rulerWidth, Math.max(5, viewSize));
 
       // 只有在有数据时才填充背景
       if (totalLines > 0) {
-        ctx.fillStyle = '#1e1e1e';
-        ctx.fillRect(0, 0, viewportWidth - rulerWidth, viewportHeight);
+        ctx.fillStyle = colors.BACKGROUND;
+        ctx.fillRect(0, 0, effectiveViewportWidth, viewportHeight);
 
-        // If lines are not yet loaded into the bridge, show a loading message
         if (bridgedLines.size === 0) {
           ctx.font = '14px "JetBrains Mono"';
           ctx.fillStyle = '#aaa';
           ctx.textAlign = 'center';
-          ctx.fillText('Loading lines...', (viewportWidth - rulerWidth) / 2, viewportHeight / 2);
+          
+          const centerX = effectiveViewportWidth / 2;
+          const centerY = viewportHeight / 2;
+          
+          if (isIndexing) {
+            ctx.fillText(`正在构建索引... ${Math.round(indexingProgress)}%`, centerX, centerY - 10);
+            ctx.font = '12px "JetBrains Mono"';
+            ctx.fillStyle = '#666';
+            ctx.fillText('请稍候', centerX, centerY + 15);
+          } else if (isSearching) {
+            ctx.fillText('正在搜索...', centerX, centerY - 10);
+            ctx.font = '12px "JetBrains Mono"';
+            ctx.fillStyle = '#666';
+            ctx.fillText(`${totalLines.toLocaleString()} 行待处理`, centerX, centerY + 15);
+          } else {
+            const linesRemaining = totalLines - endIndex;
+            if (linesRemaining > 0) {
+              ctx.fillText(`加载中... ${linesRemaining.toLocaleString()} 行`, centerX, centerY - 10);
+            } else {
+              ctx.fillText('Loading lines...', centerX, centerY);
+            }
+          }
           return;
         }
       } else {
@@ -492,102 +642,161 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         const isMarked = logLine?.isMarked;
 
         // 1. Backgrounds
-        const rowStyle = (line as any)?.rowStyle;
+        const rowStyle = logLine?.rowStyle;
         if (highlightedIndex === i) {
           // Current line highlight - use a more visible cyan tint
           ctx.fillStyle = 'rgba(34, 211, 238, 0.15)';
-          ctx.fillRect(0, y, viewportWidth, lineHeight);
+          ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
         } else if (rowStyle?.backgroundColor) {
           ctx.fillStyle = rowStyle.backgroundColor;
-          ctx.fillRect(0, y, viewportWidth, lineHeight);
+          ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
         } else if (isMarked) {
-          ctx.fillStyle = 'rgba(245, 158, 11, 0.08)';
-          ctx.fillRect(0, y, viewportWidth, lineHeight);
+          ctx.fillStyle = colors.BOOKMARK_BACKGROUND;
+          ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
         }
 
-        // 2. Selection - draw AFTER highlight to ensure visibility
-        // Use a more contrasting amber/orange color for better visibility
+        // Selection highlight
         if (selection) {
           const norm = normalizeSelection(selection);
           if (i >= norm.topLine && i <= norm.bottomLine) {
             const { s, e } = getLineSelectionRange(i, norm, content.length);
-            // Use amber selection color that's more distinct from both highlight and bookmark
-            ctx.fillStyle = 'rgba(245, 158, 11, 0.45)';
+            ctx.fillStyle = colors.SELECTION;
             ctx.fillRect(gutterWidth + s * charWidthRef.current - safeScrollLeft, y, (e - s) * charWidthRef.current, lineHeight);
           }
         }
 
-        // 3. Gutter
-        ctx.fillStyle = '#1e1e1e';
-        ctx.fillRect(0, y, gutterWidth - 5, lineHeight);
+        // Draw gutter and line numbers
+        if (showLineNumbers) {
+          ctx.fillStyle = colors.GUTTER;
+          ctx.fillRect(0, y, gutterWidth - 5, lineHeight);
 
-        ctx.font = '10px "JetBrains Mono", monospace';
-        ctx.fillStyle = highlightedIndex === i ? '#60a5fa' : '#666';
-        ctx.textAlign = 'right';
-        ctx.fillText((i + 1).toLocaleString(), gutterWidth - 15, y + lineHeight / 2 + 4);
+          const gutterFontSize = Math.max(10, fontSize - 2);
+          ctx.font = `${gutterFontSize}px "JetBrains Mono", monospace`;
+          ctx.fillStyle = highlightedIndex === i ? colors.CURRENT_LINE : colors.GUTTER_TEXT;
+          ctx.textAlign = 'right';
+          ctx.fillText((i + 1).toLocaleString(), gutterWidth - 15, y + lineHeight / 2 + 4);
+        }
 
         if (isMarked) {
-          ctx.fillStyle = '#fbbf24';
+          ctx.fillStyle = colors.BOOKMARK_INDICATOR;
           ctx.textAlign = 'center';
-          ctx.font = '12px "JetBrains Mono"';
+          ctx.font = `${fontSize}px "JetBrains Mono"`;
           ctx.fillText(logLine?.bookmarkComment ? '★' : '●', 15, y + lineHeight / 2 + 4);
 
-          ctx.fillStyle = '#fbbf24';
+          ctx.fillStyle = colors.BOOKMARK_INDICATOR;
           ctx.fillRect(0, y, 2, lineHeight);
         }
 
         // 4. Content
         ctx.font = font;
         ctx.textAlign = 'left';
-        const contentX = gutterWidth - safeScrollLeft;
+        const contentX = showLineNumbers ? (gutterWidth - safeScrollLeft) : (-safeScrollLeft);
+        const effectiveGutterWidth = showLineNumbers ? gutterWidth : 0;
+        const maxCharsPerLine = Math.floor((viewportWidth - effectiveRulerWidth - effectiveGutterWidth) / charWidthRef.current);
 
-        if (logLine?.highlights && logLine.highlights.length > 0) {
-          let lastIdx = 0;
-          const sorted = [...logLine.highlights].sort((a, b) => a.start - b.start);
-          sorted.forEach(h => {
-            if (h.start > lastIdx) {
-              ctx.fillStyle = '#d4d4d4';
-              ctx.fillText(content.substring(lastIdx, h.start), contentX + lastIdx * charWidthRef.current, y + lineHeight / 2 + 4);
+        let displayContent = content;
+        if (showWhitespace) {
+          displayContent = content
+            .replace(/ /g, '\u00B7')
+            .replace(/\t/g, '\u2192 ');
+        }
+
+        const renderText = (text: string, startX: number, startY: number) => {
+          const highlightsToRender = searchHighlightAll ? logLine?.highlights : [];
+          if (highlightsToRender && highlightsToRender.length > 0) {
+            let lastIdx = 0;
+            const sorted = [...highlightsToRender].sort((a, b) => a.start - b.start);
+            sorted.forEach(h => {
+              if (h.start > lastIdx) {
+                ctx.fillStyle = colors.TEXT;
+                ctx.fillText(text.substring(lastIdx, h.start), startX + lastIdx * charWidthRef.current, startY);
+              }
+              const opacity = (h.opacity || 100) / 100;
+              const hText = text.substring(h.start, h.end);
+              if (h.isSearch || h.color === '#facc15') {
+                ctx.fillStyle = h.color;
+                ctx.fillRect(startX + h.start * charWidthRef.current, startY - lineHeight / 2 + 2, hText.length * charWidthRef.current, lineHeight - 4);
+                ctx.fillStyle = '#000';
+              } else {
+                ctx.fillStyle = h.color.startsWith('#') ? `${h.color}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}` : h.color;
+              }
+              ctx.fillText(hText, startX + h.start * charWidthRef.current, startY);
+              lastIdx = h.end;
+            });
+            if (lastIdx < text.length) {
+              ctx.fillStyle = colors.TEXT;
+              ctx.fillText(text.substring(lastIdx), startX + lastIdx * charWidthRef.current, startY);
             }
-            const opacity = (h.opacity || 100) / 100;
-            const hText = content.substring(h.start, h.end);
-            if (h.isSearch || h.color === '#facc15') {
-              ctx.fillStyle = h.color;
-              ctx.fillRect(contentX + h.start * charWidthRef.current, y + 2, hText.length * charWidthRef.current, lineHeight - 4);
-              ctx.fillStyle = '#000';
-            } else {
-              ctx.fillStyle = h.color.startsWith('#') ? `${h.color}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}` : h.color;
-            }
-            ctx.fillText(hText, contentX + h.start * charWidthRef.current, y + lineHeight / 2 + 4);
-            lastIdx = h.end;
-          });
-          if (lastIdx < content.length) {
-            ctx.fillStyle = '#d4d4d4';
-            ctx.fillText(content.substring(lastIdx), contentX + lastIdx * charWidthRef.current, y + lineHeight / 2 + 4);
+          } else {
+            ctx.fillStyle = rowStyle?.color || colors.TEXT;
+            ctx.fillText(text, startX, startY);
           }
+        };
+
+        if (wordWrap && maxCharsPerLine > 0) {
+          const lines = [];
+          for (let i = 0; i < displayContent.length; i += maxCharsPerLine) {
+            lines.push(displayContent.substring(i, i + maxCharsPerLine));
+          }
+          lines.forEach((lineText, lineIdx) => {
+            renderText(lineText, contentX, y + lineHeight / 2 + 4 + lineIdx * lineHeight);
+          });
         } else {
-          ctx.fillStyle = rowStyle?.color || '#d4d4d4';
-          ctx.fillText(content, contentX, y + lineHeight / 2 + 4);
+          renderText(displayContent, contentX, y + lineHeight / 2 + 4);
         }
       }
     } catch (err) {
       console.error('Canvas draw error:', err);
     }
-  }, [viewportWidth, viewportHeight, startIndex, endIndex, bridgedLines, selection, highlightedIndex, totalLines, layerStats, bookmarks, useScrollScaling, maxPhysicalScroll, maxLogicalScroll, lineHeight]);
+  }, [viewportWidth, viewportHeight, startIndex, endIndex, bridgedLines, selection, highlightedIndex, totalLines, layerStats, bookmarks, useScrollScaling, maxPhysicalScroll, maxLogicalScroll, lineHeight, showLineNumbers, showRuler, wordWrap, showWhitespace, fontSize, searchHighlightAll, settings]);
+
+  const frameCountRef = useRef(0);
+  const lastFpsUpdateRef = useRef(performance.now());
 
   useEffect(() => {
-    const frame = requestAnimationFrame(draw);
+    const updatePerformanceStats = () => {
+      frameCountRef.current++;
+      const now = performance.now();
+      const elapsed = now - lastFpsUpdateRef.current;
+      
+      if (elapsed >= 1000) {
+        const fps = Math.round((frameCountRef.current * 1000) / elapsed);
+        const visibleLines = endIndex - startIndex;
+        const memory = (performance as any).memory 
+          ? Math.round((performance as any).memory.usedJSHeapSize / 1048576) 
+          : 0;
+        
+        setPerformanceStats({ fps, visibleLines, memory });
+        frameCountRef.current = 0;
+        lastFpsUpdateRef.current = now;
+      }
+    };
+
+    const frame = requestAnimationFrame(() => {
+      draw();
+      updatePerformanceStats();
+    });
     return () => cancelAnimationFrame(frame);
-  }, [draw]);
+  }, [draw, startIndex, endIndex]);
 
   return (
     <div
       ref={containerRef}
       className="flex-1 overflow-auto bg-[#1e1e1e] relative custom-scrollbar"
       onScroll={(e) => {
+        const now = performance.now();
         const st = e.currentTarget.scrollTop;
         const sl = e.currentTarget.scrollLeft;
-        // Directly update canvas position via DOM for instant visual sync (no React state lag)
+        
+        if (now - lastScrollTimeRef.current > 0) {
+          const delta = st - lastScrollTopRef.current;
+          const timeDelta = now - lastScrollTimeRef.current;
+          scrollVelocityRef.current = delta / timeDelta;
+        }
+        
+        lastScrollTimeRef.current = now;
+        lastScrollTopRef.current = st;
+        
         if (canvasRef.current) {
           canvasRef.current.style.transform = `translate3d(${sl}px, ${st}px, 0)`;
         }
@@ -603,20 +812,26 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       <div style={{ height: virtualTotalHeight, width: maxLineWidth, pointerEvents: 'none' }} />
 
       {fileId && totalLines > 0 && viewportWidth > 0 && viewportHeight > 0 && (
-        <canvas
-          ref={canvasRef}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: viewportWidth,
-            height: viewportHeight,
-            transform: `translate3d(${scrollLeft}px, ${scrollTop}px, 0)`,
-            willChange: 'transform',
-            pointerEvents: 'none',
-            zIndex: 1
-          }}
-        />
+        <ErrorBoundary>
+          <canvas
+            ref={canvasRef}
+            role="log"
+            aria-label={`日志视图，共 ${totalLines.toLocaleString()} 行。当前显示第 ${startIndex + 1} 到 ${endIndex} 行`}
+            aria-readonly="true"
+            tabIndex={0}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: viewportWidth,
+              height: viewportHeight,
+              transform: `translate3d(${scrollLeft}px, ${scrollTop}px, 0)`,
+              willChange: 'transform',
+              pointerEvents: 'none',
+              zIndex: 1
+            }}
+          />
+        </ErrorBoundary>
       )}
 
       {contextMenu && (
@@ -653,6 +868,38 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           onClose={() => setCommentPopover(null)}
         />
       )}
+
+      {showGoToLine && (
+        <EditorGoToLineWidget
+          totalLines={totalLines}
+          onGo={(lineNum) => {
+            onLineClick?.(lineNum - 1);
+            setShowGoToLine(false);
+          }}
+          onClose={() => setShowGoToLine(false)}
+        />
+      )}
+
+      {showPerformancePanel && (
+        <div className="fixed bottom-2 right-2 bg-black/80 text-xs p-2 rounded z-[1000] text-gray-300 font-mono">
+          <div className="flex gap-3">
+            <span>FPS: <span className={performanceStats.fps < 30 ? 'text-red-400' : performanceStats.fps < 50 ? 'text-yellow-400' : 'text-green-400'}>{performanceStats.fps}</span></span>
+            <span>Lines: {performanceStats.visibleLines.toLocaleString()}</span>
+            <span>Mem: {performanceStats.memory}MB</span>
+          </div>
+        </div>
+      )}
+
+      <button
+        className="fixed bottom-2 left-2 text-[10px] text-gray-600 hover:text-gray-400 z-[1000]"
+        onClick={() => setShowPerformancePanel(p => !p)}
+      >
+        {showPerformancePanel ? 'Hide' : 'Perf'}
+      </button>
+
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {selection ? `已选中 ${Math.abs(selection.endLine - selection.startLine) + 1} 行` : ''}
+      </div>
     </div>
   );
 };

@@ -14,15 +14,18 @@ import { LogViewer } from './components/LogViewer';
 import { SearchPanel } from './components/SearchPanel';
 import { EditorFindWidget } from './components/EditorFindWidget';
 import { EditorGoToLineWidget } from './components/EditorGoToLineWidget';
+import { CommandPalette, Command } from './components/CommandPalette';
+import { SettingsPanel } from './components/SettingsPanel';
+import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';
 import { UnifiedPanel, FileInfo } from './components/UnifiedPanel';
 import { HelpPanel } from './components/HelpPanel';
 import { StatusBar } from './components/StatusBar';
 import { IndexingOverlay, FileLoadingSkeleton, PendingFilesWall } from './components/LoadingOverlays';
 import { RemotePathPicker } from './components/RemotePathPicker';
-import { LayerType } from './types';
+import { LayerType, LogLine } from './types';
+import { ProcessedCache } from './hooks/useFileManagement';
 import { openFile, syncAll, hasNativeDialogs, toggleBookmark, getNearestBookmarkIndex, getLinesByIndices } from './bridge_client';
 import { removeFromSet, basename } from './utils';
-import { LogLine } from './types';
 
 // 导入自定义 Hooks
 import {
@@ -38,9 +41,17 @@ import { useLayerManagement } from './hooks/useLayerManagement';
 import { useSearchLogic } from './hooks/useSearchLogic';
 import { useBookmarkLogic } from './hooks/useBookmarkLogic';
 import { useBookmarks } from './hooks/useBookmarks';
+import { useSettings } from './hooks/useSettings';
+import { useResponsive } from './hooks/useResponsive';
 
 
 const App: React.FC = () => {
+  // ===== 设置管理 (Settings Management) =====
+  const { settings, resolvedTheme } = useSettings();
+
+  // ===== 响应式布局 (Responsive Layout) =====
+  const responsive = useResponsive();
+
   // ===== 文件管理 (File Management) =====
   // 负责维护当前打开的文件列表、激活的文件、分栏状态等。
   const fileManagement = useFileManagement();
@@ -154,6 +165,21 @@ const App: React.FC = () => {
   // This is purely UI state for the widget, though it might sync with searchConfig.mode later
   const [searchMode, setSearchMode] = useState<'highlight' | 'filter'>('highlight');
   const [canvasSelectedText, setCanvasSelectedText] = useState('');
+  const [isCommandPaletteVisible, setIsCommandPaletteVisible] = useState(false);
+  const [isSettingsVisible, setIsSettingsVisible] = useState(false);
+  const [isShortcutsVisible, setIsShortcutsVisible] = useState(false);
+
+  // Apply search settings from useSettings
+  useEffect(() => {
+    if (settings.searchRegexDefault !== searchConfig.regex || 
+        settings.searchCaseSensitiveDefault !== searchConfig.caseSensitive) {
+      setSearchConfig(prev => ({
+        ...prev,
+        regex: settings.searchRegexDefault,
+        caseSensitive: settings.searchCaseSensitiveDefault
+      }));
+    }
+  }, [settings.searchRegexDefault, settings.searchCaseSensitiveDefault]);
 
   // ===== UI 状态控制 (UI State) =====
   // 处理各种面板显隐、滚动定位、进度条、工作区根目录等。
@@ -163,7 +189,17 @@ const App: React.FC = () => {
     redo,
     setSearchQuery: (q: string) => search.setSearchQuery(q), // Connect to search logic
     searchQuery: search.searchQuery, // Connect to search logic
-    canvasSelectedText
+    canvasSelectedText,
+    onToggleSidebar: () => {
+      // 切换侧边栏显示/隐藏 - 使用 setTimeout 避免循环依赖
+      setTimeout(() => {
+        const currentWidth = sidebarWidth;
+        setSidebarWidth(currentWidth > 0 ? 0 : 288);
+      }, 0);
+    },
+    onOpenFile: () => { handleOpen(); },
+    onOpenFolder: () => { handleNativeFolderSelect(); },
+    onShowSearchHistory: () => setIsFindVisible(true)
   });
 
   const {
@@ -296,10 +332,14 @@ const App: React.FC = () => {
     onPipelineFinished: (fileId, newTotal, matchCount) => {
       setBridgedCount(fileId, newTotal);
       setFiles(prev => prev.map(f => f.id === fileId ? { ...f, lineCount: newTotal } : f));
-      setProcessedCache(prev => ({
-        ...prev,
-        [fileId]: { ...(prev[fileId] || {}), searchMatchCount: matchCount }
-      }));
+      setProcessedCache(prev => {
+        const newCache = { ...prev };
+        newCache[fileId] = {
+          ...(prev[fileId] || {}),
+          searchMatchCount: matchCount
+        } as ProcessedCache;
+        return newCache;
+      });
       triggerUpdate();
 
       if (activeFileIdRef.current === fileId) {
@@ -322,10 +362,14 @@ const App: React.FC = () => {
 
     // 当后端各图层统计数据计算完成后触发
     onStatsFinished: (fileId, stats) => {
-      setProcessedCache(prev => ({
-        ...prev,
-        [fileId]: { ...(prev[fileId] || {}), layerStats: { ...prev[fileId]?.layerStats, ...stats } }
-      }));
+      setProcessedCache(prev => {
+        const newCache = { ...prev };
+        newCache[fileId] = {
+          ...(prev[fileId] || { layerStats: {}, searchMatchCount: 0 }),
+          layerStats: { ...prev[fileId]?.layerStats, ...stats }
+        };
+        return newCache;
+      });
     },
 
     // 监听各种后台任务的进度（Indexing, Pipeline, Searching 等）
@@ -453,6 +497,75 @@ const App: React.FC = () => {
     }
   }, [handleNativeFolderSelect, setWorkspaceRoot, openRemotePicker, handleOpenFileByPath]);
 
+  // ===== 命令面板 (Command Palette) =====
+  const commands: Command[] = [
+    { id: 'file.open', label: '打开文件', shortcut: 'Ctrl+O', category: '文件', action: handleOpen },
+    { id: 'file.openFolder', label: '打开文件夹', shortcut: 'Ctrl+Shift+O', category: '文件', action: handleNativeFolderSelect },
+    { id: 'search.focus', label: '聚焦搜索', shortcut: 'Ctrl+F', category: '搜索', action: () => setIsFindVisible(true) },
+    { id: 'search.next', label: '下一个匹配', shortcut: 'F3', category: '搜索', action: () => findNextSearchMatchWithJump('next') },
+    { id: 'search.prev', label: '上一个匹配', shortcut: 'Shift+F3', category: '搜索', action: () => findNextSearchMatchWithJump('prev') },
+    { id: 'goto.line', label: '跳转到行', shortcut: 'Ctrl+G', category: '导航', action: () => setIsGoToLineVisible(true) },
+    { id: 'view.main', label: '主视图', category: '视图', action: () => setActiveView('main') },
+    { id: 'view.search', label: '搜索视图', category: '视图', action: () => setActiveView('search') },
+    { id: 'view.help', label: '帮助视图', category: '视图', action: () => setActiveView('help') },
+    { id: 'layer.new', label: '新建图层', shortcut: 'Ctrl+Shift+L', category: '图层', action: () => {
+      // 添加一个默认的高亮图层
+      addLayer(LayerType.HIGHLIGHT, { query: '', color: '#fbbf24', enabled: true });
+    }},
+    { id: 'bookmark.export', label: '导出书签', category: '书签', action: () => {
+      // 导出书签为 JSON 文件
+      if (activeFileId && bookmarks[activeFileId]) {
+        const fileBookmarks = bookmarks[activeFileId];
+        const exportData = {
+          file: activeFile?.name,
+          exportedAt: new Date().toISOString(),
+          bookmarks: Object.entries(fileBookmarks).map(([line, comment]) => ({
+            line: parseInt(line),
+            comment
+          }))
+        };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${activeFile?.name || 'bookmarks'}_bookmarks.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    }},
+    { id: 'settings.open', label: '打开设置', shortcut: 'Ctrl+,', category: '设置', action: () => setIsSettingsVisible(true) },
+  ];
+
+  // 命令面板快捷键监听 - 放在 useUIState 之后
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      const isP = e.key.toLowerCase() === 'p';
+      const isComma = e.key === ',';
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+      const isShift = e.shiftKey;
+
+      // Ctrl+Shift+P: 命令面板
+      if (isCmdOrCtrl && isP && isShift) {
+        e.preventDefault();
+        setIsCommandPaletteVisible(true);
+      }
+
+      // Ctrl+,: 设置
+      if (isCmdOrCtrl && isComma) {
+        e.preventDefault();
+        setIsSettingsVisible(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <div
       className="flex flex-col h-screen select-none overflow-hidden text-sm bg-[#1e1e1e] text-[#cccccc]"
@@ -511,8 +624,12 @@ const App: React.FC = () => {
 
         {/* 侧边栏面板容器 */}
         <div
-          className="bg-[#252526] border-r border-[#111] flex flex-col shrink-0 shadow-lg relative group/sidebar"
-          style={{ width: sidebarWidth }}
+          className={`bg-[#252526] border-r border-[#111] flex flex-col shrink-0 shadow-lg relative group/sidebar 
+            ${responsive.isMobile ? 'absolute inset-y-0 left-10 z-40' : ''}`}
+          style={{ 
+            width: responsive.isMobile ? (sidebarWidth > 0 ? sidebarWidth : 280) : sidebarWidth,
+            display: responsive.isMobile && sidebarWidth === 0 ? 'none' : 'flex'
+          }}
         >
           {/* 拖拽调整宽度的 Handle */}
           <div
@@ -613,10 +730,14 @@ const App: React.FC = () => {
                     setIsFindVisible(false);
                     clearSearch();
                     if (activeFileId) {
-                      setProcessedCache(prev => ({
-                        ...prev,
-                        [activeFileId]: { ...(prev[activeFileId] || {}), searchMatchCount: 0 }
-                      }));
+                      setProcessedCache(prev => {
+                        const newCache = { ...prev };
+                        newCache[activeFileId] = {
+                          ...(prev[activeFileId] || { layerStats: {}, searchMatchCount: 0 }),
+                          searchMatchCount: 0
+                        };
+                        return newCache;
+                      });
                     }
                   }}
                 />
@@ -687,6 +808,8 @@ const App: React.FC = () => {
                                 onUpdateBookmarkComment={handleUpdateBookmarkComment}
                                 onSelectedTextChange={setCanvasSelectedText}
                                 updateTrigger={bridgedUpdateTrigger}
+                                settings={settings}
+                                resolvedTheme={resolvedTheme}
                               />
                             )}
                           </div>
@@ -724,6 +847,8 @@ const App: React.FC = () => {
         searchMatchCount={searchMatchCount}
         currentLine={(highlightedIndex !== null) ? highlightedIndex + 1 : undefined}
         pendingCliFiles={pendingCliFiles}
+        onOpenSettings={() => setIsSettingsVisible(true)}
+        onOpenShortcuts={() => setIsShortcutsVisible(true)}
       />
 
       {/* 远程路径选择器 - 用于 --no-ui 模式替代原生对话框 */}
@@ -735,6 +860,26 @@ const App: React.FC = () => {
         title={remotePickerMode === 'folder' ? '选择文件夹' : remotePickerMode === 'file' ? '选择文件' : '选择路径'}
         listDirectory={remoteListDirectory}
       />
+
+      {/* 命令面板 */}
+      <CommandPalette
+        commands={commands}
+        isOpen={isCommandPaletteVisible}
+        onClose={() => setIsCommandPaletteVisible(false)}
+      />
+
+      {/* 设置面板 */}
+      <SettingsPanel
+        isOpen={isSettingsVisible}
+        onClose={() => setIsSettingsVisible(false)}
+      />
+
+      {/* 快捷键参考面板 */}
+      <KeyboardShortcutsPanel
+        isOpen={isShortcutsVisible}
+        onClose={() => setIsShortcutsVisible(false)}
+      />
+      
     </div>
   );
 };

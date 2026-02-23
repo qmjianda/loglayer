@@ -1,0 +1,63 @@
+export const LOG_VIEWER = {
+  LINE_HEIGHT: 20,
+  GUTTER_WIDTH: 80,
+  BUFFER_NORMAL: 200,
+  BUFFER_LARGE: 500,
+  VIRTUAL_HEIGHT_LIMIT: 10_000_000,
+  MAX_CACHED_LINES: 5000,
+  RULER_WIDTH: 12,
+  CHAR_WIDTH_DEFAULT: 7.22 as number,
+  FONT: '12px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+  FONT_GUTTER: '10px "JetBrains Mono", monospace',
+  WHEEL_LINES_PER_TICK: 3,
+  SCROLL_MARGIN: 100,
+  CACHE_CLEAR_DISTANCE: 3000,
+  FETCH_DEBOUNCE_MS: 10,
+  // Performance tuning
+  TARGET_FPS: 60,
+  IDLE_THRESHOLD_MS: 100,
+  RENDER_BATCH_SIZE: 100,
+  MEMORY_WARNING_THRESHOLD_MB: 500,
+  CACHE_PRUNE_ON_IDLE: true,
+  LAZY_LOAD_THRESHOLD: 1000,
+} as const;
+
+export const COLORS = {
+  DARK: {
+    BACKGROUND: '#1e1e1e',
+    GUTTER: '#1e1e1e',
+    GUTTER_TEXT: '#666',
+    HIGHLIGHT_LINE: 'rgba(34, 211, 238, 0.15)',
+    BOOKMARK_BACKGROUND: 'rgba(245, 158, 11, 0.08)',
+    BOOKMARK_INDICATOR: '#fbbf24',
+    SELECTION: 'rgba(245, 158, 11, 0.45)',
+    TEXT: '#d4d4d4',
+    RULER: '#252526',
+    SEARCH_HIGHLIGHT: '#facc15',
+    LAYER_HIGHLIGHT: '#3b82f6',
+    CURRENT_LINE: '#60a5fa',
+  },
+  LIGHT: {
+    BACKGROUND: '#ffffff',
+    GUTTER: '#f3f3f3',
+    GUTTER_TEXT: '#6e6e6e',
+    HIGHLIGHT_LINE: 'rgba(6, 182, 212, 0.15)',
+    BOOKMARK_BACKGROUND: 'rgba(245, 158, 11, 0.08)',
+    BOOKMARK_INDICATOR: '#d97706',
+    SELECTION: 'rgba(180, 120, 0, 0.35)',
+    TEXT: '#1f2937',
+    RULER: '#e5e5e5',
+    SEARCH_HIGHLIGHT: '#eab308',
+    LAYER_HIGHLIGHT: '#2563eb',
+    CURRENT_LINE: '#3b82f6',
+  },
+} as const;
+
+export const KEYBOARD_SHORTCUTS = {
+  GO_TO_LINE: { key: 'g', modifier: 'ctrl' },
+  SELECT_LINE: { key: 'l', modifier: 'ctrlShift' },
+  JUMP_TO_SELECTION: { key: 'Enter', modifier: 'ctrl' },
+  MOVE_SELECTION_UP: { key: 'ArrowUp', modifier: 'alt' },
+  MOVE_SELECTION_DOWN: { key: 'ArrowDown', modifier: 'alt' },
+  SELECT_ALL: { key: 'a', modifier: 'ctrl' },
+} as const;

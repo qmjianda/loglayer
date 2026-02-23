@@ -13,6 +13,7 @@ export interface FileInfo {
     size: number;
     path?: string;
     isActive: boolean;
+    layers?: LogLayer[];
     lineCount?: number;
 }
 
@@ -217,7 +218,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                     key={entry.type}
                     onMouseDown={(e) => {
                         e.stopPropagation();
-                        onAddLayer(entry.type);
+                        onAddLayer(entry.type as LayerType);
                         setActiveMenuId(null);
                         setExpandedFiles(prev => ({ ...prev, [fileId]: true }));
                     }}
@@ -237,7 +238,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                             key={entry.type}
                             onMouseDown={(e) => {
                                 e.stopPropagation();
-                                onAddLayer(entry.type);
+                                onAddLayer(entry.type as LayerType);
                                 setActiveMenuId(null);
                                 setExpandedFiles(prev => ({ ...prev, [fileId]: true }));
                             }}
