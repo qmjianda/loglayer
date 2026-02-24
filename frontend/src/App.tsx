@@ -880,6 +880,13 @@ const AppContent: React.FC = () => {
                                 updateTrigger={bridgedUpdateTrigger}
                                 settings={settings}
                                 resolvedTheme={resolvedTheme}
+                                hasNewContent={hasNewContent}
+                                onScrollToNewContent={() => {
+                                  clearNewContent();
+                                  if (activeFile?.lineCount) {
+                                    setScrollToIndex(activeFile.lineCount - 1);
+                                  }
+                                }}
                               />
                             )}
                           </div>

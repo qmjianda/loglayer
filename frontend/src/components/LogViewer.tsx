@@ -31,6 +31,8 @@ interface LogViewerProps {
   bookmarks?: Record<number, string>;
   settings?: AppSettings;
   resolvedTheme?: 'dark' | 'light';
+  hasNewContent?: boolean;
+  onScrollToNewContent?: () => void;
 }
 
 /**
@@ -91,7 +93,9 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   layerStats = {},
   bookmarks = {},
   settings,
-  resolvedTheme = 'dark'
+  resolvedTheme = 'dark',
+  hasNewContent = false,
+  onScrollToNewContent
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -927,6 +931,18 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       >
         {showPerformancePanel ? 'Hide' : 'Perf'}
       </button>
+
+      {hasNewContent && onScrollToNewContent && (
+        <button
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-full shadow-lg z-[1000] flex items-center gap-2 animate-bounce"
+          onClick={() => onScrollToNewContent()}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
+          <span>有新内容，点击滚动到底部</span>
+        </button>
+      )}
 
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {selection ? `已选中 ${Math.abs(selection.endLine - selection.startLine) + 1} 行` : ''}
