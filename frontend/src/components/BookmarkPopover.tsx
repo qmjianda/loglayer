@@ -55,7 +55,7 @@ export const BookmarkPopover: React.FC<BookmarkPopoverProps> = ({
 
             <textarea
                 autoFocus
-                className="bg-dark-2/50 border border-[#3e3e42] text-gray-200 p-2.5 text-xs rounded-md outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition-all resize-none h-28 mb-3 placeholder:text-gray-600"
+                className="bg-dark-2/50 border border-theme-default text-gray-200 p-2.5 text-xs rounded-md outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition-all resize-none h-28 mb-3 placeholder:text-gray-600"
                 placeholder="在此输入您的书签说明（Markdown 支持）..."
                 value={comment}
                 onChange={e => setComment(e.target.value)}
