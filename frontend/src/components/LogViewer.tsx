@@ -4,8 +4,10 @@ import { readProcessedLines } from '../bridge_client';
 import { BookmarkPopover } from './BookmarkPopover';
 import { EditorGoToLineWidget } from './EditorGoToLineWidget';
 import { ErrorBoundary } from './ErrorBoundary';
+import { JsonTreeView } from './JsonTreeView';
 import { LOG_VIEWER, COLORS } from '../constants';
 import { AppSettings } from '../hooks/useSettings';
+import { detectJson } from '../utils/jsonTree';
 
 interface LogViewerProps {
   totalLines: number;
@@ -101,6 +103,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const [maxLineWidth, setMaxLineWidth] = useState(viewportWidth);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, text: string, lineIndex?: number } | null>(null);
   const [commentPopover, setCommentPopover] = useState<{ x: number, y: number, lineIndex: number, comment: string } | null>(null);
+  const [expandedJsonLine, setExpandedJsonLine] = useState<number | null>(null);
   const [showGoToLine, setShowGoToLine] = useState(false);
   const [showPerformancePanel, setShowPerformancePanel] = useState(false);
   const [performanceStats, setPerformanceStats] = useState({ fps: 60, visibleLines: 0, memory: 0 });
@@ -845,9 +848,12 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           {contextMenu.text && (
             <>
               <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { navigator.clipboard.writeText(contextMenu.text); setContextMenu(null); }}>复制选中内容</button>
-              <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onSendToAI?.(contextMenu.text); setContextMenu(null); }}>发送给 AI 🤖</button>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onSendToAI?.(contextMenu.text); setContextMenu(null); }}>发送给 AI</button>
               <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onAddLayer?.(LayerType.HIGHLIGHT, { query: contextMenu.text, color: '#facc15' }); setContextMenu(null); }}>以此高亮</button>
               <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onAddLayer?.(LayerType.FILTER, { query: contextMenu.text }); setContextMenu(null); }}>以此过滤</button>
+              {detectJson(contextMenu.text).valid && (
+                <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { setExpandedJsonLine(contextMenu.lineIndex ?? null); setContextMenu(null); }}>展开 JSON</button>
+              )}
               <div className="h-[1px] bg-theme-subtle my-1" />
             </>
           )}
@@ -870,6 +876,28 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           onRemove={() => { onToggleBookmark?.(commentPopover.lineIndex); setCommentPopover(null); }}
           onClose={() => setCommentPopover(null)}
         />
+      )}
+
+      {expandedJsonLine !== null && (
+        <div className="fixed bottom-4 right-4 w-96 max-h-64 overflow-auto bg-theme-surface border border-theme-default shadow-2xl rounded z-[1000]">
+          <div className="flex justify-between items-center px-3 py-2 border-b border-theme-subtle">
+            <span className="text-sm font-medium text-theme-primary">JSON 展开 (行 {expandedJsonLine + 1})</span>
+            <button onClick={() => setExpandedJsonLine(null)} className="text-theme-muted hover:text-theme-primary">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="p-2">
+            {(() => {
+              const line = bridgedLines.get(expandedJsonLine);
+              const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
+              const { valid, data } = detectJson(content);
+              if (!valid) return <div className="text-red-400">无效的 JSON</div>;
+              return <JsonTreeView jsonString={JSON.stringify(data, null, 2)} />;
+            })()}
+          </div>
+        </div>
       )}
 
       {showGoToLine && (
