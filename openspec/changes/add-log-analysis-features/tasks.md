@@ -15,6 +15,22 @@
 - [ ] 2.5 Add "New content available" indicator when user scrolls up
 - [x] 2.6 Add watching indicator to StatusBar
 
+## 3. JSON Tree View
+
+- [x] 3.1 Create JSON detection utility function
+- [x] 3.2 Create JsonTreeView component (expandable/collapsible)
+- [x] 3.3 Add syntax highlighting for JSON values
+- [ ] 3.4 Integrate with LogViewer (detect and render JSON lines)
+- [ ] 3.5 Add right-click context menu for expand/collapse all
+
+## 4. Log Statistics Panel
+
+- [x] 4.1 Create StatsPanel component
+- [x] 4.2 Implement log level counting (ERROR, WARN, INFO, DEBUG, TRACE)
+- [x] 4.3 Add color-coded bar visualization
+- [x] 4.4 Add Stats button to toolbar
+- [x] 4.5 Make statistics update on filter changes
+
 ## 5. Integration & Polish
 
 - [x] 5.1 Add keyboard shortcuts for new features
