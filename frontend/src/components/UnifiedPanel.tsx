@@ -329,7 +329,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                     <div key={file.id} className="flex flex-col border-b border-theme-subtle">
                                         {/* File Header Row - Click to activate AND toggle expand */}
                                         <div
-                                            className={`flex items-center py-1 px-2 cursor-pointer select-none group transition-colors relative ${isActive ? 'bg-[#37373d] text-blue-400' : 'hover:bg-[#2a2d2e] text-theme-secondary'}`}
+                                            className={`flex items-center py-1 px-2 cursor-pointer select-none group transition-colors relative ${isActive ? 'bg-theme-active text-blue-400' : 'hover:bg-theme-hover text-theme-secondary'}`}
                                             onClick={() => {
                                                 if (file.id === activeFileId) {
                                                     // Toggle ONLY if already active (manual collapse/expand)
@@ -529,7 +529,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                     <div className="flex-1 flex flex-col overflow-hidden bg-theme-surface">
                         {/* 文件/文件夹选择操作 - 始终显示，以便于随时切换文件夹 */}
                         <div className="flex gap-1 p-2 border-b border-theme-subtle bg-theme-surface shrink-0">
-                            <button onClick={onOpen} className="flex-1 flex items-center justify-center gap-2 text-[10px] py-1.5 bg-[#0078d4] hover:bg-[#1084d8] text-white rounded transition-colors shadow-sm font-bold" title="打开文件或项目文件夹">
+                            <button onClick={onOpen} className="flex-1 flex items-center justify-center gap-2 text-[10px] py-1.5 bg-theme-accent hover:bg-blue-600 text-white rounded transition-colors shadow-sm font-bold" title="打开文件或项目文件夹">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" /></svg>
                                 浏览并打开 (Open)
                             </button>

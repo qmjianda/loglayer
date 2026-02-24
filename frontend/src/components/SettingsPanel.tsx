@@ -87,7 +87,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                 className={`w-full text-left px-3 py-2 text-sm rounded flex items-center gap-2 ${
                   activeTab === tab.id 
                     ? 'bg-blue-600 text-theme-primary' 
-                    : 'text-theme-secondary hover:bg-[#2a2d2e]'
+                    : 'text-theme-secondary hover:bg-theme-hover'
                 }`}
               >
                 <span>{tab.icon}</span>

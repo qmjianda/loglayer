@@ -113,11 +113,11 @@ const TreeNode: React.FC<any> = ({
     return (
         <div className="flex flex-col">
             <div
-                className={`flex items-center py-[3px] pr-2 cursor-pointer hover:bg-[#2a2d2e] group transition-colors relative ${isActive ? 'bg-[#37373d] text-white' : 'text-[#cccccc]'}`}
+                className={`flex items-center py-[3px] pr-2 cursor-pointer hover:bg-theme-hover group transition-colors relative ${isActive ? 'bg-theme-active text-white' : 'text-theme-primary'}`}
                 style={{ paddingLeft: `${level * 12 + 12}px` }}
                 onClick={toggle}
             >
-                {isActive && <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#007acc]" />}
+                {isActive && <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-theme-accent" />}
 
                 <div className="w-4 h-4 flex items-center justify-center mr-1 text-gray-500">
                     {isExpandable && (
