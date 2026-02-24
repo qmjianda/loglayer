@@ -7,6 +7,7 @@ export interface AISettings {
   provider: AIProviderType;
   model: string;
   apiKey?: string;
+  baseUrl?: string;
   isConnected: boolean;
 }
 
@@ -24,6 +25,7 @@ export function useAISettings(): UseAISettingsReturn {
   const [settings, setSettings] = useState<AISettings>({
     provider: 'heuristic',
     model: 'gpt-4o-mini',
+    baseUrl: 'http://localhost:11434',
     isConnected: false
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -37,14 +39,17 @@ export function useAISettings(): UseAISettingsReturn {
   const loadConfig = async () => {
     try {
       setIsLoading(true);
-      const config = await fetchJson<{ provider: string; model: string; isConnected: boolean }>('/api/ai/config');
+      console.log('[AISettings] Loading config from /api/ai/config...');
+      const config = await fetchJson<{ provider: string; model: string; isConnected: boolean; baseUrl?: string }>('/api/ai/config');
+      console.log('[AISettings] Config loaded:', config);
       setSettings({
         provider: config.provider as AIProviderType,
         model: config.model,
-        isConnected: config.isConnected
+        isConnected: config.isConnected,
+        baseUrl: config.baseUrl
       });
     } catch (err) {
-      console.error('Failed to load AI config:', err);
+      console.error('[AISettings] Failed to load AI config:', err);
     } finally {
       setIsLoading(false);
     }
@@ -52,34 +57,51 @@ export function useAISettings(): UseAISettingsReturn {
 
   const loadModels = useCallback(async () => {
     try {
+      console.log('[AISettings] Loading models for provider:', settings.provider);
       const result = await fetchJson<{ models: string[] }>('/api/ai/models');
+      console.log('[AISettings] Models loaded:', result.models);
       setAvailableModels(result.models);
     } catch (err) {
-      console.error('Failed to load models:', err);
+      console.error('[AISettings] Failed to load models:', err);
     }
-  }, []);
+  }, [settings.provider]);
 
   const updateSettings = useCallback(async (newSettings: Partial<AISettings>) => {
     try {
       setError(null);
       const merged = { ...settings, ...newSettings };
-      await fetchJson('/api/ai/config', 'POST', {
+      setSettings(merged);
+      
+      const payload: any = {
         provider: merged.provider,
         model: merged.model,
-        api_key: merged.apiKey
-      });
-      setSettings(merged);
+      };
+      
+      if (merged.apiKey) {
+        payload.api_key = merged.apiKey;
+      }
+      if (merged.baseUrl) {
+        payload.base_url = merged.baseUrl;
+      }
+      
+      console.log('[AISettings] Updating config:', payload);
+      await fetchJson('/api/ai/config', 'POST', payload);
+      console.log('[AISettings] Config updated successfully');
     } catch (err) {
+      console.error('[AISettings] Failed to update settings:', err);
       setError(err instanceof Error ? err.message : 'Failed to update settings');
     }
   }, [settings]);
 
   const testConnection = useCallback(async () => {
     try {
+      console.log('[AISettings] Testing connection...');
       const result = await fetchJson<{ connected: boolean; message: string }>('/api/ai/test-connection', 'POST');
+      console.log('[AISettings] Connection test result:', result);
       setSettings(prev => ({ ...prev, isConnected: result.connected }));
       return result;
     } catch (err) {
+      console.error('[AISettings] Connection test failed:', err);
       return { connected: false, message: err instanceof Error ? err.message : 'Connection failed' };
     }
   }, []);

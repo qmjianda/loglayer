@@ -142,6 +142,23 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
         </div>
       )}
 
+      {/* Base URL (for Ollama) */}
+      {settings.provider === 'ollama' && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-theme-primary">Ollama 地址</label>
+          <input
+            type="text"
+            value={settings.baseUrl || ''}
+            onChange={(e) => updateSettings({ baseUrl: e.target.value })}
+            placeholder="http://localhost:11434"
+            className="w-full px-3 py-2 bg-theme-surface border border-theme-default rounded text-sm text-theme-primary placeholder-theme-muted focus:border-blue-500 focus:outline-none"
+          />
+          <p className="text-xs text-theme-muted">
+            Ollama 服务地址，默认: http://localhost:11434
+          </p>
+        </div>
+      )}
+
       {/* API Key (for OpenAI) */}
       {settings.provider === 'openai' && (
         <div className="space-y-2">

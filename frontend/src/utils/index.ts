@@ -85,6 +85,10 @@ export function debounce<T extends (...args: any[]) => any>(
  */
 export function getBackendUrl(): string {
     if (typeof window !== 'undefined') {
+        const isDev = window.location.port === '3000';
+        if (isDev) {
+            return 'http://127.0.0.1:12345';
+        }
         return window.location.protocol + '//' + window.location.host;
     }
     return '';

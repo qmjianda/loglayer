@@ -169,7 +169,6 @@ const AppContent: React.FC = () => {
   const [isCommandPaletteVisible, setIsCommandPaletteVisible] = useState(false);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [isShortcutsVisible, setIsShortcutsVisible] = useState(false);
-  const [isAIPanelVisible, setIsAIPanelVisible] = useState(false);
   const [aiPanelInitialContent, setAiPanelInitialContent] = useState('');
 
   // Apply search settings from useSettings
@@ -510,6 +509,7 @@ const AppContent: React.FC = () => {
     { id: 'goto.line', label: '跳转到行', shortcut: 'Ctrl+G', category: '导航', action: () => setIsGoToLineVisible(true) },
     { id: 'view.main', label: '主视图', category: '视图', action: () => setActiveView('main') },
     { id: 'view.search', label: '搜索视图', category: '视图', action: () => setActiveView('search') },
+    { id: 'view.ai', label: 'AI 助手', category: '视图', action: () => setActiveView('ai') },
     { id: 'view.help', label: '帮助视图', category: '视图', action: () => setActiveView('help') },
     { id: 'layer.new', label: '新建图层', shortcut: 'Ctrl+Shift+L', category: '图层', action: () => {
       // 添加一个默认的高亮图层
@@ -710,6 +710,21 @@ const AppContent: React.FC = () => {
               currentIndex={currentMatchNumber}
             />
           )}
+
+          {/* AI 助手视图 */}
+          {activeView === 'ai' && (
+            <AIChatPanel 
+              initialContent={aiPanelInitialContent}
+              onClose={() => { setActiveView('main'); setAiPanelInitialContent(''); }}
+              onApplySuggestion={(type, value) => {
+                if (type === 'filter') {
+                  addLayer(LayerType.FILTER, { query: value });
+                } else if (type === 'highlight') {
+                  addLayer(LayerType.HIGHLIGHT, { query: value, color: '#facc15' });
+                }
+              }}
+            />
+          )}
         </div>
 
         {/* 主内容区域：显示日志视图或帮助文档 */}
@@ -718,23 +733,6 @@ const AppContent: React.FC = () => {
             <HelpPanel />
           ) : (
             <>
-              {/* AI Chat Panel */}
-              {isAIPanelVisible && (
-                <div className="absolute inset-4 z-50">
-                  <AIChatPanel 
-                    initialContent={aiPanelInitialContent}
-                    onClose={() => { setIsAIPanelVisible(false); setAiPanelInitialContent(''); }}
-                    onApplySuggestion={(type, value) => {
-                      if (type === 'filter') {
-                        addLayer(LayerType.FILTER, { query: value });
-                      } else if (type === 'highlight') {
-                        addLayer(LayerType.HIGHLIGHT, { query: value, color: '#facc15' });
-                      }
-                    }}
-                  />
-                </div>
-              )}
-
               {/* 悬浮组件：Ctrl+F 查找搜索框 */}
               {isFindVisible && (
                 <EditorFindWidget
@@ -828,7 +826,7 @@ const AppContent: React.FC = () => {
                                 onToggleBookmark={handleToggleBookmark}
                                 onUpdateBookmarkComment={handleUpdateBookmarkComment}
                                 onSelectedTextChange={setCanvasSelectedText}
-                                onSendToAI={(text) => { setAiPanelInitialContent(text); setIsAIPanelVisible(true); }}
+                                onSendToAI={(text) => { setAiPanelInitialContent(text); setActiveView('ai'); }}
                                 updateTrigger={bridgedUpdateTrigger}
                                 settings={settings}
                                 resolvedTheme={resolvedTheme}
