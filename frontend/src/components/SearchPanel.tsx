@@ -141,14 +141,14 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             <div className="flex ml-2 border-l border-white/10 pl-2">
               <button
                 onClick={() => onNavigate?.('prev')}
-                className="p-1 hover:bg-[#3c3c3c] rounded text-gray-400 hover:text-white transition-colors cursor-pointer"
+                className="p-1 hover:bg-theme-input rounded text-gray-400 hover:text-white transition-colors cursor-pointer"
                 title="上一个匹配项 (Shift+Enter)"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 15l7-7 7 7" /></svg>
               </button>
               <button
                 onClick={() => onNavigate?.('next')}
-                className="p-1 hover:bg-[#3c3c3c] rounded text-gray-400 hover:text-white transition-colors cursor-pointer"
+                className="p-1 hover:bg-theme-input rounded text-gray-400 hover:text-white transition-colors cursor-pointer"
                 title="下一个匹配项 (Enter)"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
@@ -159,7 +159,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       </div>
 
       <div className="relative group mb-4">
-        <div className={`relative flex items-center bg-[#3c3c3c] border transition-all rounded overflow-hidden ${!isRegexValid ? 'border-red-500/50' : (inputValue ? 'border-blue-500/50' : 'border-transparent')
+        <div className={`relative flex items-center bg-theme-input border transition-all rounded overflow-hidden ${!isRegexValid ? 'border-red-500/50' : (inputValue ? 'border-blue-500/50' : 'border-transparent')
           }`}>
           <input
             ref={inputRef}
