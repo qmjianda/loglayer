@@ -236,7 +236,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               {searchHistory.map((item, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between px-3 py-2 hover:bg-[#3c3c3c] cursor-pointer group"
+                  className="flex items-center justify-between px-3 py-2 hover:bg-theme-input cursor-pointer group"
                   onClick={() => handleHistoryClick(item)}
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">

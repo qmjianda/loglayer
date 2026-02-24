@@ -8,3 +8,4 @@ psutil
 pyinstaller
 pytest
 httpx
+requests

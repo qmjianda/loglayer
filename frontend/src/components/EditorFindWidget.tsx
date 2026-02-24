@@ -81,7 +81,7 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
     <div
       ref={widgetRef}
       style={{ width: `${width}px` }}
-      className={`absolute top-2 right-8 z-30 bg-dark-1 border border-[#454545] shadow-2xl rounded flex items-center p-1 space-x-1 animate-in slide-in-from-top-2 duration-150 select-none ${isResizing ? 'ring-1 ring-blue-500/50' : ''}`}
+      className={`absolute top-2 right-8 z-30 bg-dark-1 border border-theme-default rounded flex items-center shadow-2xl p-1 space-x-1 animate-in slide-in-from-top-2 duration-150 select-none ${isResizing ? 'ring-1 ring-blue-500/50' : ''}`}
     >
       {/* Resizer Handle */}
       <div
@@ -163,7 +163,7 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
         </button>
         <button
           onClick={onClose}
-          className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors ml-1"
+          className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-theme-input rounded transition-colors ml-1"
           title="关闭 (Escape)"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
