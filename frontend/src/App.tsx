@@ -235,8 +235,17 @@ const AppContent: React.FC = () => {
     isWatching,
     startWatching,
     stopWatching,
-    hasNewContent
-  } = useFileWatch();
+    hasNewContent,
+    clearNewContent
+  } = useFileWatch(
+    undefined,
+    (newLineCount, totalLines) => {
+      // Auto-scroll to bottom when new content arrives
+      if (totalLines > 0) {
+        setScrollToIndex(totalLines - 1);
+      }
+    }
+  );
 
   const handleToggleWatch = useCallback(() => {
     if (isWatching) {

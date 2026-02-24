@@ -14,9 +14,13 @@ export interface UseFileWatchReturn {
   stopWatching: () => void;
   hasNewContent: boolean;
   newContentCount: number;
+  clearNewContent: () => void;
 }
 
-export function useFileWatch(onNewContent?: (fileInfo: FileInfo) => void): UseFileWatchReturn {
+export function useFileWatch(
+  onNewContent?: (fileInfo: FileInfo) => void,
+  onNewLines?: (newLineCount: number, totalLines: number) => void
+): UseFileWatchReturn {
   const [isWatching, setIsWatching] = useState(false);
   const [hasNewContent, setHasNewContent] = useState(false);
   const [newContentCount, setNewContentCount] = useState(0);
@@ -40,7 +44,7 @@ export function useFileWatch(onNewContent?: (fileInfo: FileInfo) => void): UseFi
       const lineCount = data.lineCount;
 
       if (mtime !== lastMtimeRef.current || lineCount !== lastLineCountRef.current) {
-        const newLines = lineCount - lastLineCountRef.current;
+        const newLines = Math.max(0, lineCount - lastLineCountRef.current);
         
         if (newLines > 0 || mtime !== lastMtimeRef.current) {
           setHasNewContent(true);
@@ -49,12 +53,16 @@ export function useFileWatch(onNewContent?: (fileInfo: FileInfo) => void): UseFi
           lastLineCountRef.current = lineCount;
           
           onNewContent?.(data);
+          
+          if (newLines > 0) {
+            onNewLines?.(newLines, lineCount);
+          }
         }
       }
     } catch (err) {
       console.error('[FileWatch] Error checking for changes:', err);
     }
-  }, [onNewContent]);
+  }, [onNewContent, onNewLines]);
 
   const startWatching = useCallback((fileId: string) => {
     fileIdRef.current = fileId;
@@ -88,11 +96,17 @@ export function useFileWatch(onNewContent?: (fileInfo: FileInfo) => void): UseFi
     };
   }, []);
 
+  const clearNewContent = useCallback(() => {
+    setHasNewContent(false);
+    setNewContentCount(0);
+  }, []);
+
   return {
     isWatching,
     startWatching,
     stopWatching,
     hasNewContent,
-    newContentCount
+    newContentCount,
+    clearNewContent
   };
 }
