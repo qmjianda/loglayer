@@ -917,6 +917,8 @@ const AppContent: React.FC = () => {
         searchMatchCount={searchMatchCount}
         currentLine={(highlightedIndex !== null) ? highlightedIndex + 1 : undefined}
         pendingCliFiles={pendingCliFiles}
+        isWatching={isWatching}
+        hasNewContent={hasNewContent}
         onOpenSettings={() => setIsSettingsVisible(true)}
         onOpenShortcuts={() => setIsShortcutsVisible(true)}
       />

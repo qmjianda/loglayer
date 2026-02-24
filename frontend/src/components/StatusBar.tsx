@@ -15,6 +15,8 @@ interface StatusBarProps {
   currentLine?: number;
   pendingCliFiles?: number;
   performanceMetrics?: PerformanceMetrics;
+  isWatching?: boolean;
+  hasNewContent?: boolean;
   onOpenSettings?: () => void;
   onOpenShortcuts?: () => void;
 }
@@ -23,6 +25,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   lines, totalLines, size, isProcessing, isLayerProcessing, 
   operationStatus, searchMatchCount, currentLine, pendingCliFiles,
   performanceMetrics,
+  isWatching, hasNewContent,
   onOpenSettings, onOpenShortcuts 
 }) => {
   const { widgets, widgetData } = usePluginWidgets('statusbar');
@@ -67,6 +70,19 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           )}
           <span className="font-bold tracking-tight">{getStatusMessage()}</span>
         </div>
+
+        {/* File Watch Indicator */}
+        {isWatching && (
+          <div className="flex items-center space-x-1.5 text-green-400">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <span className="text-xs">
+              {hasNewContent ? '新内容可用' : '监视中'}
+            </span>
+          </div>
+        )}
 
         {/* Plugin Dynamic Widgets */}
         {widgets.map(w => {
