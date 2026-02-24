@@ -35,7 +35,7 @@ export const BookmarkPopover: React.FC<BookmarkPopoverProps> = ({
                 left: x,
                 zIndex: 1001,
             }}
-            className="bookmark-popover bg-dark-1/90 backdrop-blur-md border border-[#454545] shadow-2xl rounded-lg p-3 min-w-[280px] flex flex-col ring-1 ring-black/50 animate-in fade-in slide-in-from-left-2 duration-200"
+            className="bookmark-popover bg-dark-1/-md border border-theme90 backdrop-blur-default shadow-2xl rounded-lg p-3 min-w-[280px] flex flex-col ring-1 ring-black/50 animate-in fade-in slide-in-from-left-2 duration-200"
             onMouseDown={e => e.stopPropagation()}
         >
             <div className="flex items-center justify-between mb-3">
