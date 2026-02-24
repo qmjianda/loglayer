@@ -23,6 +23,7 @@ interface LogViewerProps {
   onToggleBookmark?: (lineIndex: number) => void;
   onUpdateBookmarkComment?: (lineIndex: number, comment: string) => void;
   onSelectedTextChange?: (text: string) => void;
+  onSendToAI?: (text: string) => void;
   updateTrigger?: number;
   layerStats?: Record<string, { count: number, distribution: number[] }>;
   bookmarks?: Record<number, string>;
@@ -83,6 +84,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   onToggleBookmark,
   onUpdateBookmarkComment,
   onSelectedTextChange,
+  onSendToAI,
   updateTrigger,
   layerStats = {},
   bookmarks = {},
@@ -843,6 +845,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           {contextMenu.text && (
             <>
               <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { navigator.clipboard.writeText(contextMenu.text); setContextMenu(null); }}>复制选中内容</button>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onSendToAI?.(contextMenu.text); setContextMenu(null); }}>发送给 AI 🤖</button>
               <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onAddLayer?.(LayerType.HIGHLIGHT, { query: contextMenu.text, color: '#facc15' }); setContextMenu(null); }}>以此高亮</button>
               <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onAddLayer?.(LayerType.FILTER, { query: contextMenu.text }); setContextMenu(null); }}>以此过滤</button>
               <div className="h-[1px] bg-theme-subtle my-1" />

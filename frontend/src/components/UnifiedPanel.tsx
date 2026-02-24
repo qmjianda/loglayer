@@ -33,6 +33,7 @@ interface UnifiedPanelProps {
     layers: LogLayer[];
     layerStats: Record<string, { count: number; distribution: number[] }>;
     selectedLayerId: string | null;
+    fileId?: string | null;
     onSelectLayer: (id: string | null) => void;
     onLayerDrop: (draggedId: string, targetId: string | null, position: 'inside' | 'before' | 'after') => void;
     onLayerRemove: (id: string) => void;
@@ -410,6 +411,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                         layers={visibleLayers}
                                                         stats={isActive ? layerStats : {}}
                                                         selectedId={isActive ? selectedLayerId : null}
+                                                        fileId={isActive ? activeFileId : undefined}
                                                         onSelect={isActive ? onSelectLayer : () => { }}
                                                         onDrop={isActive ? onLayerDrop : () => { }}
                                                         onRemove={isActive ? onLayerRemove : () => { }}

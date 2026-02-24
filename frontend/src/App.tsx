@@ -22,6 +22,7 @@ import { HelpPanel } from './components/HelpPanel';
 import { StatusBar } from './components/StatusBar';
 import { IndexingOverlay, FileLoadingSkeleton, PendingFilesWall } from './components/LoadingOverlays';
 import { RemotePathPicker } from './components/RemotePathPicker';
+import { AIChatPanel } from './components/AIChatPanel';
 import { LayerType, LogLine } from './types';
 import { ProcessedCache } from './hooks/useFileManagement';
 import { openFile, syncAll, hasNativeDialogs, toggleBookmark, getNearestBookmarkIndex, getLinesByIndices } from './bridge_client';
@@ -168,6 +169,8 @@ const AppContent: React.FC = () => {
   const [isCommandPaletteVisible, setIsCommandPaletteVisible] = useState(false);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [isShortcutsVisible, setIsShortcutsVisible] = useState(false);
+  const [isAIPanelVisible, setIsAIPanelVisible] = useState(false);
+  const [aiPanelInitialContent, setAiPanelInitialContent] = useState('');
 
   // Apply search settings from useSettings
   useEffect(() => {
@@ -664,6 +667,7 @@ const AppContent: React.FC = () => {
               layers={layers}
               layerStats={layerStats}
               selectedLayerId={selectedLayerId}
+              fileId={activeFileId}
               onSelectLayer={setSelectedLayerId}
               onLayerDrop={(draggedId, targetId, position) => {
                 handleDrop(draggedId, targetId, position);
@@ -714,6 +718,23 @@ const AppContent: React.FC = () => {
             <HelpPanel />
           ) : (
             <>
+              {/* AI Chat Panel */}
+              {isAIPanelVisible && (
+                <div className="absolute inset-4 z-50">
+                  <AIChatPanel 
+                    initialContent={aiPanelInitialContent}
+                    onClose={() => { setIsAIPanelVisible(false); setAiPanelInitialContent(''); }}
+                    onApplySuggestion={(type, value) => {
+                      if (type === 'filter') {
+                        addLayer(LayerType.FILTER, { query: value });
+                      } else if (type === 'highlight') {
+                        addLayer(LayerType.HIGHLIGHT, { query: value, color: '#facc15' });
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
               {/* 悬浮组件：Ctrl+F 查找搜索框 */}
               {isFindVisible && (
                 <EditorFindWidget
@@ -807,6 +828,7 @@ const AppContent: React.FC = () => {
                                 onToggleBookmark={handleToggleBookmark}
                                 onUpdateBookmarkComment={handleUpdateBookmarkComment}
                                 onSelectedTextChange={setCanvasSelectedText}
+                                onSendToAI={(text) => { setAiPanelInitialContent(text); setIsAIPanelVisible(true); }}
                                 updateTrigger={bridgedUpdateTrigger}
                                 settings={settings}
                                 resolvedTheme={resolvedTheme}

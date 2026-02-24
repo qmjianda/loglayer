@@ -22,3 +22,5 @@ export * from './useDrag';
 export * from './useLoadingState';
 export * from './usePluginWidgets';
 export * from './useLayerRegistry';
+export * from './useAIChat';
+export * from './useAISettings';

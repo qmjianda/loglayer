@@ -14,10 +14,11 @@ interface LayersPanelProps {
   onDrop: (draggedId: string, targetId: string | null, position: 'inside' | 'before' | 'after') => void;
   onJumpToLine?: (index: number) => void;
   isReadOnly?: boolean;
+  fileId?: string | null;
 }
 
 export const LayersPanel: React.FC<LayersPanelProps> = ({
-  layers, stats, selectedId, onSelect, onRemove, onToggle, onUpdate, onDrop, isReadOnly = false
+  layers, stats, selectedId, onSelect, onRemove, onToggle, onUpdate, onDrop, isReadOnly = false, fileId
 }) => {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
@@ -284,6 +285,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
               <DynamicForm
                 registryEntry={registryEntry}
                 config={layer.config}
+                fileId={fileId}
                 onUpdate={(cfg: any) => onUpdate(layer.id, { config: { ...layer.config, ...cfg } })}
               />
             </div>
