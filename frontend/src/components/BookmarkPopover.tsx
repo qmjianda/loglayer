@@ -27,17 +27,23 @@ export const BookmarkPopover: React.FC<BookmarkPopoverProps> = ({
     }, [onClose]);
 
     return (
-        <div
-            ref={popoverRef}
-            style={{
-                position: 'fixed',
-                top: y,
-                left: x,
-                zIndex: 1001,
-            }}
-            className="bookmark-popover bg-dark-1/-md border border-theme90 backdrop-blur-default shadow-2xl rounded-lg p-3 min-w-[280px] flex flex-col ring-1 ring-black/50 animate-in fade-in slide-in-from-left-2 duration-200"
-            onMouseDown={e => e.stopPropagation()}
-        >
+        <>
+            <div 
+                className="fixed inset-0 z-[1000] pointer-events-auto"
+                onClick={onClose}
+                onMouseDown={e => e.stopPropagation()}
+            />
+            <div
+                ref={popoverRef}
+                style={{
+                    position: 'fixed',
+                    top: y,
+                    left: x,
+                    zIndex: 1001,
+                }}
+                className="bookmark-popover bg-[#1e1e1e] border border-[#454545] shadow-2xl rounded-lg p-3 min-w-[280px] flex flex-col pointer-events-auto"
+                onMouseDown={e => e.stopPropagation()}
+            >
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
@@ -55,7 +61,7 @@ export const BookmarkPopover: React.FC<BookmarkPopoverProps> = ({
 
             <textarea
                 autoFocus
-                className="bg-dark-2/50 border border-theme-default text-gray-200 p-2.5 text-xs rounded-md outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition-all resize-none h-28 mb-3 placeholder:text-gray-600"
+                className="bg-[#2a2d2e] border border-[#454545] text-gray-200 p-2.5 text-xs rounded-md outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition-all resize-none h-28 mb-3 placeholder:text-gray-600"
                 placeholder="在此输入您的书签说明（Markdown 支持）..."
                 value={comment}
                 onChange={e => setComment(e.target.value)}
@@ -95,5 +101,6 @@ export const BookmarkPopover: React.FC<BookmarkPopoverProps> = ({
                 <span className="text-[9px] text-gray-600">Ctrl + Enter 快速保存</span>
             </div>
         </div>
+        </>
     );
 };
