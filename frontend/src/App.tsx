@@ -45,6 +45,7 @@ import { useBookmarkLogic } from './hooks/useBookmarkLogic';
 import { useBookmarks } from './hooks/useBookmarks';
 import { useSettings, SettingsProvider } from './hooks/useSettings';
 import { useResponsive } from './hooks/useResponsive';
+import { useFileWatch } from './hooks/useFileWatch';
 
 
 const AppContent: React.FC = () => {
@@ -228,6 +229,22 @@ const AppContent: React.FC = () => {
     setWorkspaceRoot,
     handleJumpToLine
   } = uiState;
+
+  // ===== 文件监视 (File Watch) =====
+  const {
+    isWatching,
+    startWatching,
+    stopWatching,
+    hasNewContent
+  } = useFileWatch();
+
+  const handleToggleWatch = useCallback(() => {
+    if (isWatching) {
+      stopWatching();
+    } else if (activeFileId) {
+      startWatching(activeFileId);
+    }
+  }, [isWatching, activeFileId, startWatching, stopWatching]);
 
   // ===== 书签数据管理 (Bookmarks Data Management) =====
   // 集中管理当前文件的书签状态、备注和预览
@@ -550,6 +567,7 @@ const AppContent: React.FC = () => {
       }
 
       const isP = e.key.toLowerCase() === 'p';
+      const isT = e.key.toLowerCase() === 't';
       const isComma = e.key === ',';
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
       const isShift = e.shiftKey;
@@ -558,6 +576,12 @@ const AppContent: React.FC = () => {
       if (isCmdOrCtrl && isP && isShift) {
         e.preventDefault();
         setIsCommandPaletteVisible(true);
+      }
+
+      // Ctrl+Shift+T: 文件监视
+      if (isCmdOrCtrl && isT && isShift) {
+        e.preventDefault();
+        handleToggleWatch();
       }
 
       // Ctrl+,: 设置
@@ -569,7 +593,7 @@ const AppContent: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [handleToggleWatch, setIsSettingsVisible, setIsCommandPaletteVisible]);
 
   return (
     <div
@@ -625,7 +649,14 @@ const AppContent: React.FC = () => {
 
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧侧边栏按钮（Explorer, Search, Help） */}
-        <Sidebar activeView={activeView} onSetActiveView={setActiveView} onOpenSettings={() => setIsSettingsVisible(true)} />
+        <Sidebar 
+          activeView={activeView} 
+          onSetActiveView={setActiveView} 
+          onOpenSettings={() => setIsSettingsVisible(true)}
+          isWatching={isWatching}
+          onToggleWatch={handleToggleWatch}
+          hasNewContent={hasNewContent}
+        />
 
         {/* 侧边栏面板容器 */}
         <div
