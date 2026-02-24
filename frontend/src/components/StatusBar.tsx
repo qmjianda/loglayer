@@ -53,7 +53,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   };
 
   return (
-    <div className={`h-6 ${isLayerProcessing || isProcessing ? 'bg-[#007acc]' : 'bg-[#007acc]'} text-white flex items-center justify-between px-3 text-[11px] font-medium shrink-0 transition-colors duration-300`}>
+    <div className={`h-6 bg-theme-active text-white flex items-center justify-between px-3 text-[11px] font-medium shrink-0 transition-colors duration-300`}>
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-1.5 cursor-pointer hover:bg-white/10 px-1 rounded transition-colors">
           {(isProcessing || isLayerProcessing) ? (
