@@ -63,6 +63,12 @@ export interface UseUIStateReturn {
 
     // Log viewer interaction handler
     handleLogViewerInteraction: () => void;
+
+    // File watch
+    isWatching: boolean;
+    setIsWatching: (watching: boolean) => void;
+    hasNewContent: boolean;
+    setHasNewContent: (has: boolean) => void;
 }
 
 export function useUIState({
@@ -99,6 +105,10 @@ export function useUIState({
 
     // Workspace
     const [workspaceRoot, setWorkspaceRoot] = useState<{ path: string; name: string } | null>(null);
+
+    // File watch
+    const [isWatching, setIsWatching] = useState(false);
+    const [hasNewContent, setHasNewContent] = useState(false);
 
     // Keyboard shortcuts
     useEffect(() => {
@@ -228,6 +238,10 @@ export function useUIState({
         workspaceRoot,
         setWorkspaceRoot,
         handleJumpToLine,
-        handleLogViewerInteraction
+        handleLogViewerInteraction,
+        isWatching,
+        setIsWatching,
+        hasNewContent,
+        setHasNewContent
     };
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchHistory, SearchHistoryItem } from '../hooks/useSearchHistory';
+import { isSQLLikeQuery, parseSQLQuery } from '../utils/sqlParser';
 
 interface SearchPanelProps {
   onSearch: (query: string) => void;
@@ -16,6 +17,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isRegexValid, setIsRegexValid] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
+  const [sqlError, setSqlError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
   
@@ -24,7 +26,27 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   // 搜索防抖 (200ms)
   useEffect(() => {
     const timer = setTimeout(() => {
-      onSearch(inputValue);
+      if (!inputValue) {
+        onSearch('');
+        setSqlError(null);
+        return;
+      }
+
+      // Check if it's a SQL-like query
+      if (isSQLLikeQuery(inputValue)) {
+        const result = parseSQLQuery(inputValue);
+        if (result.error) {
+          setSqlError(result.error);
+          onSearch('');
+          return;
+        }
+        setSqlError(null);
+        onSearch(result.regex);
+      } else {
+        // Regular search
+        setSqlError(null);
+        onSearch(inputValue);
+      }
     }, 200);
     return () => clearTimeout(timer);
   }, [inputValue, onSearch]);
@@ -268,6 +290,9 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         
         {!isRegexValid && (
           <div className="absolute -bottom-4 left-0 text-[9px] text-red-400">无效的正则表达式</div>
+        )}
+        {sqlError && (
+          <div className="absolute -bottom-4 left-0 text-[9px] text-red-400">SQL 语法错误: {sqlError}</div>
         )}
       </div>
 
