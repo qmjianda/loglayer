@@ -98,7 +98,7 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
           onClick={toggleSearchMode}
           className={`ml-1 px-2 py-1 rounded text-[9px] font-medium tracking-wide transition-all shrink-0 ${searchMode === 'filter'
               ? 'bg-blue-600 text-white'
-              : 'bg-[#3c3c3c] text-gray-400 hover:text-white hover:bg-[#4c4c4c]'
+              : 'bg-theme-input text-gray-400 hover:text-white'
             }`}
           title={searchMode === 'highlight' ? '当前: 仅高亮模式。点击切换到过滤模式' : '当前: 过滤模式（隐藏不匹配行）。点击切换到仅高亮模式'}
         >
@@ -106,7 +106,7 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
         </button>
       )}
 
-      <div className="flex-1 flex items-center bg-[#3c3c3c] border border-blue-500/30 rounded overflow-hidden ml-1">
+      <div className="flex-1 flex items-center bg-theme-input border border-blue-500/30 rounded overflow-hidden ml-1">
         <input
           ref={inputRef}
           type="text"
@@ -117,7 +117,7 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
           className="bg-transparent text-white text-xs px-2 py-1 w-full focus:outline-none select-text"
         />
 
-        <div className="flex items-center pr-1 bg-[#3c3c3c] shrink-0">
+        <div className="flex items-center pr-1 bg-theme-input shrink-0">
           <button
             onClick={() => onConfigChange(prev => ({ ...prev, caseSensitive: !prev.caseSensitive }))}
             className={`w-5 h-5 flex items-center justify-center rounded text-[10px] transition-colors ${config.caseSensitive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-[#555]'}`}
@@ -149,14 +149,14 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
       <div className="flex items-center shrink-0 select-none">
         <button
           onClick={() => onNavigate('prev')}
-          className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors"
+          className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-theme-input rounded transition-colors"
           title="上一个匹配项 (Shift+Enter)"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 15l7-7 7 7" /></svg>
         </button>
         <button
           onClick={() => onNavigate('next')}
-          className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors"
+          className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-theme-input rounded transition-colors"
           title="下一个匹配项 (Enter)"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
