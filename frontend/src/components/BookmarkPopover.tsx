@@ -27,23 +27,17 @@ export const BookmarkPopover: React.FC<BookmarkPopoverProps> = ({
     }, [onClose]);
 
     return (
-        <>
-            <div 
-                className="fixed inset-0 z-[1000] pointer-events-auto"
-                onClick={onClose}
-                onMouseDown={e => e.stopPropagation()}
-            />
-            <div
-                ref={popoverRef}
-                style={{
-                    position: 'fixed',
-                    top: y,
-                    left: x,
-                    zIndex: 1001,
-                }}
-                className="bookmark-popover bg-[#1e1e1e] border border-[#454545] shadow-2xl rounded-lg p-3 min-w-[280px] flex flex-col pointer-events-auto"
-                onMouseDown={e => e.stopPropagation()}
-            >
+        <div
+            ref={popoverRef}
+            style={{
+                position: 'fixed',
+                top: y,
+                left: x,
+                zIndex: 1001,
+            }}
+            className="bookmark-popover bg-[#1e1e1e] border border-[#454545] shadow-2xl rounded-lg p-3 min-w-[280px] flex flex-col"
+            onMouseDown={e => e.stopPropagation()}
+        >
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
@@ -101,6 +95,5 @@ export const BookmarkPopover: React.FC<BookmarkPopoverProps> = ({
                 <span className="text-[9px] text-gray-600">Ctrl + Enter 快速保存</span>
             </div>
         </div>
-        </>
     );
 };

@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { LogLine, LayerType } from '../types';
 import { readProcessedLines } from '../bridge_client';
 import { BookmarkPopover } from './BookmarkPopover';
@@ -843,7 +844,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         </ErrorBoundary>
       )}
 
-      {contextMenu && (
+      {contextMenu && createPortal(
         <div
           className="context-menu-popup fixed bg-theme-surface border border-theme-default shadow-2xl rounded py-1 min-w-[160px] z-[1000] text-[12px] select-none"
           style={{ top: contextMenu.y, left: contextMenu.x }}
@@ -867,10 +868,11 @@ export const LogViewer: React.FC<LogViewerProps> = ({
             navigator.clipboard.writeText(typeof line === 'string' ? line : (line as LogLine)?.content || '');
             setContextMenu(null);
           }}>复制整行</button>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {commentPopover && (
+      {commentPopover && createPortal(
         <BookmarkPopover
           x={commentPopover.x}
           y={commentPopover.y}
@@ -879,10 +881,11 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           onSave={async (c) => { await onUpdateBookmarkComment?.(commentPopover.lineIndex, c); setCommentPopover(null); }}
           onRemove={() => { onToggleBookmark?.(commentPopover.lineIndex); setCommentPopover(null); }}
           onClose={() => setCommentPopover(null)}
-        />
+        />,
+        document.body
       )}
 
-      {expandedJsonLine !== null && (
+      {expandedJsonLine !== null && createPortal(
         <div className="fixed bottom-4 right-4 w-96 max-h-64 overflow-auto bg-theme-surface border border-theme-default shadow-2xl rounded z-[1000]">
           <div className="flex justify-between items-center px-3 py-2 border-b border-theme-subtle">
             <span className="text-sm font-medium text-theme-primary">JSON 展开 (行 {expandedJsonLine + 1})</span>
@@ -901,7 +904,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({
               return <JsonTreeView jsonString={JSON.stringify(data, null, 2)} />;
             })()}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {showGoToLine && (
