@@ -78,3 +78,34 @@ export function debounce<T extends (...args: any[]) => any>(
         }, delay);
     };
 }
+
+/**
+ * 获取后端服务 URL
+ * @returns 后端 URL 字符串
+ */
+export function getBackendUrl(): string {
+    if (typeof window !== 'undefined') {
+        return window.location.protocol + '//' + window.location.host;
+    }
+    return '';
+}
+
+/**
+ * 通用 fetch JSON 函数
+ * @param endpoint API 端点
+ * @param method HTTP 方法
+ * @param body 请求体（可选）
+ * @returns 解析后的 JSON 数据
+ */
+export async function fetchJson<T>(endpoint: string, method: string = 'GET', body?: any): Promise<T> {
+    const BACKEND_URL = getBackendUrl();
+    const res = await fetch(`${BACKEND_URL}${endpoint}`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined
+    });
+    if (!res.ok) {
+        throw new Error(`API Error: ${res.status}`);
+    }
+    return res.json();
+}

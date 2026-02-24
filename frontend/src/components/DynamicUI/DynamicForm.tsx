@@ -2,13 +2,7 @@
 import React, { useState } from 'react';
 import { LayerRegistryEntry, LayerUIField } from '../../types';
 import { InputMapper } from './InputMapper';
-
-const getBackendUrl = () => {
-  if (typeof window !== 'undefined') {
-    return window.location.protocol + '//' + window.location.host;
-  }
-  return '';
-};
+import { getBackendUrl } from '../../utils';
 
 interface TimeRangeAIButtonsProps {
   fileId: string | null;

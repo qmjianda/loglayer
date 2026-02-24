@@ -1,24 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-
-const getBackendUrl = () => {
-  if (typeof window !== 'undefined') {
-    return window.location.protocol + '//' + window.location.host;
-  }
-  return '';
-};
-
-async function fetchJson<T>(endpoint: string, method: string = 'GET', body?: any): Promise<T> {
-  const BACKEND_URL = getBackendUrl();
-  const res = await fetch(`${BACKEND_URL}${endpoint}`, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined
-  });
-  if (!res.ok) {
-    throw new Error(`API Error: ${res.status}`);
-  }
-  return res.json();
-}
+import { getBackendUrl, fetchJson } from '../utils';
 
 export type AIProviderType = 'heuristic' | 'openai' | 'ollama';
 
