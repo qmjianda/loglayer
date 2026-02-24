@@ -9,8 +9,8 @@
 ## 2. File Watch (Real-time)
 
 - [x] 2.1 Add file watch state to useUIState hook
-- [ ] 2.2 Create watch toggle button in toolbar
-- [ ] 2.3 Implement polling mechanism (backend API for file modification time)
+- [x] 2.2 Create watch toggle button in toolbar
+- [x] 2.3 Implement polling mechanism (backend API for file modification time)
 - [ ] 2.4 Add auto-scroll behavior when new content arrives
 - [ ] 2.5 Add "New content available" indicator when user scrolls up
 - [ ] 2.6 Add watching indicator to StatusBar
