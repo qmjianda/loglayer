@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 
-export type ActiveView = 'main' | 'search' | 'ai' | 'help';
+export type ActiveView = 'main' | 'search' | 'ai' | 'stats' | 'help';
 
 export interface UseUIStateProps {
     undo: () => void;

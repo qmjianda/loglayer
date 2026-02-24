@@ -23,6 +23,7 @@ import { StatusBar } from './components/StatusBar';
 import { IndexingOverlay, FileLoadingSkeleton, PendingFilesWall } from './components/LoadingOverlays';
 import { RemotePathPicker } from './components/RemotePathPicker';
 import { AIChatPanel } from './components/AIChatPanel';
+import { StatsPanel } from './components/StatsPanel';
 import { LayerType, LogLine } from './types';
 import { ProcessedCache } from './hooks/useFileManagement';
 import { openFile, syncAll, hasNativeDialogs, toggleBookmark, getNearestBookmarkIndex, getLinesByIndices } from './bridge_client';
@@ -510,6 +511,7 @@ const AppContent: React.FC = () => {
     { id: 'view.main', label: '主视图', category: '视图', action: () => setActiveView('main') },
     { id: 'view.search', label: '搜索视图', category: '视图', action: () => setActiveView('search') },
     { id: 'view.ai', label: 'AI 助手', category: '视图', action: () => setActiveView('ai') },
+    { id: 'view.stats', label: '统计面板', category: '视图', action: () => setActiveView('stats') },
     { id: 'view.help', label: '帮助视图', category: '视图', action: () => setActiveView('help') },
     { id: 'layer.new', label: '新建图层', shortcut: 'Ctrl+Shift+L', category: '图层', action: () => {
       // 添加一个默认的高亮图层
@@ -723,6 +725,14 @@ const AppContent: React.FC = () => {
                   addLayer(LayerType.HIGHLIGHT, { query: value, color: '#facc15' });
                 }
               }}
+            />
+          )}
+
+          {/* 统计视图 */}
+          {activeView === 'stats' && (
+            <StatsPanel 
+              stats={{ ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 }}
+              total={activeFile?.lineCount || 0}
             />
           )}
         </div>
