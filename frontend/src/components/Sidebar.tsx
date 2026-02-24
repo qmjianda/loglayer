@@ -4,9 +4,19 @@ interface SidebarProps {
   activeView: string;
   onSetActiveView: (view: any) => void;
   onOpenSettings?: () => void;
+  isWatching?: boolean;
+  onToggleWatch?: () => void;
+  hasNewContent?: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, onSetActiveView, onOpenSettings }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  activeView, 
+  onSetActiveView, 
+  onOpenSettings,
+  isWatching = false,
+  onToggleWatch,
+  hasNewContent = false
+}) => {
   const icons = [
     {
       id: 'main',
@@ -70,7 +80,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onSetActiveView, o
           </span>
         </button>
       ))}
-      <div className="mt-auto">
+      <div className="mt-auto space-y-1">
+        {/* Watch button */}
+        {onToggleWatch && (
+          <button
+            onClick={onToggleWatch}
+            className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center transition-colors relative ${
+              isWatching ? 'text-green-400' : 'text-theme-muted hover:text-theme-secondary'
+            }`}
+            title={isWatching ? '停止监视' : '实时监视文件 (Ctrl+Shift+T)'}
+          >
+            {isWatching && (
+              <div className="absolute left-0 w-0.5 h-full bg-green-400" />
+            )}
+            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            {hasNewContent && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+            )}
+          </button>
+        )}
+        
         <button 
           onClick={onOpenSettings}
           className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-theme-muted hover:text-theme-secondary transition-colors"

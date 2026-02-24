@@ -356,6 +356,27 @@ def physical_to_visual_index(file_id: str, physical_index: int):
     return bridge.physical_to_visual_index(file_id, physical_index)
 
 
+@app.get("/api/file_info")
+def get_file_info(file_id: str):
+    """获取文件信息（用于文件监视）"""
+    session = bridge._sessions.get(file_id)
+    if not session:
+        return {"error": "File not found"}
+
+    import os
+
+    try:
+        stat = os.stat(session.path)
+        return {
+            "path": session.path,
+            "size": stat.st_size,
+            "mtime": stat.st_mtime,
+            "lineCount": len(session.line_offsets),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # Serve Frontend
 base_dir = os.path.dirname(os.path.abspath(__file__))
 www_dir = os.path.join(base_dir, "www")
