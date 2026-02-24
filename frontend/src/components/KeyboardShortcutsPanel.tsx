@@ -77,10 +77,10 @@ export const KeyboardShortcutsPanel: React.FC<KeyboardShortcutsPanelProps> = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setIsOpen(false)}>
       <div 
-        className="bg-dark-1 border border-[#454545] rounded-lg shadow-2xl w-[600px] max-h-[80vh] overflow-hidden"
+        className="bg-dark-1 border border-theme-default rounded-lg shadow-2xl w-[600px] max-h-[80vh] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#333]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-theme-subtle">
           <h2 className="text-sm font-semibold text-white">键盘快捷键</h2>
           <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

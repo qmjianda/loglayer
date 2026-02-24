@@ -82,8 +82,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-[500px] bg-dark-1 border border-[#454545] rounded-lg shadow-2xl overflow-hidden">
-        <div className="p-2 border-b border-[#333]">
+      <div className="relative w-[500px] bg-dark-1 border border-theme-default rounded-lg shadow-2xl overflow-hidden">
+        <div className="p-2 border-b border-theme-subtle">
           <input
             ref={inputRef}
             type="text"
@@ -115,7 +115,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       }
                     }}
                     className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
-                      isSelected ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-[#2a2d2e]'
+                      isSelected ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-theme-hover'
                     } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <span>{cmd.label}</span>
