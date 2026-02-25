@@ -13,6 +13,47 @@ from pathlib import Path
 import importlib
 from concurrent.futures import ThreadPoolExecutor
 
+
+def convert_windows_path_to_linux(windows_path: str) -> str:
+    """将 Windows 路径转换为 Linux 路径"""
+    if platform.system() != "Windows":
+        # 处理 Windows 盘符 (如 D:\Project\... -> /mnt/d/Project/...)
+        path = windows_path.replace("\\", "/")
+
+        # 检查是否是 Windows 盘符路径
+        match = re.match(r"^([A-Za-z]):/(.*)", path)
+        if match:
+            drive_letter = match.group(1).lower()
+            rest_path = match.group(2)
+            # 常见映射： D: -> /mnt/d, C: -> /mnt/c
+            if drive_letter == "d":
+                return f"/mnt/d/{rest_path}"
+            elif drive_letter == "c":
+                return f"/mnt/c/{rest_path}"
+            elif drive_letter == "e":
+                return f"/mnt/e/{rest_path}"
+
+        # 如果不是 Windows 盘符，可能是 WSL 路径或网络路径
+        # 尝试直接返回转换后的路径
+        return path
+    return windows_path
+
+
+def resolve_file_path(file_path: str) -> str:
+    """解析文件路径，尝试将 Windows 路径转换为 Linux 路径"""
+    # 首先检查原路径是否存在
+    if os.path.exists(file_path):
+        return file_path
+
+    # 尝试转换为 Linux 路径
+    linux_path = convert_windows_path_to_linux(file_path)
+    if os.path.exists(linux_path):
+        return linux_path
+
+    # 返回原始路径，让后续逻辑处理错误
+    return file_path
+
+
 try:
     import tkinter as tk
     from tkinter import filedialog
@@ -714,11 +755,14 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             if file_id in self._sessions:
                 self._sessions[file_id].close(self)
 
-            provider = self._registry.storage.get_provider(file_path)
-            session = LogSession(file_id, file_path, provider)
+            # 解析文件路径（处理 Windows -> Linux 路径转换）
+            resolved_path = resolve_file_path(file_path)
 
-            session.size = provider.get_size(file_path)
-            session.file_obj = provider.open(file_path)
+            provider = self._registry.storage.get_provider(resolved_path)
+            session = LogSession(file_id, resolved_path, provider)
+
+            session.size = provider.get_size(resolved_path)
+            session.file_obj = provider.open(resolved_path)
             if session.size == 0:
                 session.line_offsets = array.array("Q")
                 self._sessions[file_id] = session
@@ -726,7 +770,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                     file_id,
                     json.dumps(
                         {
-                            "name": provider.get_name(file_path),
+                            "name": provider.get_name(resolved_path),
                             "size": 0,
                             "lineCount": 0,
                         }
@@ -734,7 +778,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 )
                 return True
 
-            session.mmap = provider.get_mmap(file_path)
+            session.mmap = provider.get_mmap(resolved_path)
             self._sessions[file_id] = session
             self.operationStarted.emit(file_id, "indexing")
 
