@@ -6,9 +6,10 @@ LogViewer 的虚拟滚动预加载功能存在延迟问题。当用户快速滚�
 
 ## What Changes
 
-- 增大预加载 buffer 大小
-- 优化动态 buffer 计算逻辑
-- 调整 FETCH_DEBOUNCE_MS 减少不必要的请求
+- 增大预加载 buffer 大小（MUST 从 200/500 增至 800/1500）
+- 优化动态 buffer 计算逻辑（velocity 乘数 MUST 从 50 增至 200）
+- 调整 FETCH_DEBOUNCE_MS（SHALL 从 10ms 改为 50ms）
+- 添加滚动方向检测，向下滚动时 SHALL 增加额外 500 行 buffer
 
 ## Impact
 

@@ -800,7 +800,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`flex-1 overflow-auto relative custom-scrollbar ${theme === 'light' ? 'bg-theme-surface' : 'bg-theme-base'}`}
+      className="flex-1 overflow-auto relative custom-scrollbar"
+      style={{ backgroundColor: colors.BACKGROUND }}
       onScroll={(e) => {
         const now = performance.now();
         const st = e.currentTarget.scrollTop;
