@@ -6,7 +6,8 @@ import { BookmarkPopover } from './BookmarkPopover';
 import { EditorGoToLineWidget } from './EditorGoToLineWidget';
 import { ErrorBoundary } from './ErrorBoundary';
 import { JsonTreeView } from './JsonTreeView';
-import { LOG_VIEWER, COLORS } from '../constants';
+import { LOG_VIEWER } from '../constants';
+import { getLogViewerColors } from '../theme';
 import { AppSettings } from '../hooks/useSettings';
 import { detectJson } from '../utils/jsonTree';
 
@@ -138,7 +139,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const virtualScrollBufferSetting = settings?.virtualScrollBuffer ?? 500;
   const searchHighlightAll = settings?.searchHighlightAll ?? true;
   const theme = resolvedTheme ?? 'dark';
-  const colors = COLORS[theme.toUpperCase() as 'DARK' | 'LIGHT'];
+  const colors = getLogViewerColors(theme as 'dark' | 'light');
   
   const gutterWidth = GUTTER_WIDTH;
 

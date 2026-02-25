@@ -22,37 +22,6 @@ export const LOG_VIEWER = {
   LAZY_LOAD_THRESHOLD: 1000,
 } as const;
 
-export const COLORS = {
-  DARK: {
-    BACKGROUND: '#1e1e1e',
-    GUTTER: '#1e1e1e',
-    GUTTER_TEXT: '#666',
-    HIGHLIGHT_LINE: 'rgba(34, 211, 238, 0.15)',
-    BOOKMARK_BACKGROUND: 'rgba(245, 158, 11, 0.08)',
-    BOOKMARK_INDICATOR: '#fbbf24',
-    SELECTION: 'rgba(245, 158, 11, 0.45)',
-    TEXT: '#d4d4d4',
-    RULER: '#252526',
-    SEARCH_HIGHLIGHT: '#facc15',
-    LAYER_HIGHLIGHT: '#3b82f6',
-    CURRENT_LINE: '#60a5fa',
-  },
-  LIGHT: {
-    BACKGROUND: '#ffffff',
-    GUTTER: '#f3f3f3',
-    GUTTER_TEXT: '#6e6e6e',
-    HIGHLIGHT_LINE: 'rgba(6, 182, 212, 0.15)',
-    BOOKMARK_BACKGROUND: 'rgba(245, 158, 11, 0.08)',
-    BOOKMARK_INDICATOR: '#d97706',
-    SELECTION: 'rgba(180, 120, 0, 0.35)',
-    TEXT: '#1f2937',
-    RULER: '#e5e5e5',
-    SEARCH_HIGHLIGHT: '#eab308',
-    LAYER_HIGHLIGHT: '#2563eb',
-    CURRENT_LINE: '#3b82f6',
-  },
-} as const;
-
 export const KEYBOARD_SHORTCUTS = {
   GO_TO_LINE: { key: 'g', modifier: 'ctrl' },
   SELECT_LINE: { key: 'l', modifier: 'ctrlShift' },

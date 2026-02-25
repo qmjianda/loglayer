@@ -606,7 +606,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div
-      className="flex flex-col h-screen select-none overflow-hidden text-sm bg-theme-base text-[#cccccc]"
+      className="flex flex-col h-screen select-none overflow-hidden text-sm bg-theme-base text-primary"
       onDragOver={(e) => {
         // 关键修复：防止浏览器默认的拖拽操作（如直接打开文件）
         // 这样组件内部的 Drop 区域才能正常工作。
@@ -635,7 +635,7 @@ const AppContent: React.FC = () => {
       />
 
       {/* 顶部标题栏 */}
-      <div className="h-9 bg-dark-3 flex items-center px-4 border-b border-[#111] shrink-0 justify-between">
+      <div className="h-9 bg-tertiary flex items-center px-4 border-b border-subtle shrink-0 justify-between">
         <div className="flex items-center space-x-4">
           <span className="text-blue-400 font-black tracking-tighter flex items-center cursor-default">
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5-10-5zM2 17l10 5 10-5-10-5-10 5zM2 12l10 5 10-5-10-5-10 5z" /></svg>
@@ -669,7 +669,7 @@ const AppContent: React.FC = () => {
 
         {/* 侧边栏面板容器 */}
         <div
-          className={`bg-dark-1 border-r border-[#111] flex flex-col shrink-0 shadow-lg relative group/sidebar 
+          className={`bg-secondary border-r border-subtle flex flex-col shrink-0 shadow-lg relative group/sidebar 
             ${responsive.isMobile ? 'absolute inset-y-0 left-10 z-40' : ''}`}
           style={{ 
             width: responsive.isMobile ? (sidebarWidth > 0 ? sidebarWidth : 280) : sidebarWidth,
@@ -832,13 +832,13 @@ const AppContent: React.FC = () => {
                   const paneStats = processedData?.layerStats || {};
 
                   return (
-                    <div key={pane.id} className="flex-1 flex flex-col min-w-0 min-h-0 bg-theme-base relative border-r border-[#111] overflow-hidden">
+                    <div key={pane.id} className="flex-1 flex flex-col min-w-0 min-h-0 bg-primary relative border-r border-subtle overflow-hidden">
                       <div
                         className={`flex-1 flex flex-col min-h-0 relative ${activePaneId === pane.id ? 'ring-1 ring-blue-500/30' : ''}`}
                         onClick={() => setActivePaneId(pane.id)}
                       >
                         {/* 标签栏（目前显示当前文件名） */}
-                        <div className="h-8 bg-theme-surface flex items-center px-4 text-xs text-gray-400 border-b border-[#111] shrink-0 select-none">
+                        <div className="h-8 bg-secondary flex items-center px-4 text-xs text-muted border-b border-subtle shrink-0 select-none">
                           <span className="truncate">{paneFileId ? (files.find(f => f.id === paneFileId)?.name || 'Unknown File') : 'Empty Pane'}</span>
                           <div className="ml-auto flex gap-2">
                             {panes.length > 1 && (

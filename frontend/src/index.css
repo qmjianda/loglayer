@@ -1,119 +1,77 @@
 @import "tailwindcss";
 
 /* ============================================
-   LogLayer Design System - CSS Variables
+   LogLayer Design System - Simplified
+   参考 shadcn/ui + Tailwind CSS 主题架构
    ============================================ */
 
 :root {
-  /* ---------- Background Colors (4-layer hierarchy) ---------- */
-  --bg-base: #0d0d0d;       /* 最底层 - 页面主背景 */
-  --bg-surface: #1e1e1e;    /* 卡片/面板背景 */
-  --bg-elevated: #252526;   /* 浮层/下拉/弹出 */
-  --bg-header: #2d2d2d;     /* 头部/侧边栏/高亮 */
+  /* ---------- 核心背景色 (3 层) ---------- */
+  --bg-primary: #0d0d0d;
+  --bg-secondary: #1e1e1e;
+  --bg-tertiary: #252526;
+  --bg-elevated: #2d2d2d;
 
-  /* ---------- Text Colors ---------- */
-  --text-primary: #e5e5e5;   /* 主要文本 */
-  --text-secondary: #a1a1a1; /* 次要文本 */
-  --text-muted: #6b7280;    /* 禁用/提示文本 */
+  /* ---------- 文本色 (3 层) ---------- */
+  --fg-primary: #e5e5e5;
+  --fg-secondary: #a1a1a1;
+  --fg-muted: #6b7280;
 
-  /* ---------- Border Colors ---------- */
-  --border-subtle: #333333;  /* 微细边框 */
-  --border-default: #444444; /* 默认边框 */
-  --border-focus: #3b82f6;   /* 聚焦边框 */
+  /* ---------- 边框色 (2 层) ---------- */
+  --border-default: #444444;
+  --border-subtle: #333333;
 
-  /* ---------- Primary Colors ---------- */
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1d4ed8;  /* Status bar, buttons */
-  --color-primary-accent: #0078d4;  /* VS Code blue */
-
-  /* ---------- Interactive States ---------- */
-  --bg-hover: #2a2d2e;
-  --bg-active: #37373d;
-  --bg-input: #3c3c3c;
-
-  /* ---------- Semantic Colors ---------- */
+  /* ---------- 品牌/语义色 ---------- */
+  --color-primary: #3b82f6;
   --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-error: #ef4444;
   --color-info: #3b82f6;
 
-  /* ---------- Spacing ---------- */
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 12px;
-  --spacing-lg: 16px;
-  --spacing-xl: 24px;
+  /* ---------- 输入/交互状态 ---------- */
+  --input-bg: #3c3c3c;
+  --hover-bg: #2a2d2e;
+  --active-bg: #37373d;
 
-  /* ---------- Font Sizes ---------- */
-  --font-size-xs: 10px;
-  --font-size-sm: 11px;
-  --font-size-md: 13px;
-  --font-size-lg: 14px;
-  --font-size-xl: 16px;
-
-  /* ---------- Border Radius ---------- */
+  /* ---------- 间距/圆角/过渡 ---------- */
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-full: 9999px;
-
-  /* ---------- Transitions ---------- */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
-
-  /* ---------- Shadows ---------- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
 }
 
 /* ============================================
-   Light Theme - High Contrast
+   Light Theme
    ============================================ */
 [data-theme="light"] {
-  /* Background - 4 layers with clear distinction */
-  --bg-base: #f8fafc;        /* slate-50 */
-  --bg-surface: #ffffff;     /* 纯白 */
-  --bg-elevated: #f1f5f9;    /* slate-100 */
-  --bg-header: #e2e8f0;      /* slate-200 */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --bg-elevated: #e2e8f0;
 
-  /* Text - High contrast for readability */
-  --text-primary: #0f172a;   /* slate-900 - 高对比度 */
-  --text-secondary: #334155; /* slate-700 */
-  --text-muted: #64748b;     /* slate-500 */
+  --fg-primary: #0f172a;
+  --fg-secondary: #334155;
+  --fg-muted: #64748b;
 
-  /* Border - Visible in light mode */
-  --border-subtle: #e2e8f0; /* slate-200 */
-  --border-default: #cbd5e1; /* slate-300 */
-  --border-focus: #3b82f6;
+  --border-default: #cbd5e1;
+  --border-subtle: #e2e8f0;
 
-  /* Interactive States */
-  --bg-hover: #e2e8f0;
-  --bg-active: #cbd5e1;
-  --bg-input: #f1f5f9;
-  --color-primary-accent: #0078d4;
-
-  /* Shadows - Lighter for light mode */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-
-  transition: background-color var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+  --input-bg: #f1f5f9;
+  --hover-bg: #e2e8f0;
+  --active-bg: #cbd5e1;
 }
 
 /* ============================================
-   Body Styles
+   Body & Base Styles
    ============================================ */
 body,
 html {
   margin: 0;
   padding: 0;
-  background-color: var(--bg-base);
-  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  color: var(--fg-primary);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   height: 100vh;
   width: 100vw;
@@ -122,104 +80,59 @@ html {
 }
 
 /* ============================================
-   Theme-aware Background Classes
+   Theme Utility Classes (CSS Variables)
    ============================================ */
-.bg-theme-base {
-  background-color: var(--bg-base);
-  transition: background-color var(--transition-normal);
-}
+.bg-primary { background-color: var(--bg-primary); }
+.bg-secondary { background-color: var(--bg-secondary); }
+.bg-tertiary { background-color: var(--bg-tertiary); }
+.bg-elevated { background-color: var(--bg-elevated); }
+.bg-input { background-color: var(--input-bg); }
+.bg-hover { background-color: var(--hover-bg); }
+.bg-active { background-color: var(--active-bg); }
 
-.bg-theme-surface {
-  background-color: var(--bg-surface);
-  transition: background-color var(--transition-normal);
-}
+.text-primary { color: var(--fg-primary); }
+.text-secondary { color: var(--fg-secondary); }
+.text-muted { color: var(--fg-muted); }
 
-.bg-theme-elevated {
-  background-color: var(--bg-elevated);
-  transition: background-color var(--transition-normal);
-}
+.border-default { border-color: var(--border-default); }
+.border-subtle { border-color: var(--border-subtle); }
 
-.bg-theme-header {
-  background-color: var(--bg-header);
-  transition: background-color var(--transition-normal);
-}
+.text-primary-color { color: var(--color-primary); }
+.text-success { color: var(--color-success); }
+.text-warning { color: var(--color-warning); }
+.text-error { color: var(--color-error); }
+.text-info { color: var(--color-info); }
 
-.bg-theme-hover {
-  background-color: var(--bg-hover);
-  transition: background-color var(--transition-fast);
-}
-
-.bg-theme-active {
-  background-color: var(--bg-active);
-  transition: background-color var(--transition-fast);
-}
-
-.bg-theme-input {
-  background-color: var(--bg-input);
-  transition: background-color var(--transition-fast);
-}
-
-.text-theme-accent {
-  color: var(--color-primary-accent);
-}
+.bg-primary-color { background-color: var(--color-primary); }
+.bg-success { background-color: var(--color-success); }
+.bg-warning { background-color: var(--color-warning); }
+.bg-error { background-color: var(--color-error); }
+.bg-info { background-color: var(--color-info); }
 
 /* ============================================
-   Theme-aware Text Classes
+   Legacy Theme Classes (Backward Compatibility)
    ============================================ */
-.text-theme-primary {
-  color: var(--text-primary);
-  transition: color var(--transition-normal);
-}
+.bg-theme-base { background-color: var(--bg-primary); }
+.bg-theme-surface { background-color: var(--bg-secondary); }
+.bg-theme-elevated { background-color: var(--bg-tertiary); }
+.bg-theme-header { background-color: var(--bg-elevated); }
+.bg-theme-hover { background-color: var(--hover-bg); }
+.bg-theme-active { background-color: var(--active-bg); }
+.bg-theme-input { background-color: var(--input-bg); }
 
-.text-theme-secondary {
-  color: var(--text-secondary);
-  transition: color var(--transition-normal);
-}
+.text-theme-primary { color: var(--fg-primary); }
+.text-theme-secondary { color: var(--fg-secondary); }
+.text-theme-muted { color: var(--fg-muted); }
+.text-theme-accent { color: var(--color-primary); }
 
-.text-theme-muted {
-  color: var(--text-muted);
-  transition: color var(--transition-normal);
-}
+.border-theme-subtle { border-color: var(--border-subtle); }
+.border-theme-default { border-color: var(--border-default); }
+.border-theme-focus { border-color: var(--color-primary); }
 
-/* ============================================
-   Theme-aware Border Classes
-   ============================================ */
-.border-theme-subtle {
-  border-color: var(--border-subtle);
-  transition: border-color var(--transition-normal);
-}
-
-.border-theme-default {
-  border-color: var(--border-default);
-  transition: border-color var(--transition-normal);
-}
-
-.border-theme-focus {
-  border-color: var(--border-focus);
-}
-
-/* ============================================
-   Legacy bg-dark classes (backward compatibility)
-   ============================================ */
-.bg-dark-1 {
-  background-color: var(--bg-surface);
-  transition: background-color var(--transition-normal);
-}
-
-.bg-dark-2 {
-  background-color: var(--bg-base);
-  transition: background-color var(--transition-normal);
-}
-
-.bg-dark-3 {
-  background-color: var(--bg-elevated);
-  transition: background-color var(--transition-normal);
-}
-
-.bg-header {
-  background-color: var(--bg-header);
-  transition: background-color var(--transition-normal);
-}
+.bg-dark-1 { background-color: var(--bg-secondary); }
+.bg-dark-2 { background-color: var(--bg-primary); }
+.bg-dark-3 { background-color: var(--bg-tertiary); }
+.bg-header { background-color: var(--bg-elevated); }
 
 /* ============================================
    Scrollbar Styles
@@ -232,33 +145,27 @@ html {
 
 .custom-scrollbar::-webkit-scrollbar-track,
 ::-webkit-scrollbar-track {
-  background: var(--bg-base);
+  background: var(--bg-primary);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb,
 ::-webkit-scrollbar-thumb {
   background: var(--border-default);
   border-radius: 5px;
-  border: 2px solid var(--bg-base);
+  border: 2px solid var(--bg-primary);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover,
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--fg-muted);
 }
 
 /* ============================================
    Animations
    ============================================ */
 @keyframes scale-in-center {
-  0% {
-    transform: scale(0.95);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .scale-in-center {
@@ -279,16 +186,11 @@ html {
   animation: fade-in 0.3s ease-out both;
 }
 
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-}
-
 /* ============================================
    Focus Styles (Accessibility)
    ============================================ */
 *:focus-visible {
-  outline: 2px solid var(--border-focus);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -296,15 +198,8 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--border-focus);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
-}
-
-/* ============================================
-   Focus Ring Utility (Accessibility)
-   ============================================ */
-.focus-ring:focus-visible {
-  box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--border-focus);
 }
 
 /* ============================================

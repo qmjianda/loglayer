@@ -38,7 +38,7 @@ export const InputMapper: React.FC<InputMapperProps> = ({
             return (
                 <input
                     type="text"
-                    className="bg-dark-2 border border-[#444] px-2 py-1 text-[11px] rounded text-gray-200 w-full focus:outline-none focus:border-blue-500"
+                    className="bg-primary border border-default px-2 py-1 text-[11px] rounded text-primary w-full focus:outline-none focus:border-primary-color"
                     value={value || ''}
                     onChange={(e) => onChange(e.target.value)}
                     placeholder={field.display_name}
@@ -64,7 +64,7 @@ export const InputMapper: React.FC<InputMapperProps> = ({
             return (
                 <input
                     type="number"
-                    className="bg-dark-2 border border-[#444] px-2 py-1 text-[11px] rounded text-gray-200 w-20 focus:outline-none focus:border-blue-500"
+                    className="bg-primary border border-default px-2 py-1 text-[11px] rounded text-primary w-20 focus:outline-none focus:border-primary-color"
                     value={value || 0}
                     min={field.min}
                     max={field.max}
@@ -77,13 +77,13 @@ export const InputMapper: React.FC<InputMapperProps> = ({
                 <div className="flex items-center space-x-2 w-full">
                     <input
                         type="range"
-                        className="w-full h-1 bg-[#444] rounded appearance-none accent-blue-500 cursor-pointer"
+                        className="w-full h-1 bg-default rounded appearance-none accent-primary-color cursor-pointer"
                         value={value || 100}
                         min={field.min}
                         max={field.max}
                         onChange={(e) => onChange(parseInt(e.target.value, 10))}
                     />
-                    <span className="text-[10px] text-blue-400 font-mono w-8 text-right">{value}%</span>
+                    <span className="text-[10px] text-info font-mono w-8 text-right">{value}%</span>
                 </div>
             );
 
@@ -96,21 +96,21 @@ export const InputMapper: React.FC<InputMapperProps> = ({
                         checked={!!value}
                         onChange={(e) => onChange(e.target.checked)}
                     />
-                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${value ? 'bg-blue-600 border-blue-600' : 'border-[#666] group-hover:border-[#888]'}`}>
+                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${value ? 'bg-primary-color border-primary-color' : 'border-default group-hover:border-muted'}`}>
                         {value && (
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeWidth="4" d="M5 13l4 4L19 7" />
                             </svg>
                         )}
                     </div>
-                    <span className="text-[11px] text-gray-400 group-hover:text-gray-200">{field.display_name}</span>
+                    <span className="text-[11px] text-secondary group-hover:text-primary">{field.display_name}</span>
                 </label>
             );
 
         case 'dropdown':
             return (
                 <select
-                    className="bg-dark-2 border border-[#444] px-1 py-1 text-[11px] rounded text-gray-200 focus:outline-none focus:border-blue-500"
+                    className="bg-primary border border-default px-1 py-1 text-[11px] rounded text-primary focus:outline-none focus:border-primary-color"
                     value={value || ''}
                     onChange={(e) => onChange(e.target.value)}
                 >
@@ -147,8 +147,8 @@ export const InputMapper: React.FC<InputMapperProps> = ({
                                     onChange(newValue);
                                 }}
                                 className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${isActive
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-[#333] text-gray-400 hover:bg-[#444] hover:text-gray-200'
+                                    ? 'bg-primary-color text-white'
+                                    : 'bg-tertiary text-muted hover:bg-hover hover:text-secondary'
                                     }`}
                             >
                                 {opt}

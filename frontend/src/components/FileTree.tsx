@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { listDirectory } from '../bridge_client';
 import { LayersPanel } from './LayersPanel';
 import { LogLayer } from '../types';
+import { FILE_ICON_COLORS } from '../theme';
 
 interface FileTreeItem {
     name: string;
