@@ -218,7 +218,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
             {isEditing ? (
               <input
                 autoFocus
-                className="no-drag w-full bg-dark-2 border border-blue-500 text-[11px] px-1 rounded text-white h-6 outline-none shadow-[0_0_5px_rgba(59,130,246,0.3)]"
+                className="no-drag w-full bg-theme-base border border-blue-500 text-[11px] px-1 rounded text-white h-6 outline-none shadow-[0_0_5px_rgba(59,130,246,0.3)]"
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
                 onBlur={saveName}
@@ -316,7 +316,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   const renderingLayers = layers.filter(l => RENDERING_TYPES.includes(l.type) && l.groupId === undefined);
 
   const ZoneHeader: React.FC<{ title: string; icon: React.ReactNode; count: number }> = ({ title, icon, count }) => (
-    <div className="flex items-center gap-2 px-3 py-2 bg-dark-2 border-b border-[#333] text-[10px] uppercase tracking-wide text-gray-500 font-semibold select-none">
+    <div className="flex items-center gap-2 px-3 py-2 bg-theme-base border-b border-[#333] text-[10px] uppercase tracking-wide text-gray-500 font-semibold select-none">
       {icon}
       <span>{title}</span>
       <span className="ml-auto text-[9px] bg-black/40 px-1.5 py-0.5 rounded text-gray-600 font-mono">{count}</span>

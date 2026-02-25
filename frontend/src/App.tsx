@@ -606,7 +606,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div
-      className="flex flex-col h-screen select-none overflow-hidden text-sm bg-dark-2 text-[#cccccc]"
+      className="flex flex-col h-screen select-none overflow-hidden text-sm bg-theme-base text-[#cccccc]"
       onDragOver={(e) => {
         // 关键修复：防止浏览器默认的拖拽操作（如直接打开文件）
         // 这样组件内部的 Drop 区域才能正常工作。
@@ -778,7 +778,7 @@ const AppContent: React.FC = () => {
         </div>
 
         {/* 主内容区域：显示日志视图或帮助文档 */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-dark-2 relative select-text overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-theme-base relative select-text overflow-hidden">
           {activeView === 'help' ? (
             <HelpPanel />
           ) : (
@@ -832,13 +832,13 @@ const AppContent: React.FC = () => {
                   const paneStats = processedData?.layerStats || {};
 
                   return (
-                    <div key={pane.id} className="flex-1 flex flex-col min-w-0 min-h-0 bg-dark-2 relative border-r border-[#111] overflow-hidden">
+                    <div key={pane.id} className="flex-1 flex flex-col min-w-0 min-h-0 bg-theme-base relative border-r border-[#111] overflow-hidden">
                       <div
                         className={`flex-1 flex flex-col min-h-0 relative ${activePaneId === pane.id ? 'ring-1 ring-blue-500/30' : ''}`}
                         onClick={() => setActivePaneId(pane.id)}
                       >
                         {/* 标签栏（目前显示当前文件名） */}
-                        <div className="h-8 bg-dark-1 flex items-center px-4 text-xs text-gray-400 border-b border-[#111] shrink-0 select-none">
+                        <div className="h-8 bg-theme-surface flex items-center px-4 text-xs text-gray-400 border-b border-[#111] shrink-0 select-none">
                           <span className="truncate">{paneFileId ? (files.find(f => f.id === paneFileId)?.name || 'Unknown File') : 'Empty Pane'}</span>
                           <div className="ml-auto flex gap-2">
                             {panes.length > 1 && (
@@ -896,7 +896,7 @@ const AppContent: React.FC = () => {
                         ) : (
                           // 无文件时的欢迎界面
                           <div
-                            className="flex-1 flex flex-col items-center justify-center text-gray-600 bg-dark-2 cursor-pointer hover:bg-dark-1 transition-colors"
+                            className="flex-1 flex flex-col items-center justify-center text-gray-600 bg-theme-base cursor-pointer hover:bg-theme-surface transition-colors"
                             onClick={handleOpen}
                           >
                             <svg className="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>

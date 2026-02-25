@@ -34,7 +34,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     }, [rootPath, rootName]);
 
     return (
-        <div className="flex-1 overflow-y-auto custom-scrollbar select-none py-1 bg-dark-2">
+        <div className="flex-1 overflow-y-auto custom-scrollbar select-none py-1 bg-theme-surface">
             {tree && (
                 <TreeNode
                     key={tree.path}
