@@ -638,7 +638,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         return;
       }
 
-      const firstVisibleY = startIndex * lineHeight - safeScrollTop;
+      const firstVisibleY = (startIndex - Math.floor(safeScrollTop / lineHeight)) * lineHeight;
 
       for (let i = startIndex; i < endIndex; i++) {
         if (i >= totalLines) break;
@@ -835,8 +835,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
               left: 0,
               width: viewportWidth,
               height: viewportHeight,
-              transform: `translate3d(${scrollLeft}px, ${scrollTop}px, 0)`,
-              willChange: 'transform',
               pointerEvents: 'none',
               zIndex: 1
             }}
