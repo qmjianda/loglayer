@@ -653,6 +653,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
         // 1. Backgrounds
         const rowStyle = logLine?.rowStyle;
+        const hasData = line !== undefined;
         if (highlightedIndex === i) {
           // Current line highlight - use a more visible cyan tint
           ctx.fillStyle = 'rgba(34, 211, 238, 0.15)';
@@ -662,6 +663,10 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
         } else if (isMarked) {
           ctx.fillStyle = colors.BOOKMARK_BACKGROUND;
+          ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
+        } else if (!hasData) {
+          // Loading placeholder - draw faint background to prevent transparency
+          ctx.fillStyle = colors.BACKGROUND;
           ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
         }
 
