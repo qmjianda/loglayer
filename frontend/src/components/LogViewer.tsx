@@ -123,6 +123,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const [bridgedLines, setBridgedLines] = useState<Map<number, LogLine | string>>(new Map());
   const lastFetchRef = useRef<{ start: number; end: number }>({ start: -1, end: -1 });
   const scrollVelocityRef = useRef(0);
+  const scrollDirectionRef = useRef<'up' | 'down' | null>(null);
   const lastScrollTimeRef = useRef(0);
   const lastScrollTopRef = useRef(0);
 
@@ -144,7 +145,9 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const realTotalHeight = totalLines * lineHeight;
   const useScrollScaling = realTotalHeight > VIRTUAL_HEIGHT_LIMIT;
   const baseBuffer = useScrollScaling ? BUFFER_LARGE : BUFFER_NORMAL;
-  const dynamicBuffer = Math.min(virtualScrollBufferSetting, baseBuffer + Math.abs(scrollVelocityRef.current) * 50);
+  const velocityBuffer = Math.abs(scrollVelocityRef.current) * 200;
+  const directionBonus = scrollDirectionRef.current === 'down' ? 500 : 0;
+  const dynamicBuffer = Math.min(virtualScrollBufferSetting, baseBuffer + velocityBuffer + directionBonus);
   const buffer = dynamicBuffer;
   const scaleFactor = useScrollScaling ? VIRTUAL_HEIGHT_LIMIT / realTotalHeight : 1;
   const virtualTotalHeight = (useScrollScaling ? VIRTUAL_HEIGHT_LIMIT : realTotalHeight) + SCROLL_MARGIN;
@@ -807,6 +810,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           const delta = st - lastScrollTopRef.current;
           const timeDelta = now - lastScrollTimeRef.current;
           scrollVelocityRef.current = delta / timeDelta;
+          scrollDirectionRef.current = delta > 0 ? 'down' : delta < 0 ? 'up' : scrollDirectionRef.current;
         }
         
         lastScrollTimeRef.current = now;
