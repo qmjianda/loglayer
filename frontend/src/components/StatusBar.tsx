@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { usePluginWidgets } from '../hooks/usePluginWidgets';
 import { useSettings } from '../hooks/useSettings';
 import { PerformanceIndicator } from './PerformanceIndicator';
-import { PerformanceMetrics } from '../hooks/usePerformanceOptimization';
+import { PerformanceMetrics } from '../hooks/useVirtualScroll';
 
 interface StatusBarProps {
   lines: number;

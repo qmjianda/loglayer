@@ -2,9 +2,10 @@
  * useSearch - Search state and operations hook
  * 
  * Manages search query, config, match navigation, and sync with backend.
+ * Includes local state management and F3 keyboard shortcuts.
  */
 
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { syncAll } from '../bridge_client';
 import { LogLayer } from '../types';
 
@@ -24,14 +25,15 @@ export interface UseSearchProps {
     lineCount: number;
     searchMatchCount: number;
     setProcessedCache: React.Dispatch<React.SetStateAction<Record<string, any>>>;
-    // State managed by parent
+}
+
+export interface UseSearchReturn {
+    // State
     searchQuery: string;
     setSearchQuery: (query: string) => void;
     searchConfig: SearchConfig;
     setSearchConfig: React.Dispatch<React.SetStateAction<SearchConfig>>;
-}
-
-export interface UseSearchReturn {
+    
     // Match state
     currentMatchRank: number;
     setCurrentMatchRank: (rank: number) => void;
@@ -54,12 +56,17 @@ export function useSearch({
     layersFunctionalHash,
     lineCount,
     searchMatchCount,
-    setProcessedCache,
-    searchQuery,
-    setSearchQuery,
-    searchConfig,
-    setSearchConfig
+    setProcessedCache
 }: UseSearchProps): UseSearchReturn {
+    // Search state (merged from useSearchLogic)
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchConfig, setSearchConfig] = useState<SearchConfig>({
+        regex: false,
+        caseSensitive: false,
+        wholeWord: false,
+        mode: 'highlight'
+    });
+    
     const [currentMatchRank, setCurrentMatchRank] = useState(-1);
     const [currentMatchIndex, setCurrentMatchIndex] = useState(-1);
     const [isSearching, setIsSearching] = useState(false);
@@ -157,7 +164,25 @@ export function useSearch({
         setIsSearching(false);
     }, [setSearchQuery]);
 
+    // F3/Shift+F3 keyboard shortcuts for search result navigation
+    useEffect(() => {
+        const handleF3 = async (e: KeyboardEvent) => {
+            if (e.key !== 'F3') return;
+            e.preventDefault();
+
+            const direction = e.shiftKey ? 'prev' : 'next';
+            await findNextSearchMatch(direction);
+        };
+
+        window.addEventListener('keydown', handleF3);
+        return () => window.removeEventListener('keydown', handleF3);
+    }, [findNextSearchMatch]);
+
     return {
+        searchQuery,
+        setSearchQuery,
+        searchConfig,
+        setSearchConfig,
         currentMatchRank,
         setCurrentMatchRank,
         currentMatchIndex,

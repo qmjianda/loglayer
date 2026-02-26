@@ -40,7 +40,7 @@ import {
 } from './hooks';
 import { useFileManagement } from './hooks/useFileManagement';
 import { useLayerManagement } from './hooks/useLayerManagement';
-import { useSearchLogic } from './hooks/useSearchLogic';
+import { useSearch } from './hooks/useSearch';
 import { useBookmarkLogic } from './hooks/useBookmarkLogic';
 import { useBookmarks } from './hooks/useBookmarks';
 import { useSettings, SettingsProvider } from './hooks/useSettings';
@@ -129,11 +129,11 @@ const AppContent: React.FC = () => {
 
   // ===== 搜索状态 (Search State) =====
   // 集中管理搜索相关的视图状态
-  // searchMode 纯 UI 状态，保留在 App 中或移入 useSearchLogic (这里先保留在 Component 中，或者如果 useSearchLogic 支持则使用它)
-  // 检查 useSearchLogic 是否导出 searchMode? 暂时没有，所以保留本地 state 用于 Widget 显示控制
-  // 但注意 searchConfig.mode 已经在 useSearchLogic 中管理
-
-  // 修正：useSearchLogic 内部维护了 searchConfig.mode，我们应该使用它
+  // searchMode 纯 UI 状态，保留在 App 中或移入 useSearch (这里先保留在 Component 中)
+  // 检查 useSearch 是否导出 searchMode? 暂时没有，所以保留本地 state 用于 Widget 显示控制
+  // 但注意 searchConfig.mode 已经在 useSearch 中管理
+  
+  // 修正：useSearch 内部维护了 searchConfig.mode，我们应该使用它
   // 如果 EditorFindWidget 需要独立的 'filter' | 'highlight' toggle，应该通过 setSearchConfig 更新
 
   // UI 状态控制 (UI State)
@@ -141,7 +141,7 @@ const AppContent: React.FC = () => {
   // Note: 书签导航将在 uiState 返回后定义，使用 useEffect 注册
   // ===== 搜索功能逻辑 (Search Logic Hook) =====
   // Must be called BEFORE useUIState because UI state depends on search methods
-  const search = useSearchLogic({
+  const search = useSearch({
     activeFileId,
     layers,
     layersFunctionalHash,

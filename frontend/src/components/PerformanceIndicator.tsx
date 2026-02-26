@@ -1,5 +1,5 @@
 import React from 'react';
-import { PerformanceMetrics } from '../hooks/usePerformanceOptimization';
+import { PerformanceMetrics } from '../hooks/useVirtualScroll';
 
 interface PerformanceIndicatorProps {
   metrics: PerformanceMetrics;

@@ -1,3 +1,5 @@
+import { THEME_PRESETS } from './theme/presets';
+
 export const DARK_THEME = {
   background: {
     primary: '#0d0d0d',
@@ -26,7 +28,7 @@ export const DARK_THEME = {
     hover: '#2a2d2e',
     active: '#37373d',
   },
-} as const;
+};
 
 export const LIGHT_THEME = {
   background: {
@@ -56,7 +58,7 @@ export const LIGHT_THEME = {
     hover: '#e2e8f0',
     active: '#cbd5e1',
   },
-} as const;
+};
 
 export const LOG_VIEWER_COLORS = {
   DARK: {
@@ -87,7 +89,7 @@ export const LOG_VIEWER_COLORS = {
     LAYER_HIGHLIGHT: '#2563eb',
     CURRENT_LINE: '#3b82f6',
   },
-} as const;
+};
 
 export const FILE_ICON_COLORS = {
   gitignore: '#f1502f',
@@ -101,14 +103,87 @@ export const FILE_ICON_COLORS = {
   vite: '#bd34fe',
   folder: '#858585',
   default: '#858585',
-} as const;
+};
 
-export type ThemeMode = 'dark' | 'light';
+export type ThemeMode = 'dark' | 'light' | 'monokai' | 'dracula' | 'nord' | 'githubDark';
 
-export function getThemeColors(mode: ThemeMode) {
-  return mode === 'dark' ? DARK_THEME : LIGHT_THEME;
+export interface Theme {
+  id: ThemeMode;
+  name: string;
+  colors: typeof DARK_THEME;
+  logViewer: typeof LOG_VIEWER_COLORS.DARK;
 }
 
-export function getLogViewerColors(mode: ThemeMode) {
-  return mode === 'dark' ? LOG_VIEWER_COLORS.DARK : LOG_VIEWER_COLORS.LIGHT;
+const THEMES: Theme[] = [
+  { id: 'dark', name: 'Dark', colors: DARK_THEME, logViewer: LOG_VIEWER_COLORS.DARK },
+  { id: 'light', name: 'Light', colors: LIGHT_THEME, logViewer: LOG_VIEWER_COLORS.LIGHT },
+  { id: 'monokai', name: 'Monokai', colors: THEME_PRESETS.monokai.colors, logViewer: THEME_PRESETS.monokai.logViewer },
+  { id: 'dracula', name: 'Dracula', colors: THEME_PRESETS.dracula.colors, logViewer: THEME_PRESETS.dracula.logViewer },
+  { id: 'nord', name: 'Nord', colors: THEME_PRESETS.nord.colors, logViewer: THEME_PRESETS.nord.logViewer },
+  { id: 'githubDark', name: 'GitHub Dark', colors: THEME_PRESETS.githubDark.colors, logViewer: THEME_PRESETS.githubDark.logViewer },
+];
+
+const themesById: Record<ThemeMode, Theme> = THEMES.reduce((acc, theme) => {
+  acc[theme.id] = theme;
+  return acc;
+}, {} as Record<ThemeMode, Theme>);
+
+export function getThemeColors(mode: ThemeMode): typeof DARK_THEME {
+  return themesById[mode]?.colors || DARK_THEME;
+}
+
+export function getLogViewerColors(mode: ThemeMode): typeof LOG_VIEWER_COLORS.DARK {
+  return themesById[mode]?.logViewer || LOG_VIEWER_COLORS.DARK;
+}
+
+export function getTheme(mode: ThemeMode): Theme {
+  return themesById[mode] || themesById.dark;
+}
+
+export function getAllThemes(): Theme[] {
+  return THEMES;
+}
+
+export function getThemeById(id: ThemeMode): Theme | undefined {
+  return themesById[id];
+}
+
+export function isValidTheme(id: string): id is ThemeMode {
+  return id in themesById;
+}
+
+export function setCssVariables(theme: Theme): void {
+  const root = document.documentElement;
+  
+  root.style.setProperty('--bg-primary', theme.colors.background.primary);
+  root.style.setProperty('--bg-secondary', theme.colors.background.secondary);
+  root.style.setProperty('--bg-tertiary', theme.colors.background.tertiary);
+  root.style.setProperty('--bg-elevated', theme.colors.background.elevated);
+  
+  root.style.setProperty('--fg-primary', theme.colors.foreground.primary);
+  root.style.setProperty('--fg-secondary', theme.colors.foreground.secondary);
+  root.style.setProperty('--fg-muted', theme.colors.foreground.muted);
+  
+  root.style.setProperty('--border-default', theme.colors.border.default);
+  root.style.setProperty('--border-subtle', theme.colors.border.subtle);
+  
+  root.style.setProperty('--color-primary', theme.colors.color.primary);
+  root.style.setProperty('--color-success', theme.colors.color.success);
+  root.style.setProperty('--color-warning', theme.colors.color.warning);
+  root.style.setProperty('--color-error', theme.colors.color.error);
+  root.style.setProperty('--color-info', theme.colors.color.info);
+  
+  root.style.setProperty('--input-background', theme.colors.input.background);
+  root.style.setProperty('--input-hover', theme.colors.input.hover);
+  root.style.setProperty('--input-active', theme.colors.input.active);
+
+  root.style.setProperty('--log-bg', theme.logViewer.BACKGROUND);
+  root.style.setProperty('--log-gutter', theme.logViewer.GUTTER);
+  root.style.setProperty('--log-text', theme.logViewer.TEXT);
+  root.style.setProperty('--log-selection', theme.logViewer.SELECTION);
+  root.style.setProperty('--log-highlight', theme.logViewer.HIGHLIGHT_LINE);
+  root.style.setProperty('--log-search', theme.logViewer.SEARCH_HIGHLIGHT);
+  root.style.setProperty('--log-layer', theme.logViewer.LAYER_HIGHLIGHT);
+  root.style.setProperty('--log-current-line', theme.logViewer.CURRENT_LINE);
+  root.style.setProperty('--log-bookmark', theme.logViewer.BOOKMARK_INDICATOR);
 }
