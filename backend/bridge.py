@@ -40,18 +40,22 @@ def convert_windows_path_to_linux(windows_path: str) -> str:
 
 
 def resolve_file_path(file_path: str) -> str:
-    """解析文件路径，尝试将 Windows 路径转换为 Linux 路径"""
-    # 首先检查原路径是否存在
-    if os.path.exists(file_path):
-        return file_path
+    """解析文件路径，处理跨平台路径问题"""
+    # 使用 Path 来规范化路径（处理正反斜杠）
+    normalized_path = Path(file_path)
 
-    # 尝试转换为 Linux 路径
-    linux_path = convert_windows_path_to_linux(file_path)
-    if os.path.exists(linux_path):
-        return linux_path
+    # 首先检查原路径是否存在（Path会自动处理路径格式）
+    if normalized_path.exists():
+        return str(normalized_path)
 
-    # 返回原始路径，让后续逻辑处理错误
-    return file_path
+    # 在非 Windows 平台上，尝试转换为 Linux 路径
+    if platform.system() != "Windows":
+        linux_path = convert_windows_path_to_linux(file_path)
+        if Path(linux_path).exists():
+            return linux_path
+
+    # 返回规范化后的原始路径
+    return str(normalized_path)
 
 
 try:
