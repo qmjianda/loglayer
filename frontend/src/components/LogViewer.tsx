@@ -939,8 +939,11 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       )}
 
       <button
-        className="fixed bottom-2 left-2 text-[10px] text-gray-600 hover:text-gray-400 z-[1000]"
-        onClick={() => setShowPerformancePanel(p => !p)}
+        className="fixed bottom-8 right-2 text-[10px] text-gray-600 hover:text-gray-400 z-[1000]"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowPerformancePanel(p => !p);
+        }}
       >
         {showPerformancePanel ? 'Hide' : 'Perf'}
       </button>

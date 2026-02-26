@@ -58,7 +58,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   return (
     <div className={`h-6 bg-theme-active text-white flex items-center justify-between px-3 text-[11px] font-medium shrink-0 transition-colors duration-300`}>
       <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-1.5 cursor-pointer hover:bg-white/10 px-1 rounded transition-colors">
+        <div className="flex items-center space-x-1.5 hover:bg-white/10 px-1 rounded transition-colors">
           {(isProcessing || isLayerProcessing) ? (
             <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
               <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" strokeLinecap="round" />
