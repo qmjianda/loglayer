@@ -87,7 +87,7 @@ async def get_config():
     return {
         "provider": config.provider,
         "model": config.model,
-        "baseUrl": config.base_url,
+        "baseUrl": config.baseUrl,
         "isConnected": service.is_connected(),
     }
 

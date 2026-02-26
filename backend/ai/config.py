@@ -1,21 +1,22 @@
 from enum import Enum
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AIProvider(str, Enum):
-    HEURISTIC = "heuristic"
+    NONE = "none"
     OPENAI = "openai"
     OLLAMA = "ollama"
 
 
 class AIConfig(BaseModel):
-    provider: AIProvider = AIProvider.HEURISTIC
-    api_key: Optional[str] = None
+    provider: AIProvider = AIProvider.NONE
+    apiKey: Optional[str] = Field(default=None, alias="api_key")
     model: str = "gpt-4o-mini"
-    base_url: Optional[str] = None
+    baseUrl: Optional[str] = Field(default=None, alias="base_url")
 
     class Config:
+        populate_by_name = True
         use_enum_values = True
 
 

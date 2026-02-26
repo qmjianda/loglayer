@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getBackendUrl, fetchJson } from '../utils';
 
-export type AIProviderType = 'heuristic' | 'openai' | 'ollama';
+export type AIProviderType = 'none' | 'openai' | 'ollama';
 
 export interface AISettings {
   provider: AIProviderType;
@@ -23,7 +23,7 @@ export interface UseAISettingsReturn {
 
 export function useAISettings(): UseAISettingsReturn {
   const [settings, setSettings] = useState<AISettings>({
-    provider: 'heuristic',
+    provider: 'none',
     model: 'gpt-4o-mini',
     baseUrl: 'http://localhost:11434',
     isConnected: false
@@ -56,6 +56,10 @@ export function useAISettings(): UseAISettingsReturn {
   };
 
   const loadModels = useCallback(async () => {
+    if (settings.provider === 'none') {
+      setAvailableModels([]);
+      return;
+    }
     try {
       console.log('[AISettings] Loading models for provider:', settings.provider);
       const result = await fetchJson<{ models: string[] }>('/api/ai/models');
@@ -75,14 +79,9 @@ export function useAISettings(): UseAISettingsReturn {
       const payload: any = {
         provider: merged.provider,
         model: merged.model,
+        apiKey: merged.apiKey,
+        baseUrl: merged.baseUrl,
       };
-      
-      if (merged.apiKey) {
-        payload.api_key = merged.apiKey;
-      }
-      if (merged.baseUrl) {
-        payload.base_url = merged.baseUrl;
-      }
       
       console.log('[AISettings] Updating config:', payload);
       await fetchJson('/api/ai/config', 'POST', payload);

@@ -49,7 +49,7 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
   };
 
   const providerOptions: { value: AIProviderType; label: string; desc: string }[] = [
-    { value: 'heuristic', label: '启发式 (离线)', desc: '无需网络，使用正则表达式分析' },
+    { value: 'none', label: '禁用 AI', desc: '完全禁用 AI 功能，使用启发式分析' },
     { value: 'openai', label: 'OpenAI (云端)', desc: '使用 GPT 模型，需要 API Key' },
     { value: 'ollama', label: 'Ollama (本地)', desc: '使用本地运行的模型' },
   ];
@@ -106,7 +106,7 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
       </div>
 
       {/* Model Selection */}
-      {settings.provider !== 'heuristic' && (
+      {settings.provider !== 'none' && (
         <div className="space-y-2">
           <label className="block text-sm font-medium text-theme-primary">模型</label>
           <select
@@ -213,7 +213,7 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
           </span>
           <button
             onClick={handleTestConnection}
-            disabled={isTesting || settings.provider === 'heuristic'}
+            disabled={isTesting || settings.provider === 'none'}
             className="px-3 py-1 text-xs bg-theme-elevated hover:bg-theme-default disabled:opacity-50 disabled:cursor-not-allowed text-theme-secondary rounded transition-colors"
           >
             {isTesting ? '测试中...' : '测试连接'}

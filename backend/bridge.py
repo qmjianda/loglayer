@@ -15,8 +15,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 def convert_windows_path_to_linux(windows_path: str) -> str:
-    """将 Windows 路径转换为 Linux 路径"""
-    if platform.system() != "Windows":
+    """将 Windows 路径转换为 Linux 路径（仅在 Linux/macOS 平台上执行转换）"""
+    # 仅在非 Windows 平台上进行转换
+    if platform.system() == "Windows":
+        # 在 Windows 平台上，直接返回原路径
+        return windows_path
+    else:
+        # 在 Linux 或 macOS 平台上，执行路径转换
         # 处理 Windows 盘符 (如 D:\Project\... -> /mnt/d/Project/...)
         path = windows_path.replace("\\", "/")
 
@@ -36,7 +41,6 @@ def convert_windows_path_to_linux(windows_path: str) -> str:
         # 如果不是 Windows 盘符，可能是 WSL 路径或网络路径
         # 尝试直接返回转换后的路径
         return path
-    return windows_path
 
 
 def resolve_file_path(file_path: str) -> str:
