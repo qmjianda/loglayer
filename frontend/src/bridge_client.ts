@@ -181,6 +181,7 @@ class WebBridge implements FileBridgeAPI {
     async get_layer_registry() { return JSON.stringify(await this.get('get_layer_registry')); }
     async reload_plugins() { return this.post('reload_plugins'); }
     async get_platform_info() { return this.get('platform'); }
+    async get_log_level_stats(fileId: string) { return this.get('log_level_stats', { file_id: fileId }); }
 
     // Bookmark APIs
     async toggle_bookmark(fileId: string, lineIndex: number) {
@@ -277,6 +278,16 @@ export async function reloadPlugins(): Promise<boolean> {
 export async function getPlatformInfo(): Promise<string> {
     if (!fileBridge) return "Unknown";
     return await fileBridge.get_platform_info();
+}
+
+export async function getLogLevelStats(fileId: string): Promise<Record<string, number>> {
+    if (!fileBridge) return {};
+    try {
+        return await fileBridge.get_log_level_stats(fileId);
+    } catch (e) {
+        console.error('[Bridge] get_log_level_stats error:', e);
+        return {};
+    }
 }
 
 export function signalReady(): void {

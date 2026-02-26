@@ -377,6 +377,12 @@ def get_file_info(file_id: str):
         return {"error": str(e)}
 
 
+@app.get("/api/log_level_stats")
+def get_log_level_stats(file_id: str):
+    """获取日志级别统计"""
+    return bridge.get_log_level_stats(file_id)
+
+
 # Serve Frontend
 base_dir = os.path.dirname(os.path.abspath(__file__))
 www_dir = os.path.join(base_dir, "www")

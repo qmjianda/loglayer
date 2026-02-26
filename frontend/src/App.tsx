@@ -23,10 +23,10 @@ import { StatusBar } from './components/StatusBar';
 import { IndexingOverlay, FileLoadingSkeleton, PendingFilesWall } from './components/LoadingOverlays';
 import { RemotePathPicker } from './components/RemotePathPicker';
 import { AIChatPanel } from './components/AIChatPanel';
-import { StatsPanel } from './components/StatsPanel';
+import { StatsPanel, LogLevelStats } from './components/StatsPanel';
 import { LayerType, LogLine } from './types';
 import { ProcessedCache } from './hooks/useFileManagement';
-import { openFile, syncAll, hasNativeDialogs, toggleBookmark, getNearestBookmarkIndex, getLinesByIndices } from './bridge_client';
+import { openFile, syncAll, hasNativeDialogs, toggleBookmark, getNearestBookmarkIndex, getLinesByIndices, getLogLevelStats } from './bridge_client';
 import { removeFromSet, basename } from './utils';
 
 // 导入自定义 Hooks
@@ -172,6 +172,33 @@ const AppContent: React.FC = () => {
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [isShortcutsVisible, setIsShortcutsVisible] = useState(false);
   const [aiPanelInitialContent, setAiPanelInitialContent] = useState('');
+  const [logLevelStats, setLogLevelStats] = useState<LogLevelStats>({ ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 });
+
+  // Fetch log level stats when active file changes
+  useEffect(() => {
+    if (!activeFileId) {
+      setLogLevelStats({ ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 });
+      return;
+    }
+
+    const fetchStats = async () => {
+      try {
+        const stats = await getLogLevelStats(activeFileId);
+        setLogLevelStats({
+          ERROR: stats.ERROR || 0,
+          WARN: stats.WARN || 0,
+          INFO: stats.INFO || 0,
+          DEBUG: stats.DEBUG || 0,
+          TRACE: stats.TRACE || 0,
+          FATAL: stats.FATAL || 0
+        });
+      } catch (e) {
+        console.error('[App] Failed to fetch log level stats:', e);
+      }
+    };
+
+    fetchStats();
+  }, [activeFileId]);
 
   // Apply search settings from useSettings
   useEffect(() => {
@@ -771,7 +798,7 @@ const AppContent: React.FC = () => {
           {/* 统计视图 */}
           {activeView === 'stats' && (
             <StatsPanel 
-              stats={{ ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 }}
+              stats={logLevelStats}
               total={activeFile?.lineCount || 0}
             />
           )}

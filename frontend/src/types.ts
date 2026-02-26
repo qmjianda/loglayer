@@ -130,6 +130,7 @@ export interface FileBridgeAPI {
   get_layer_registry(): Promise<string>;
   reload_plugins(): Promise<boolean>;
   get_platform_info(): Promise<string>;
+  get_log_level_stats(fileId: string): Promise<Record<string, number>>;
 
   // Signals
   fileLoaded: { connect: (cb: (fileId: string, payloadJson: string) => void) => void };

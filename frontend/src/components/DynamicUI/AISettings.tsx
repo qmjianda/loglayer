@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAISettings, AIProviderType } from '../../hooks/useAISettings';
+import { getLogLevelStats } from '../../bridge_client';
+import { LogLevelStats } from '../StatsPanel';
 
 interface AISettingsPanelProps {
   onClose?: () => void;
