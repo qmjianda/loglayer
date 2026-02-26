@@ -76,6 +76,11 @@ class AIService:
 
     def test_connection(self) -> tuple[bool, str]:
         """Test connection to current provider"""
+        # Try to use provider's own test_connection if available
+        if hasattr(self.provider, "test_connection"):
+            return self.provider.test_connection()
+
+        # Fallback to is_available check
         if self.provider.is_available():
             return True, "Connected"
         return False, "Not available"

@@ -172,6 +172,28 @@ Return empty array if no timestamps found."""
         """Check if OpenAI is configured"""
         return bool(self.api_key)
 
+    def test_connection(self) -> tuple[bool, str]:
+        """Test actual connection to OpenAI API"""
+        if not self.api_key:
+            return False, "API Key 未设置"
+
+        client = self._get_client()
+        if not client:
+            return False, "OpenAI 客户端不可用"
+
+        try:
+            # Make a minimal API call to test connection
+            response = client.models.list()
+            return True, f"连接成功，已获取 {len(response.data)} 个模型"
+        except Exception as e:
+            error_msg = str(e)
+            if "authentication" in error_msg.lower() or "api key" in error_msg.lower():
+                return False, "API Key 无效"
+            elif "connection" in error_msg.lower() or "timeout" in error_msg.lower():
+                return False, "连接失败，请检查网络"
+            else:
+                return False, f"连接失败: {error_msg[:50]}"
+
     def list_models(self) -> list[str]:
         """List available OpenAI models"""
         return ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]

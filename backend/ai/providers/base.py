@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Tuple
 from ..config import (
     ChatMessage,
     ChatResponse,
@@ -45,3 +45,9 @@ class BaseAIProvider(ABC):
     def list_models(self) -> list[str]:
         """List available models"""
         pass
+
+    def test_connection(self) -> Tuple[bool, str]:
+        """Test connection to provider. Override in subclass for real test."""
+        if self.is_available():
+            return True, "Connected"
+        return False, "Not available"

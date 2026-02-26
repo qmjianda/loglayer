@@ -142,6 +142,23 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
         </div>
       )}
 
+      {/* Base URL (for OpenAI compatible APIs) */}
+      {settings.provider === 'openai' && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-theme-primary">API 地址 (Base URL)</label>
+          <input
+            type="text"
+            value={settings.baseUrl || ''}
+            onChange={(e) => updateSettings({ baseUrl: e.target.value })}
+            placeholder="https://api.openai.com/v1"
+            className="w-full px-3 py-2 bg-theme-surface border border-theme-default rounded text-sm text-theme-primary placeholder-theme-muted focus:border-blue-500 focus:outline-none"
+          />
+          <p className="text-xs text-theme-muted">
+            用于自定义 API 地址，如 OpenAI 兼容的第三方服务。默认: https://api.openai.com/v1
+          </p>
+        </div>
+      )}
+
       {/* Base URL (for Ollama) */}
       {settings.provider === 'ollama' && (
         <div className="space-y-2">
