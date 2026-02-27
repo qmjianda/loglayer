@@ -177,9 +177,6 @@ class CustomThread:
 
 
 class IndexingWorker(CustomThread):
-    # Multi-processing for parallel line indexing
-    NUM_WORKERS = 4  # Number of parallel workers
-
     def __init__(self, mmap_obj, size, file_path=None):
         super().__init__()
         self.finished = Signal(object)
@@ -194,117 +191,37 @@ class IndexingWorker(CustomThread):
         try:
             start_time = time.time()
 
-            # For small files, use simple single-threaded approach
-            if self.size < 10 * 1024 * 1024:  # < 10MB
-                offsets = self._index_simple()
-                print(f"[Indexing] Finished in {time.time() - start_time:.4f}s")
-                self.finished.emit(offsets)
-                return
+            # Use optimized single-threaded approach with C-level regex
+            offsets = array.array("Q", [0])
+            scanned = 0
 
-            # For large files, use parallel multi-process indexing
-            offsets = self._index_parallel()
+            # re.finditer is already C-optimized, but we can make it faster
+            # by processing in larger chunks
+            for m in re.finditer(b"\n", self.mmap):
+                if not self._is_running:
+                    return
+                offsets.append(m.start() + 1)
+                scanned += 1
+
+                # Progress update every 1M lines
+                if scanned % 1000000 == 0:
+                    self.progress.emit(scanned / max(1, self.size / 80) * 100)
+
+            # Cleanup tail
+            if len(offsets) > 1 and offsets[-1] >= self.size:
+                offsets.pop()
 
             total_time = time.time() - start_time
+            speed_mbps = self.size / total_time / 1024 / 1024
             print(
-                f"[Indexing] Complete: {len(offsets)} lines in {total_time:.4f}s ({self.size / total_time / 1024 / 1024:.1f} MB/s)"
+                f"[Indexing] Finished: {len(offsets)} lines in {total_time:.2f}s ({speed_mbps:.1f} MB/s)"
             )
             self.finished.emit(offsets)
 
         except Exception as e:
             self.error.emit(str(e))
 
-    def _index_simple(self):
-        """Single-threaded indexing for small files"""
-        offsets = array.array("Q", [0])
-        for m in re.finditer(b"\n", self.mmap):
-            if not self._is_running:
-                return offsets
-            offsets.append(m.start() + 1)
-
-        if len(offsets) > 1 and offsets[-1] >= self.size:
-            offsets.pop()
-        return offsets
-
-    def _index_parallel(self):
-        """Parallel multi-process indexing for large files"""
-        import multiprocessing as mp
-        from concurrent.futures import ProcessPoolExecutor, as_completed
-
-        num_workers = min(self.NUM_WORKERS, mp.cpu_count())
-        chunk_size = self.size // num_workers
-
-        # Create chunks with start positions (use file path for subprocess)
-        file_path = self.file_path
-        chunks = []
-        for i in range(num_workers):
-            start = i * chunk_size
-            end = self.size if i == num_workers - 1 else (i + 1) * chunk_size
-            chunks.append((start, end, file_path))
-
-        # Process chunks in parallel using process pool
-        all_offsets = [0]
-        completed_chunks = 0
-
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            futures = {
-                executor.submit(scan_chunk_from_file, start, end, path): (start, end, i)
-                for i, (start, end, path) in enumerate(chunks)
-            }
-
-            # Collect results as they complete
-            results = {}
-            for future in as_completed(futures):
-                start, end, idx = futures[future]
-                chunk_offsets = future.result()
-                results[idx] = (start, chunk_offsets)
-                completed_chunks += 1
-                self.progress.emit(completed_chunks / num_workers * 100)
-
-        # Merge results in order
-        for i in range(num_workers):
-            start, chunk_offsets = results[i]
-            # Adjust offsets to be absolute positions
-            for off in chunk_offsets:
-                all_offsets.append(start + off)
-
-        # Sort and deduplicate
-        all_offsets = sorted(set(all_offsets))
-
-        # Ensure starts with 0
-        if all_offsets[0] != 0:
-            all_offsets.insert(0, 0)
-
-        # Remove last if it points beyond file end
-        if len(all_offsets) > 1 and all_offsets[-1] >= self.size:
-            all_offsets.pop()
-
-        return array.array("Q", all_offsets)
-
-
-def scan_chunk_from_file(start: int, end: int, file_path: str) -> list:
-    """Standalone function to scan a chunk - can be pickled"""
-    import mmap
-
-    local_offsets = []
-
-    try:
-        with open(file_path, "rb") as f:
-            with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
-                chunk_data = mm[start:end]
-
-                for i, byte in enumerate(chunk_data):
-                    if byte == ord("\n"):
-                        local_offsets.append(i + 1)
-    except Exception:
-        # Fallback: read normally if mmap fails
-        with open(file_path, "rb") as f:
-            f.seek(start)
-            chunk_data = f.read(end - start)
-            for i, byte in enumerate(chunk_data):
-                if byte == ord("\n"):
-                    local_offsets.append(i + 1)
-
-    return local_offsets
+    # Kept for potential future use
 
 
 class PipelineWorker(CustomThread):
