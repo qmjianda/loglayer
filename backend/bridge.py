@@ -177,9 +177,8 @@ class CustomThread:
 
 
 class IndexingWorker(CustomThread):
-    # Lazy indexing: initial lines to show immediately
-    LAZY_INITIAL_LINES = 10000
-    LAZY_INITIAL_BYTES = 5 * 1024 * 1024  # 5MB max for initial scan
+    # Multi-processing for parallel line indexing
+    NUM_WORKERS = 4  # Number of parallel workers
 
     def __init__(self, mmap_obj, size):
         super().__init__()
@@ -189,71 +188,110 @@ class IndexingWorker(CustomThread):
         self.mmap = mmap_obj
         self.size = size
         self._is_running = True
-        self._partial_done = False  # Track if we've sent partial results
 
     def run(self):
         try:
             start_time = time.time()
 
-            # === PHASE 1: Quick partial index (lazy loading) ===
-            # Index only first N lines for immediate display
-            offsets = array.array("Q", [0])
-            scanned = 0
-            target_bytes = min(self.size, self.LAZY_INITIAL_BYTES)
+            # For small files, use simple single-threaded approach
+            if self.size < 10 * 1024 * 1024:  # < 10MB
+                offsets = self._index_simple()
+                print(f"[Indexing] Finished in {time.time() - start_time:.4f}s")
+                self.finished.emit(offsets)
+                return
 
-            # Fast scan for first batch
-            for m in re.finditer(b"\n", self.mmap[:target_bytes]):
-                if not self._is_running:
-                    return
-                offsets.append(m.start() + 1)
-                scanned += 1
-
-                # Emit partial results after initial batch
-                if scanned >= self.LAZY_INITIAL_LINES and not self._partial_done:
-                    self._partial_done = True
-                    # Use actual indexed count, not estimate (frontend shows correct data)
-                    print(
-                        f"[Indexing] Partial {scanned} lines in {time.time() - start_time:.4f}s"
-                    )
-                    self.finished.emit(
-                        {
-                            "offsets": offsets,
-                            "partial": True,
-                            "line_count": scanned,  # Use actual count, not estimate
-                        }
-                    )
-                    self.progress.emit(0.1)  # 10% progress shown
-
-            # === PHASE 2: Background complete index ===
-            # Continue indexing the rest of the file
-            if self.size > target_bytes:
-                remaining_start = offsets[-1] if offsets else 0
-                for m in re.finditer(b"\n", self.mmap[remaining_start:]):
-                    if not self._is_running:
-                        return
-                    offsets.append(remaining_start + m.start() + 1)
-
-                # Calculate progress
-                progress = min(
-                    1.0,
-                    len(offsets) / max(1, int(scanned * (self.size / target_bytes))),
-                )
-                self.progress.emit(progress)
-
-            # Cleanup tail
-            if len(offsets) > 1 and offsets[-1] >= self.size:
-                offsets.pop()
+            # For large files, use parallel multi-process indexing
+            offsets = self._index_parallel()
 
             total_time = time.time() - start_time
-            print(f"[Indexing] Complete: {len(offsets)} lines in {total_time:.4f}s")
-
-            # Send final complete result
-            self.finished.emit(
-                {"offsets": offsets, "partial": False, "total": len(offsets)}
+            print(
+                f"[Indexing] Complete: {len(offsets)} lines in {total_time:.4f}s ({self.size / total_time / 1024 / 1024:.1f} MB/s)"
             )
+            self.finished.emit(offsets)
 
         except Exception as e:
             self.error.emit(str(e))
+
+    def _index_simple(self):
+        """Single-threaded indexing for small files"""
+        offsets = array.array("Q", [0])
+        for m in re.finditer(b"\n", self.mmap):
+            if not self._is_running:
+                return offsets
+            offsets.append(m.start() + 1)
+
+        if len(offsets) > 1 and offsets[-1] >= self.size:
+            offsets.pop()
+        return offsets
+
+    def _index_parallel(self):
+        """Parallel multi-process indexing for large files"""
+        import multiprocessing as mp
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+
+        num_workers = min(self.NUM_WORKERS, mp.cpu_count())
+        chunk_size = self.size // num_workers
+
+        # Create chunks with start positions
+        chunks = []
+        for i in range(num_workers):
+            start = i * chunk_size
+            end = self.size if i == num_workers - 1 else (i + 1) * chunk_size
+            # Adjust start to find next newline after chunk boundary
+            if i > 0:
+                while start < end and self.mmap[start - 1] != ord("\n"):
+                    start += 1
+            chunks.append((start, end))
+
+        # Process chunks in parallel using process pool
+        all_offsets = [0]
+        completed_chunks = 0
+
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            futures = {
+                executor.submit(self._scan_chunk, start, end, i): (start, end, i)
+                for i, (start, end) in enumerate(chunks)
+            }
+
+            # Collect results as they complete
+            results = {}
+            for future in as_completed(futures):
+                start, end, idx = futures[future]
+                chunk_offsets = future.result()
+                results[idx] = (start, chunk_offsets)
+                completed_chunks += 1
+                self.progress.emit(completed_chunks / num_workers * 100)
+
+        # Merge results in order
+        for i in range(num_workers):
+            start, chunk_offsets = results[i]
+            # Adjust offsets to be absolute positions
+            for off in chunk_offsets:
+                all_offsets.append(start + off)
+
+        # Sort and deduplicate
+        all_offsets = sorted(set(all_offsets))
+
+        # Ensure starts with 0
+        if all_offsets[0] != 0:
+            all_offsets.insert(0, 0)
+
+        # Remove last if it points beyond file end
+        if len(all_offsets) > 1 and all_offsets[-1] >= self.size:
+            all_offsets.pop()
+
+        return array.array("Q", all_offsets)
+
+    def _scan_chunk(self, start: int, end: int, chunk_idx: int) -> list:
+        """Scan a chunk for newlines - runs in separate process"""
+        local_offsets = []
+        chunk_data = self.mmap[start:end]
+
+        for i, byte in enumerate(chunk_data):
+            if byte == ord("\n"):
+                local_offsets.append(i + 1)
+
+        return local_offsets
 
 
 class PipelineWorker(CustomThread):
