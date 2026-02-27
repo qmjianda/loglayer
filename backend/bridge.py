@@ -177,6 +177,8 @@ class CustomThread:
 
 
 class IndexingWorker(CustomThread):
+    FAST_PREVIEW_BYTES = 10 * 1024 * 1024  # 10MB for quick preview
+
     def __init__(self, mmap_obj, size, file_path=None):
         super().__init__()
         self.finished = Signal(object)
@@ -190,22 +192,44 @@ class IndexingWorker(CustomThread):
     def run(self):
         try:
             start_time = time.time()
-
-            # Use optimized single-threaded approach with C-level regex
             offsets = array.array("Q", [0])
             scanned = 0
 
-            # re.finditer is already C-optimized, but we can make it faster
-            # by processing in larger chunks
-            for m in re.finditer(b"\n", self.mmap):
+            # Phase 1: Quick preview (first N MB) - show content immediately
+            preview_bytes = min(self.size, self.FAST_PREVIEW_BYTES)
+            for m in re.finditer(b"\n", self.mmap[:preview_bytes]):
                 if not self._is_running:
                     return
                 offsets.append(m.start() + 1)
                 scanned += 1
 
-                # Progress update every 1M lines
-                if scanned % 1000000 == 0:
-                    self.progress.emit(scanned / max(1, self.size / 80) * 100)
+            preview_count = scanned
+            preview_time = time.time() - start_time
+
+            # Send preview immediately so user can see content
+            self.finished.emit(
+                {
+                    "offsets": offsets,
+                    "partial": True,
+                    "line_count": preview_count,
+                }
+            )
+            print(f"[Indexing] Preview: {preview_count} lines in {preview_time:.2f}s")
+            self.progress.emit(10)
+
+            # Phase 2: Continue full indexing in background
+            if self._is_running and self.size > preview_bytes:
+                last_offset = offsets[-1]
+
+                for m in re.finditer(b"\n", self.mmap[last_offset:]):
+                    if not self._is_running:
+                        return
+                    offsets.append(last_offset + m.start() + 1)
+                    scanned += 1
+
+                    if scanned % 1000000 == 0:
+                        progress = 10 + (scanned / max(1, self.size / 80) * 90)
+                        self.progress.emit(min(100, progress))
 
             # Cleanup tail
             if len(offsets) > 1 and offsets[-1] >= self.size:
@@ -214,14 +238,18 @@ class IndexingWorker(CustomThread):
             total_time = time.time() - start_time
             speed_mbps = self.size / total_time / 1024 / 1024
             print(
-                f"[Indexing] Finished: {len(offsets)} lines in {total_time:.2f}s ({speed_mbps:.1f} MB/s)"
+                f"[Indexing] Complete: {len(offsets)} lines in {total_time:.2f}s ({speed_mbps:.1f} MB/s)"
             )
-            self.finished.emit(offsets)
+            self.finished.emit(
+                {
+                    "offsets": offsets,
+                    "partial": False,
+                    "line_count": len(offsets),
+                }
+            )
 
         except Exception as e:
             self.error.emit(str(e))
-
-    # Kept for potential future use
 
 
 class PipelineWorker(CustomThread):
