@@ -177,6 +177,10 @@ class CustomThread:
 
 
 class IndexingWorker(CustomThread):
+    # Lazy indexing: initial lines to show immediately
+    LAZY_INITIAL_LINES = 10000
+    LAZY_INITIAL_BYTES = 5 * 1024 * 1024  # 5MB max for initial scan
+
     def __init__(self, mmap_obj, size):
         super().__init__()
         self.finished = Signal(object)
@@ -185,23 +189,70 @@ class IndexingWorker(CustomThread):
         self.mmap = mmap_obj
         self.size = size
         self._is_running = True
+        self._partial_done = False  # Track if we've sent partial results
 
     def run(self):
         try:
-            # Using re.finditer on mmap is significantly faster in Python as it's implemented in C.
-            # Even for extremely large files, it avoids the GIL bottleneck of Python loops.
             start_time = time.time()
+
+            # === PHASE 1: Quick partial index (lazy loading) ===
+            # Index only first N lines for immediate display
             offsets = array.array("Q", [0])
-            for m in re.finditer(b"\n", self.mmap):
+            scanned = 0
+            target_bytes = min(self.size, self.LAZY_INITIAL_BYTES)
+
+            # Fast scan for first batch
+            for m in re.finditer(b"\n", self.mmap[:target_bytes]):
                 if not self._is_running:
                     return
                 offsets.append(m.start() + 1)
+                scanned += 1
 
+                # Emit partial results after initial batch
+                if scanned >= self.LAZY_INITIAL_LINES and not self._partial_done:
+                    self._partial_done = True
+                    # Estimate total lines
+                    estimated_total = int(scanned * (self.size / m.start()))
+                    print(
+                        f"[Indexing] Partial {scanned} lines in {time.time() - start_time:.4f}s (estimated total: {estimated_total})"
+                    )
+                    self.finished.emit(
+                        {
+                            "offsets": offsets,
+                            "partial": True,
+                            "estimated_total": estimated_total,
+                        }
+                    )
+                    self.progress.emit(0.1)  # 10% progress shown
+
+            # === PHASE 2: Background complete index ===
+            # Continue indexing the rest of the file
+            if self.size > target_bytes:
+                remaining_start = offsets[-1] if offsets else 0
+                for m in re.finditer(b"\n", self.mmap[remaining_start:]):
+                    if not self._is_running:
+                        return
+                    offsets.append(remaining_start + m.start() + 1)
+
+                # Calculate progress
+                progress = min(
+                    1.0,
+                    len(offsets) / max(1, int(scanned * (self.size / target_bytes))),
+                )
+                self.progress.emit(progress)
+
+            # Cleanup tail
             if len(offsets) > 1 and offsets[-1] >= self.size:
                 offsets.pop()
 
-            print(f"[Indexing] Finished in {time.time() - start_time:.4f}s")
-            self.finished.emit(offsets)
+            total_time = time.time() - start_time
+            print(f"[Indexing] Complete: {len(offsets)} lines in {total_time:.4f}s")
+
+            # Send final complete result
+            self.finished.emit(
+                {"offsets": offsets, "partial": False, "total": len(offsets)}
+            )
+
         except Exception as e:
             self.error.emit(str(e))
 
@@ -804,22 +855,47 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             print(f"Error opening file: {e}")
             return False
 
-    def _on_indexing_finished(self, file_id, offsets):
+    def _on_indexing_finished(self, file_id, result):
+        # Handle both old format (list) and new format (dict with partial support)
+        if isinstance(result, dict):
+            offsets = result.get("offsets", result)
+            is_partial = result.get("partial", False)
+            line_count = (
+                result.get("total") or result.get("estimated_total") or len(offsets)
+            )
+        else:
+            offsets = result
+            is_partial = False
+            line_count = len(offsets)
+
         if file_id not in self._sessions:
             return
         session = self._sessions[file_id]
-        session.line_offsets = offsets
+
+        # Update offsets - for partial, we still need to set what we have
+        if offsets:
+            session.line_offsets = offsets
         session.visible_indices = None
         session.processing_cache.clear()
         session.rendering_cache.clear()
+
         name = (
             session.provider.get_name(session.path)
             if session.provider
             else Path(session.path).name
         )
+
+        # Emit fileLoaded with line count info
         self.fileLoaded.emit(
             file_id,
-            json.dumps({"name": name, "size": session.size, "lineCount": len(offsets)}),
+            json.dumps(
+                {
+                    "name": name,
+                    "size": session.size,
+                    "lineCount": line_count,
+                    "partial": is_partial,
+                }
+            ),
         )
 
     def sync_all(self, file_id: str, layers_json: str, search_json: str) -> bool:
