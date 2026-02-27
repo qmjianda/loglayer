@@ -15,6 +15,7 @@ export interface FileLoadedInfo {
     size: number;
     lineCount: number;
     path?: string;
+    partial?: boolean;  // true if indexing is still in progress
 }
 
 export interface PipelineResult {

@@ -377,11 +377,18 @@ const AppContent: React.FC = () => {
         }
       });
 
-      triggerUpdate();
-      setIsProcessing(false);
-      setOperationStatus(null);
-      markFileLoaded(fileId);
-      setIndexingFileIds(prev => removeFromSet(prev, fileId));
+      // Only clear loading state when NOT a partial load
+      if (!info.partial) {
+        triggerUpdate();
+        setIsProcessing(false);
+        setOperationStatus(null);
+        markFileLoaded(fileId);
+        setIndexingFileIds(prev => removeFromSet(prev, fileId));
+      } else {
+        // Partial load: keep indexing in progress, but allow viewing
+        triggerUpdate();
+        setLoadingProgress(10);  // Show some progress
+      }
     },
 
     // 当后端 Pipeline 运行结束（过滤/搜索合并）后触发

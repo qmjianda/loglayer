@@ -211,16 +211,15 @@ class IndexingWorker(CustomThread):
                 # Emit partial results after initial batch
                 if scanned >= self.LAZY_INITIAL_LINES and not self._partial_done:
                     self._partial_done = True
-                    # Estimate total lines
-                    estimated_total = int(scanned * (self.size / m.start()))
+                    # Use actual indexed count, not estimate (frontend shows correct data)
                     print(
-                        f"[Indexing] Partial {scanned} lines in {time.time() - start_time:.4f}s (estimated total: {estimated_total})"
+                        f"[Indexing] Partial {scanned} lines in {time.time() - start_time:.4f}s"
                     )
                     self.finished.emit(
                         {
                             "offsets": offsets,
                             "partial": True,
-                            "estimated_total": estimated_total,
+                            "line_count": scanned,  # Use actual count, not estimate
                         }
                     )
                     self.progress.emit(0.1)  # 10% progress shown
@@ -860,9 +859,8 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         if isinstance(result, dict):
             offsets = result.get("offsets", result)
             is_partial = result.get("partial", False)
-            line_count = (
-                result.get("total") or result.get("estimated_total") or len(offsets)
-            )
+            # Use line_count if provided, otherwise calculate from offsets
+            line_count = result.get("line_count") or result.get("total") or len(offsets)
         else:
             offsets = result
             is_partial = False
