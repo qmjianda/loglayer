@@ -180,13 +180,14 @@ class IndexingWorker(CustomThread):
     # Multi-processing for parallel line indexing
     NUM_WORKERS = 4  # Number of parallel workers
 
-    def __init__(self, mmap_obj, size):
+    def __init__(self, mmap_obj, size, file_path=None):
         super().__init__()
         self.finished = Signal(object)
         self.progress = Signal(float)
         self.error = Signal(str)
         self.mmap = mmap_obj
         self.size = size
+        self.file_path = file_path
         self._is_running = True
 
     def run(self):
@@ -232,16 +233,13 @@ class IndexingWorker(CustomThread):
         num_workers = min(self.NUM_WORKERS, mp.cpu_count())
         chunk_size = self.size // num_workers
 
-        # Create chunks with start positions
+        # Create chunks with start positions (use file path for subprocess)
+        file_path = self.file_path
         chunks = []
         for i in range(num_workers):
             start = i * chunk_size
             end = self.size if i == num_workers - 1 else (i + 1) * chunk_size
-            # Adjust start to find next newline after chunk boundary
-            if i > 0:
-                while start < end and self.mmap[start - 1] != ord("\n"):
-                    start += 1
-            chunks.append((start, end))
+            chunks.append((start, end, file_path))
 
         # Process chunks in parallel using process pool
         all_offsets = [0]
@@ -249,8 +247,8 @@ class IndexingWorker(CustomThread):
 
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             futures = {
-                executor.submit(self._scan_chunk, start, end, i): (start, end, i)
-                for i, (start, end) in enumerate(chunks)
+                executor.submit(scan_chunk_from_file, start, end, path): (start, end, i)
+                for i, (start, end, path) in enumerate(chunks)
             }
 
             # Collect results as they complete
@@ -282,16 +280,31 @@ class IndexingWorker(CustomThread):
 
         return array.array("Q", all_offsets)
 
-    def _scan_chunk(self, start: int, end: int, chunk_idx: int) -> list:
-        """Scan a chunk for newlines - runs in separate process"""
-        local_offsets = []
-        chunk_data = self.mmap[start:end]
 
-        for i, byte in enumerate(chunk_data):
-            if byte == ord("\n"):
-                local_offsets.append(i + 1)
+def scan_chunk_from_file(start: int, end: int, file_path: str) -> list:
+    """Standalone function to scan a chunk - can be pickled"""
+    import mmap
 
-        return local_offsets
+    local_offsets = []
+
+    try:
+        with open(file_path, "rb") as f:
+            with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+                chunk_data = mm[start:end]
+
+                for i, byte in enumerate(chunk_data):
+                    if byte == ord("\n"):
+                        local_offsets.append(i + 1)
+    except Exception:
+        # Fallback: read normally if mmap fails
+        with open(file_path, "rb") as f:
+            f.seek(start)
+            chunk_data = f.read(end - start)
+            for i, byte in enumerate(chunk_data):
+                if byte == ord("\n"):
+                    local_offsets.append(i + 1)
+
+    return local_offsets
 
 
 class PipelineWorker(CustomThread):
@@ -875,7 +888,9 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             self.operationStarted.emit(file_id, "indexing")
 
             # TODO: Handle non-mmap workers for remote providers
-            worker = IndexingWorker(session.mmap or session.file_obj, session.size)
+            worker = IndexingWorker(
+                session.mmap or session.file_obj, session.size, resolved_path
+            )
             session.workers["indexing"] = worker
             worker.finished.connect(
                 lambda offsets: self._on_indexing_finished(file_id, offsets)
