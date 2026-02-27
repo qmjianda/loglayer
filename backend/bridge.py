@@ -211,7 +211,7 @@ class IndexingWorker(CustomThread):
                 {
                     "offsets": offsets,
                     "partial": True,
-                    "line_count": preview_count,
+                    "lineCount": preview_count,
                 }
             )
             print(f"[Indexing] Preview: {preview_count} lines in {preview_time:.2f}s")
@@ -244,7 +244,7 @@ class IndexingWorker(CustomThread):
                 {
                     "offsets": offsets,
                     "partial": False,
-                    "line_count": len(offsets),
+                    "lineCount": len(offsets),
                 }
             )
 
@@ -858,7 +858,12 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             offsets = result.get("offsets", result)
             is_partial = result.get("partial", False)
             # Use line_count if provided, otherwise calculate from offsets
-            line_count = result.get("line_count") or result.get("total") or len(offsets)
+            line_count = (
+                result.get("lineCount")
+                or result.get("line_count")
+                or result.get("total")
+                or len(offsets)
+            )
         else:
             offsets = result
             is_partial = False
