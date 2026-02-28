@@ -391,9 +391,9 @@ if os.path.exists(www_dir):
     app.mount("/", StaticFiles(directory=www_dir, html=True), name="static")
 
 
-def run_server(port):
+def run_server(host, port):
     try:
-        uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+        uvicorn.run(app, host=host, port=port, log_level="warning")
     except BaseException as e:
         print(f"[ServerThread] Error: {e}")
 
@@ -403,11 +403,18 @@ def start_app():
     parser.add_argument("paths", nargs="*", help="Files or folders to open")
     parser.add_argument("--port", type=int, default=12345, help="Backend server port")
     parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Backend server host (use 0.0.0.0 for external access)",
+    )
+    parser.add_argument(
         "--no-ui", action="store_true", help="Start server only, no UI window"
     )
     args = parser.parse_args()
 
     port = args.port
+    host = args.host
 
     # Windows taskbar icon fix
     if sys.platform == "win32":
@@ -421,13 +428,23 @@ def start_app():
             pass
 
     # Start server in thread
-    t = threading.Thread(target=run_server, args=(port,), daemon=True)
+    t = threading.Thread(
+        target=run_server,
+        args=(
+            host,
+            port,
+        ),
+        daemon=True,
+    )
     t.start()
 
     # Give server a moment to start
     time.sleep(1)
 
-    url = f"http://127.0.0.1:{port}"
+    if host == "127.0.0.1":
+        url = f"http://127.0.0.1:{port}"
+    else:
+        url = f"http://{host}:{port}"
     if not os.path.exists(www_dir):
         # Development mode (Vite)
         url = "http://localhost:3000"
