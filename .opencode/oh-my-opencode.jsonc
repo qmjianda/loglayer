@@ -1,0 +1,92 @@
+{
+  // Oh My OpenCode Agent Model Configuration
+  // 基于 MiniMax-M2.5 和 Qwen3-Coder 的最优分配
+  // 使用 bailian-coding-plan (Model Studio Coding Plan) 提供商
+  
+  $schema: "https://opencode.ai/config.json",
+  
+  // 默认模型 - 综合最强
+  model: "bailian-coding-plan/MiniMax-M2.5",
+  
+  // Agent 级别配置 (覆盖 category 级别)
+  agents: {
+    // 核心 Agent - 需要最强推理
+    oracle: {
+      model: "bailian-coding-plan/MiniMax-M2.5",
+      description: "架构咨询，需要强推理能力"
+    },
+    metis: {
+      model: "bailian-coding-plan/MiniMax-M2.5",
+      description: "预规划分析，需要复杂推理"
+    },
+    momus: {
+      model: "bailian-coding-plan/glm-5",
+      description: "代码审查，需要全面理解能力"
+    },
+    sisyphus: {
+      model: "bailian-coding-plan/MiniMax-M2.5",
+      description: "主 Agent，综合能力要求最高"
+    },
+    
+    // 探索类 Agent - 需要代码专用能力
+    explore: {
+      model: "bailian-coding-plan/qwen3-coder-plus",
+      description: "代码探索和上下文理解"
+    },
+    librarian: {
+      model: "bailian-coding-plan/qwen3-coder-plus",
+      description: "代码检索和模式匹配"
+    },
+    
+    // 辅助 Agent
+    atlas: {
+      model: "bailian-coding-plan/qwen3-coder-plus",
+      description: "知识库检索"
+    },
+    prometheus: {
+      model: "bailian-coding-plan/MiniMax-M2.5",
+      description: "任务规划"
+    }
+  },
+  
+  // Category 级别配置
+  categories: {
+    // 高优先级 - 需要最强能力
+    deep: {
+      model: "bailian-coding-plan/MiniMax-M2.5",
+      description: "深度任务，复杂推理"
+    },
+    ultrabrain: {
+      model: "bailian-coding-plan/MiniMax-M2.5",
+      description: "极难任务，需要最强推理"
+    },
+    artistry: {
+      model: "bailian-coding-plan/MiniMax-M2.5",
+      description: "创造性任务"
+    },
+    
+    // 代码相关 - 使用 Qwen3 Coder
+    visual-engineering: {
+      model: "bailian-coding-plan/qwen3-coder-plus",
+      description: "前端开发，代码生成"
+    },
+    writing: {
+      model: "bailian-coding-plan/glm-5",
+      description: "文档编写"
+    },
+    
+    // 轻量任务 - 使用较快较便宜的模型
+    quick: {
+      model: "bailian-coding-plan/qwen3.5-plus",
+      description: "简单快速任务"
+    },
+    "unspecified-low": {
+      model: "bailian-coding-plan/qwen3.5-plus",
+      description: "低复杂度任务"
+    },
+    "unspecified-high": {
+      model: "bailian-coding-plan/MiniMax-M2.5",
+      description: "高复杂度任务"
+    }
+  }
+}
