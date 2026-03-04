@@ -383,6 +383,37 @@ def get_log_level_stats(file_id: str):
     return bridge.get_log_level_stats(file_id)
 
 
+# ============================================================
+# Export APIs
+# ============================================================
+
+
+@app.post("/api/export_logs")
+def export_logs(data: dict = Body(...)):
+    """导出日志文件"""
+    from loglayer.export import LogExporter
+    
+    file_id = data.get('file_id')
+    output_path = data.get('output_path')
+    format = data.get('format', 'txt')
+    include_line_numbers = data.get('include_line_numbers', True)
+    
+    if file_id not in bridge._sessions:
+        return {'success': False, 'error': 'File not found'}
+    
+    session = bridge._sessions[file_id]
+    exporter = LogExporter(file_id, session.path)
+    
+    success = exporter.export_visible_lines(
+        bridge, 
+        output_path, 
+        format, 
+        include_line_numbers
+    )
+    
+    return {'success': success, 'path': output_path if success else None}
+
+
 # Serve Frontend
 base_dir = os.path.dirname(os.path.abspath(__file__))
 www_dir = os.path.join(base_dir, "www")

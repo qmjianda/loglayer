@@ -45,9 +45,50 @@ export interface UseSearchReturn {
     searchMatchCount: number;
     currentMatchNumber: number;
 
+    // Search history
+    searchHistory: string[];
+    clearSearchHistory: () => void;
+    removeFromSearchHistory: (query: string) => void;
+
     // Operations
     findNextSearchMatch: (direction: 'next' | 'prev', fromIndex?: number | null) => Promise<number>;
     clearSearch: () => void;
+}
+
+// Search history management
+const SEARCH_HISTORY_KEY = 'loglayer_search_history';
+const MAX_SEARCH_HISTORY = 20;
+
+function loadSearchHistory(): string[] {
+    try {
+        const stored = localStorage.getItem(SEARCH_HISTORY_KEY);
+        if (stored) {
+            const history = JSON.parse(stored);
+            return Array.isArray(history) ? history.slice(0, MAX_SEARCH_HISTORY) : [];
+        }
+    } catch (e) {
+        console.error('[useSearch] Failed to load search history:', e);
+    }
+    return [];
+}
+
+function saveSearchHistory(history: string[]) {
+    try {
+        localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_SEARCH_HISTORY)));
+    } catch (e) {
+        console.error('[useSearch] Failed to save search history:', e);
+    }
+}
+
+function addToSearchHistory(query: string) {
+    if (!query.trim()) return;
+    
+    const history = loadSearchHistory();
+    // Remove if already exists (to move to top)
+    const filtered = history.filter(q => q !== query);
+    // Add to front
+    filtered.unshift(query);
+    saveSearchHistory(filtered);
 }
 
 export function useSearch({
@@ -59,7 +100,7 @@ export function useSearch({
     setProcessedCache
 }: UseSearchProps): UseSearchReturn {
     // Search state (merged from useSearchLogic)
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQueryState] = useState('');
     const [searchConfig, setSearchConfig] = useState<SearchConfig>({
         regex: false,
         caseSensitive: false,
@@ -70,6 +111,9 @@ export function useSearch({
     const [currentMatchRank, setCurrentMatchRank] = useState(-1);
     const [currentMatchIndex, setCurrentMatchIndex] = useState(-1);
     const [isSearching, setIsSearching] = useState(false);
+    
+    // Search history
+    const [searchHistory, setSearchHistory] = useState<string[]>(() => loadSearchHistory());
 
     // Sync with backend when layers or search changes
     useEffect(() => {
@@ -156,13 +200,36 @@ export function useSearch({
         return -1;
     }, [searchQuery, searchMatchCount, currentMatchRank, activeFileId]);
 
+    // Wrapper for setSearchQuery that saves to history when query changes
+    const setSearchQueryWrapped = useCallback((query: string) => {
+        setSearchQueryState(query);
+        // Save to history when starting a new search (non-empty query after being empty)
+        if (query.trim() && query !== searchQuery) {
+            addToSearchHistory(query);
+            setSearchHistory(loadSearchHistory());
+        }
+    }, [searchQuery]);
+
     // Clear search
     const clearSearch = useCallback(() => {
-        setSearchQuery('');
+        setSearchQueryState('');
         setCurrentMatchRank(-1);
         setCurrentMatchIndex(-1);
         setIsSearching(false);
-    }, [setSearchQuery]);
+    }, []);
+
+    // Clear search history
+    const clearSearchHistory = useCallback(() => {
+        saveSearchHistory([]);
+        setSearchHistory([]);
+    }, []);
+
+    // Remove item from search history
+    const removeFromSearchHistory = useCallback((queryToRemove: string) => {
+        const history = loadSearchHistory().filter(q => q !== queryToRemove);
+        saveSearchHistory(history);
+        setSearchHistory(history);
+    }, []);
 
     // F3/Shift+F3 keyboard shortcuts for search result navigation
     useEffect(() => {
@@ -180,7 +247,7 @@ export function useSearch({
 
     return {
         searchQuery,
-        setSearchQuery,
+        setSearchQuery: setSearchQueryWrapped,
         searchConfig,
         setSearchConfig,
         currentMatchRank,
@@ -190,6 +257,9 @@ export function useSearch({
         setIsSearching,
         searchMatchCount,
         currentMatchNumber,
+        searchHistory,
+        clearSearchHistory,
+        removeFromSearchHistory,
         findNextSearchMatch,
         clearSearch
     };

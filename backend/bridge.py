@@ -63,6 +63,7 @@ try:
     from tkinter import filedialog
 except ImportError:
     tk = None
+    filedialog = None
 
 from loglayer.registry import LayerRegistry
 from loglayer.core import LayerStage, LayerCategory, ProcessedLine
@@ -1388,7 +1389,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             return json.dumps(paths if paths else [])
 
         # Fallback to tkinter for browser-only mode
-        if tk:
+        if tk and filedialog:
             root = tk.Tk()
             root.withdraw()
             root.attributes("-topmost", True)
@@ -1413,7 +1414,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             return path[0] if path else ""
 
         # Fallback to tkinter for browser-only mode
-        if tk:
+        if tk and filedialog:
             root = tk.Tk()
             root.withdraw()
             root.attributes("-topmost", True)

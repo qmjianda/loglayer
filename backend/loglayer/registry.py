@@ -22,6 +22,7 @@ class LayerRegistry:
         from loglayer.builtin.replace import ReplaceLayer
         from loglayer.builtin.range import RangeLayer
         from loglayer.builtin.time import TimeLayer
+        from loglayer.builtin.time_range import TimeRangeFilterLayer, RelativeTimeFilterLayer
         
         # 加载内置图层 - 渲染层
         from loglayer.builtin.highlight import HighlightLayer
@@ -34,6 +35,8 @@ class LayerRegistry:
         self.register_builtin("TRANSFORM", ReplaceLayer)
         self.register_builtin("RANGE", RangeLayer)
         self.register_builtin("TIME_RANGE", TimeLayer)
+        self.register_builtin("TIME_RANGE_FILTER", TimeRangeFilterLayer)
+        self.register_builtin("RELATIVE_TIME_FILTER", RelativeTimeFilterLayer)
         
         # 注册渲染层
         self.register_builtin("HIGHLIGHT", HighlightLayer)

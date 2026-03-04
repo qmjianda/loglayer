@@ -9,7 +9,7 @@ sys.path.append(os.path.join(os.getcwd(), 'backend'))
 def test_selection_fallbacks():
     print("Testing selection fallbacks...")
     
-    # Mock tkinter
+    # Mock tkinter and filedialog at module level
     mock_tk = MagicMock()
     mock_filedialog = MagicMock()
     
