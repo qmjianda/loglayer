@@ -56,6 +56,7 @@ export interface UseFileManagementReturn {
 
     // Pane state
     panes: Pane[];
+    setPanes: React.Dispatch<React.SetStateAction<Pane[]>>;
     activePaneId: string;
     setActivePaneId: (id: string) => void;
 
@@ -298,6 +299,7 @@ export function useFileManagement(): UseFileManagementReturn {
         activeFileId,
         activeFile,
         panes,
+        setPanes,
         activePaneId,
         setActivePaneId,
         loadingFileIds,

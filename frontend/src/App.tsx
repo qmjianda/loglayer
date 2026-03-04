@@ -46,6 +46,9 @@ import { useBookmarks } from './hooks/useBookmarks';
 import { useSettings, SettingsProvider } from './hooks/useSettings';
 import { useResponsive } from './hooks/useResponsive';
 import { useFileWatch } from './hooks/useFileWatch';
+import { usePaneManagement } from './hooks/usePaneManagement';
+import { PaneHeader } from './components/common/PaneHeader';
+import { SplitPaneContainer } from './components/common/SplitPaneContainer';
 
 
 const AppContent: React.FC = () => {
@@ -64,6 +67,7 @@ const AppContent: React.FC = () => {
     activeFileId,
     activeFile,
     panes,
+    setPanes,
     activePaneId,
     setActivePaneId,
     loadingFileIds,
@@ -95,6 +99,32 @@ const AppContent: React.FC = () => {
   const activeProcessed = activeFileId ? processedCache[activeFileId] : null;
   const layerStats = activeProcessed?.layerStats || {};
   const searchMatchCount = activeProcessed?.searchMatchCount || 0;
+
+  // ===== 分屏管理 (Pane Management) =====
+  // 负责管理分屏布局、拖放操作、分屏创建等
+  const paneManagement = usePaneManagement(
+    panes,
+    setPanes,
+    activePaneId,
+    setActivePaneId,
+    files,
+    setActiveFileId
+  );
+  const {
+    dragOverState,
+    setDragOverState,
+    isDragging,
+    setIsDragging,
+    draggedFileId,
+    setDraggedFileId,
+    handleDragStart,
+    handleDragEnd,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop: handlePaneDrop,
+    splitPane,
+    removePane
+  } = paneManagement;
 
   // ===== 图层管理 (Layer Management) =====
   // 负责管理针对每个文件的图层流水线配置。
@@ -573,6 +603,9 @@ const AppContent: React.FC = () => {
     { id: 'view.ai', label: 'AI 助手', category: '视图', action: () => setActiveView('ai') },
     { id: 'view.stats', label: '统计面板', category: '视图', action: () => setActiveView('stats') },
     { id: 'view.help', label: '帮助视图', category: '视图', action: () => setActiveView('help') },
+    { id: 'pane.splitRight', label: '向右分屏', shortcut: 'Ctrl+\\', category: '分屏', action: () => splitPane(activePaneId, undefined, 'right'), enabled: panes.length < 4 },
+    { id: 'pane.splitBottom', label: '向下分屏', shortcut: 'Ctrl+Shift+\\', category: '分屏', action: () => splitPane(activePaneId, undefined, 'bottom'), enabled: panes.length < 4 },
+    { id: 'pane.close', label: '关闭当前分屏', shortcut: 'Ctrl+W', category: '分屏', action: () => removePane(activePaneId), enabled: panes.length > 1 },
     { id: 'layer.new', label: '新建图层', shortcut: 'Ctrl+Shift+L', category: '图层', action: () => {
       // 添加一个默认的高亮图层
       addLayer(LayerType.HIGHLIGHT, { query: '', color: '#fbbf24', enabled: true });
@@ -631,6 +664,30 @@ const AppContent: React.FC = () => {
       if (isCmdOrCtrl && isComma) {
         e.preventDefault();
         setIsSettingsVisible(true);
+      }
+
+      // Ctrl+\\: 向右分屏
+      if (isCmdOrCtrl && e.key === '\\' && !isShift) {
+        e.preventDefault();
+        if (panes.length < 4) {
+          splitPane(activePaneId, undefined, 'right');
+        }
+      }
+
+      // Ctrl+Shift+\\: 向下分屏
+      if (isCmdOrCtrl && e.key === '\\' && isShift) {
+        e.preventDefault();
+        if (panes.length < 4) {
+          splitPane(activePaneId, undefined, 'bottom');
+        }
+      }
+
+      // Ctrl+W: 关闭当前分屏
+      if (isCmdOrCtrl && e.key === 'w' && !isShift) {
+        e.preventDefault();
+        if (panes.length > 1) {
+          removePane(activePaneId);
+        }
       }
     };
 
@@ -858,52 +915,60 @@ const AppContent: React.FC = () => {
                 />
               )}
 
-              {/* 中间编辑器区域（支持分栏，目前主要实现单栏） */}
+              {/* 中间编辑器区域（支持分屏，拖放文件到分屏位置实现多文件同时查看） */}
               <div className="flex-1 flex overflow-hidden min-w-0 min-h-0">
                 {panes.map((pane) => {
                   const paneFileId = pane.fileId;
+                  const paneFile = files.find(f => f.id === paneFileId);
                   const processedData = paneFileId ? processedCache[paneFileId] : null;
                   const paneStats = processedData?.layerStats || {};
+                  const isPaneActive = activePaneId === pane.id;
 
                   return (
-                    <div key={pane.id} className="flex-1 flex flex-col min-w-0 min-h-0 bg-primary relative border-r border-subtle overflow-hidden">
-                      <div
-                        className={`flex-1 flex flex-col min-h-0 relative ${activePaneId === pane.id ? 'ring-1 ring-blue-500/30' : ''}`}
+                    <SplitPaneContainer
+                      key={pane.id}
+                      paneId={pane.id}
+                      isActive={isPaneActive}
+                      dragOverState={dragOverState}
+                      isDragging={isDragging}
+                      onDragOver={(e, position) => handleDragOver(e, pane.id, position)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e, position) => handlePaneDrop(e, pane.id, position)}
+                      className="bg-primary relative border-r border-subtle overflow-hidden"
+                    >
+                      {/* 文件标签栏（支持拖放） */}
+                      <PaneHeader
+                        file={paneFile}
+                        paneId={pane.id}
+                        isActive={isPaneActive}
+                        isDragging={isDragging && draggedFileId === paneFileId}
+                        onClose={panes.length > 1 ? () => removePane(pane.id) : undefined}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
                         onClick={() => setActivePaneId(pane.id)}
-                      >
-                        {/* 标签栏（目前显示当前文件名） */}
-                        <div className="h-8 bg-secondary flex items-center px-4 text-xs text-muted border-b border-subtle shrink-0 select-none">
-                          <span className="truncate">{paneFileId ? (files.find(f => f.id === paneFileId)?.name || 'Unknown File') : 'Empty Pane'}</span>
-                          <div className="ml-auto flex gap-2">
-                            {panes.length > 1 && (
-                              <button onClick={(e) => {
-                                e.stopPropagation();
-                                const newPanes = panes.filter(p => p.id !== pane.id);
-                              }} className="hover:text-white">✕</button>
-                            )}
-                          </div>
-                        </div>
+                      />
 
-                        {/* 核心组件：Monaco 编辑器封装的日志查看器 */}
+                      {/* 核心组件：日志查看器 */}
+                      <div className="flex-1 flex flex-col relative min-h-0 overflow-hidden">
                         {paneFileId ? (
-                          <div className="flex-1 flex flex-col relative min-h-0 overflow-hidden">
+                          <>
                             {/* [BUG FIX] Mutually exclusive rendering and state reset:
                                 1. Use loadingFileIds and indexingFileIds for this SPECIFIC pane's file.
                                 2. Add key={paneFileId} to force remount on file switch. 
                                    This resets LogViewer internal states like scrolling and cache. */}
                             {(loadingFileIds.has(paneFileId) || indexingFileIds.has(paneFileId)) ? (
-                              <FileLoadingSkeleton fileName={files.find(f => f.id === paneFileId)?.name} />
+                              <FileLoadingSkeleton fileName={paneFile?.name} />
                             ) : (
                               <LogViewer
                                 key={paneFileId}
-                                totalLines={files.find(f => f.id === pane.fileId)?.lineCount || 0}
+                                totalLines={paneFile?.lineCount || 0}
                                 fileId={pane.fileId}
                                 searchQuery={(isFindVisible || activeView === 'search') ? searchQuery : ''}
                                 searchConfig={searchConfig}
-                                scrollToIndex={activePaneId === pane.id ? scrollToIndex : null}
-                                highlightedIndex={activePaneId === pane.id ? highlightedIndex : null}
+                                scrollToIndex={isPaneActive ? scrollToIndex : null}
+                                highlightedIndex={isPaneActive ? highlightedIndex : null}
                                 onLineClick={(idx) => {
-                                  if (activePaneId !== pane.id) setActivePaneId(pane.id);
+                                  if (!isPaneActive) setActivePaneId(pane.id);
                                   setHighlightedIndex(idx);
                                 }}
                                 onAddLayer={(type, config) => addLayer(type, config)}
@@ -923,23 +988,37 @@ const AppContent: React.FC = () => {
                                 }}
                               />
                             )}
-                          </div>
+                          </>
                         ) : pendingCliFiles > 0 ? (
                           // CLI 待处理文件占位
                           <PendingFilesWall count={pendingCliFiles} />
                         ) : (
                           // 无文件时的欢迎界面
                           <div
-                            className="flex-1 flex flex-col items-center justify-center text-gray-600 bg-theme-base cursor-pointer hover:bg-theme-surface transition-colors"
+                            className={`flex-1 flex flex-col items-center justify-center text-gray-600 bg-theme-base cursor-pointer transition-colors ${
+                              isDragging ? 'bg-blue-500/10 border-2 border-dashed border-blue-400' : 'hover:bg-theme-surface'
+                            }`}
                             onClick={handleOpen}
                           >
-                            <svg className="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                            <p className="text-sm font-medium">将日志文件拖拽至此处打开</p>
-                            <p className="text-[10px] mt-2 opacity-50">或点击浏览并打开文件/文件夹</p>
+                            {isDragging ? (
+                              <>
+                                <svg className="w-12 h-12 mb-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                                <p className="text-sm font-medium text-blue-400">拖放到此处打开文件</p>
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                <p className="text-sm font-medium">将日志文件拖拽至此处打开</p>
+                                <p className="text-[10px] mt-2 opacity-50">或点击浏览并打开文件/文件夹</p>
+                                <p className="text-[10px] mt-1 opacity-40">💡 提示：拖动文件标签到边缘可创建分屏</p>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
-                    </div>
+                    </SplitPaneContainer>
                   );
                 })}
               </div>
