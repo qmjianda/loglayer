@@ -15,7 +15,7 @@ export interface UIWidgetData {
     [key: string]: any;
 }
 
-const BACKEND_URL = (window.location.port === '3000') ? 'http://127.0.0.1:12345' : '';
+const BACKEND_URL = '';
 
 export const usePluginWidgets = (role: string) => {
     const [widgets, setWidgets] = useState<UIWidgetInfo[]>([]);

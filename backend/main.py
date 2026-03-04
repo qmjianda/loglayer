@@ -47,10 +47,27 @@ async def lifespan(app: FastAPI):
 # 1. Initialize FastAPI with lifespan
 app = FastAPI(lifespan=lifespan)
 
-# Enable CORS for development
+
+# Enable CORS for development - restrict to localhost in production
+# In production, this should be limited to the actual frontend origin
+def get_cors_origins():
+    import os
+
+    env = os.environ.get("LOGLAYER_ENV", "development")
+    if env == "production":
+        return ["http://localhost:12345"]  # Production should be configured
+    return [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:12345",
+        "http://127.0.0.1:12345",
+    ]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_cors_origins(),
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -392,26 +409,23 @@ def get_log_level_stats(file_id: str):
 def export_logs(data: dict = Body(...)):
     """导出日志文件"""
     from loglayer.export import LogExporter
-    
-    file_id = data.get('file_id')
-    output_path = data.get('output_path')
-    format = data.get('format', 'txt')
-    include_line_numbers = data.get('include_line_numbers', True)
-    
+
+    file_id = data.get("file_id")
+    output_path = data.get("output_path")
+    format = data.get("format", "txt")
+    include_line_numbers = data.get("include_line_numbers", True)
+
     if file_id not in bridge._sessions:
-        return {'success': False, 'error': 'File not found'}
-    
+        return {"success": False, "error": "File not found"}
+
     session = bridge._sessions[file_id]
     exporter = LogExporter(file_id, session.path)
-    
+
     success = exporter.export_visible_lines(
-        bridge, 
-        output_path, 
-        format, 
-        include_line_numbers
+        bridge, output_path, format, include_line_numbers
     )
-    
-    return {'success': success, 'path': output_path if success else None}
+
+    return {"success": success, "path": output_path if success else None}
 
 
 # Serve Frontend

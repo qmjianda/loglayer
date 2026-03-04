@@ -18,7 +18,7 @@ export interface LayerUIField {
   display_name: string;
   value?: any;
   info?: string;
-  options?: string[];
+  options?: Array<string | { label: string, value: string }>;
   min?: number;
   max?: number;
 }

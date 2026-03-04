@@ -114,9 +114,14 @@ export const InputMapper: React.FC<InputMapperProps> = ({
                     value={value || ''}
                     onChange={(e) => onChange(e.target.value)}
                 >
-                    {field.options?.map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                    ))}
+                    {field.options?.map((opt) => {
+                        const isObj = typeof opt === 'object' && opt !== null;
+                        const optValue = isObj ? (opt as any).value : opt;
+                        const optLabel = isObj ? (opt as any).label : opt;
+                        return (
+                            <option key={optValue} value={optValue}>{optLabel}</option>
+                        );
+                    })}
                 </select>
             );
 
@@ -136,14 +141,17 @@ export const InputMapper: React.FC<InputMapperProps> = ({
             return (
                 <div className="flex flex-wrap gap-1">
                     {field.options?.map((opt) => {
-                        const isActive = Array.isArray(value) && value.includes(opt);
+                        const isObj = typeof opt === 'object' && opt !== null;
+                        const optValue = isObj ? (opt as any).value : opt;
+                        const optLabel = isObj ? (opt as any).label : opt;
+                        const isActive = Array.isArray(value) && value.includes(optValue);
                         return (
                             <button
-                                key={opt}
+                                key={optValue}
                                 onClick={() => {
                                     const newValue = isActive
-                                        ? (value as string[]).filter(v => v !== opt)
-                                        : [...(value as string[] || []), opt];
+                                        ? (value as string[]).filter(v => v !== optValue)
+                                        : [...(value as string[] || []), optValue];
                                     onChange(newValue);
                                 }}
                                 className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${isActive
@@ -151,13 +159,12 @@ export const InputMapper: React.FC<InputMapperProps> = ({
                                     : 'bg-tertiary text-muted hover:bg-hover hover:text-secondary'
                                     }`}
                             >
-                                {opt}
+                                {optLabel}
                             </button>
                         );
                     })}
                 </div>
             );
-
         default:
             return <div className="text-red-500 text-[10px]">Unknown field type: {field.type}</div>;
     }

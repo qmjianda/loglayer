@@ -25,13 +25,8 @@ def convert_windows_path_to_linux(windows_path: str) -> str:
         if match:
             drive_letter = match.group(1).lower()
             rest_path = match.group(2)
-            # 常见映射： D: -> /mnt/d, C: -> /mnt/c
-            if drive_letter == "d":
-                return f"/mnt/d/{rest_path}"
-            elif drive_letter == "c":
-                return f"/mnt/c/{rest_path}"
-            elif drive_letter == "e":
-                return f"/mnt/e/{rest_path}"
+            # 动态映射任意盘符: X: -> /mnt/x
+            return f"/mnt/{drive_letter}/{rest_path}"
 
         # 如果不是 Windows 盘符，可能是 WSL 路径或网络路径
         # 尝试直接返回转换后的路径
@@ -56,6 +51,55 @@ def resolve_file_path(file_path: str) -> str:
 
     # 返回规范化后的原始路径
     return str(normalized_path)
+
+
+class LRUCache:
+    """Simple LRU cache with max size limit."""
+
+    def __init__(self, max_size: int = 5000):
+        self.max_size = max_size
+        self._cache = {}
+        self._access_order = []
+
+    def __contains__(self, key):
+        return key in self._cache
+
+    def __getitem__(self, key):
+        if key in self._cache:
+            self._access_order.remove(key)
+            self._access_order.append(key)
+            return self._cache[key]
+        raise KeyError(key)
+
+    def __setitem__(self, key, value):
+        if key in self._cache:
+            self._access_order.remove(key)
+        elif len(self._cache) >= self.max_size:
+            oldest = self._access_order.pop(0)
+            del self._cache[oldest]
+        self._cache[key] = value
+        self._access_order.append(key)
+
+    def __len__(self):
+        return len(self._cache)
+
+    def clear(self):
+        self._cache.clear()
+        self._access_order.clear()
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def pop(self, key, default=None):
+        try:
+            value = self._cache.pop(key)
+            self._access_order.remove(key)
+            return value
+        except (KeyError, ValueError):
+            return default
 
 
 try:
@@ -96,7 +140,7 @@ def get_log_files_recursive(folder_path):
                         log_files.append(
                             {"name": file, "path": full_path, "size": stats.st_size}
                         )
-                    except:
+                    except (OSError, PermissionError):
                         continue
     except Exception as e:
         print(f"Error walking directory {folder_path}: {e}")
@@ -128,23 +172,28 @@ def get_directory_contents(folder_path):
 
 
 class Signal:
-    """A simple replacement for pyqtSignal."""
+    """A simple replacement for pyqtSignal with thread safety."""
 
     def __init__(self, *types):
         self._callbacks = []
+        self._lock = threading.Lock()
 
     def connect(self, callback):
-        if callback not in self._callbacks:
-            self._callbacks.append(callback)
+        with self._lock:
+            if callback not in self._callbacks:
+                self._callbacks.append(callback)
 
     def disconnect(self, callback=None):
-        if callback is None:
-            self._callbacks = []
-        elif callback in self._callbacks:
-            self._callbacks.remove(callback)
+        with self._lock:
+            if callback is None:
+                self._callbacks = []
+            elif callback in self._callbacks:
+                self._callbacks.remove(callback)
 
     def emit(self, *args):
-        for callback in self._callbacks:
+        with self._lock:
+            callbacks = list(self._callbacks)
+        for callback in callbacks:
             try:
                 callback(*args)
             except Exception as e:
@@ -157,9 +206,11 @@ class CustomThread:
     def __init__(self):
         self._thread = None
         self._is_running = False
+        self._cancel_event = threading.Event()
 
     def start(self):
         self._is_running = True
+        self._cancel_event.clear()
         self._thread = threading.Thread(target=self.run, daemon=True)
         self._thread.start()
 
@@ -168,10 +219,19 @@ class CustomThread:
 
     def stop(self):
         self._is_running = False
+        self._cancel_event.set()
 
     def wait(self, timeout=None):
         if self._thread:
             self._thread.join(timeout=timeout)
+
+    def cancel(self):
+        """Request cancellation of the worker."""
+        self._cancel_event.set()
+
+    def is_cancelled(self):
+        """Check if cancellation was requested."""
+        return self._cancel_event.is_set()
 
     def run(self):
         raise NotImplementedError()
@@ -199,7 +259,7 @@ class IndexingWorker(CustomThread):
             # Phase 1: Quick preview (first N MB) - show content immediately
             preview_bytes = min(self.size, self.FAST_PREVIEW_BYTES)
             for m in re.finditer(b"\n", self.mmap[:preview_bytes]):
-                if not self._is_running:
+                if self.is_cancelled():
                     return
                 offsets.append(m.start() + 1)
                 scanned += 1
@@ -219,11 +279,11 @@ class IndexingWorker(CustomThread):
             self.progress.emit(10)
 
             # Phase 2: Continue full indexing in background
-            if self._is_running and self.size > preview_bytes:
+            if not self.is_cancelled() and self.size > preview_bytes:
                 last_offset = offsets[-1]
 
                 for m in re.finditer(b"\n", self.mmap[last_offset:]):
-                    if not self._is_running:
+                    if self.is_cancelled():
                         return
                     offsets.append(last_offset + m.start() + 1)
                     scanned += 1
@@ -303,7 +363,7 @@ class PipelineWorker(CustomThread):
                     )
                     if sp.stdout:
                         for match_line_bytes in sp.stdout:
-                            if not self._is_running:
+                            if self.is_cancelled():
                                 break
                             match_line = match_line_bytes.decode(
                                 "utf-8", errors="replace"
@@ -385,7 +445,7 @@ class PipelineWorker(CustomThread):
 
             if last_stdout:
                 for line_bytes in last_stdout:
-                    if not self._is_running:
+                    if self.is_cancelled():
                         break
                     line_str = line_bytes.decode("utf-8", errors="ignore")
                     parts = line_str.split(":", 1)
@@ -467,7 +527,7 @@ class StatsWorker(CustomThread):
             active_filters = []
             tasks = []
             for layer in self.layers:
-                if not self._is_running:
+                if self.is_cancelled():
                     break
                 l_id = getattr(layer, "id", None)
                 if not l_id:
@@ -511,7 +571,7 @@ class StatsWorker(CustomThread):
                         executor.submit(self._run_layer_stats, l_id, q_conf, filters)
                     ] = l_id
                 for future in future_to_lid:
-                    if not self._is_running:
+                    if self.is_cancelled():
                         break
                     try:
                         lid, res = future.result()
@@ -526,7 +586,7 @@ class StatsWorker(CustomThread):
                 self.error.emit(str(e))
 
     def _run_layer_stats(self, l_id, q_conf, parent_filters):
-        if not self._is_running:
+        if self.is_cancelled():
             return None, None
         cmd_chain = []
         for f in parent_filters:
@@ -592,7 +652,7 @@ class StatsWorker(CustomThread):
                 procs.append(p_final)
                 curr_p.stdout.close()
             for line in p_final.stdout:
-                if not self._is_running:
+                if self.is_cancelled():
                     break
                 colon_pos = line.find(":")
                 if colon_pos != -1:
@@ -656,14 +716,15 @@ class LogSession:
         self.rendering_instances = []  # 渲染层实例
         self.search_config = None
         # 分层缓存: processing_cache (过滤/转换结果) + rendering_cache (视觉效果)
+        # 使用 LRU Cache 防止内存溢出
         self.processing_cache = {}
-        self.rendering_cache = {}
+        self.rendering_cache = LRUCache(max_size=5000)
         self.workers = {}
 
     @property
     def cache(self):
         """Backward compatibility - combined view of both caches."""
-        return {**self.processing_cache, **self.rendering_cache}
+        return {**self.processing_cache, **self.rendering_cache._cache}
 
     def close(self, bridge=None):
         for name, worker in list(self.workers.items()):
@@ -774,12 +835,17 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         """清理已完成的 zombie worker"""
         if worker in self._zombie_workers:
             self._zombie_workers.remove(worker)
-        # 定期清理：每 10 次调用后检查并清理过期的 zombie workers
+        # 定期清理：每 5 次调用后检查并清理过期的 zombie workers
         self._zombie_cleanup_counter += 1
-        if self._zombie_cleanup_counter >= 10:
+        if self._zombie_cleanup_counter >= 5:
             self._zombie_cleanup_counter = 0
-            self._zombie_workers = [w for w in self._zombie_workers if w.isRunning()]
-            if len(self._zombie_workers) > 20:
+            # 强制等待已停止的 workers 清理资源
+            for w in list(self._zombie_workers):
+                if not w.isRunning():
+                    w.wait(timeout=0.5)
+                    self._zombie_workers.remove(w)
+            # 打印警告如果仍有大量僵尸
+            if len(self._zombie_workers) > 10:
                 print(
                     f"[Warning] {len(self._zombie_workers)} zombie workers still running"
                 )
@@ -1267,8 +1333,8 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                                 line_data["bookmarkComment"] = row_style[
                                     "bookmarkComment"
                                 ]
-                    if len(session.rendering_cache) < 5000:
-                        session.rendering_cache[i] = line_data
+                    # LRU Cache 会自动处理容量限制
+                    session.rendering_cache[i] = line_data
                     results.append(line_data)
                 except (IndexError, ValueError):
                     continue
