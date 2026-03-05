@@ -400,6 +400,18 @@ def get_log_level_stats(file_id: str):
     return bridge.get_log_level_stats(file_id)
 
 
+@app.get("/api/analyze_log_pattern")
+def analyze_log_pattern(file_id: str, sample_size: int = 100):
+    """分析日志文件的模式（时间戳格式、日志级别、格式类型等）"""
+    return bridge.analyze_log_pattern(file_id, sample_size)
+
+
+@app.get("/api/suggest_layers")
+def suggest_layers(file_id: str):
+    """基于日志分析结果推荐图层配置"""
+    return bridge.suggest_layers(file_id)
+
+
 # ============================================================
 # Export APIs
 # ============================================================
@@ -438,8 +450,42 @@ if os.path.exists(www_dir):
 
 def run_server(host, port):
     try:
-        uvicorn.run(app, host=host, port=port, log_level="warning")
-    except BaseException as e:
+        uvicorn.run(app, host=host, port=port, log_level="warning", reload=False)
+    except OSError as e:
+        if "address already in use" in str(e).lower():
+            print(
+                f"[Server] Port {port} is in use, trying to find and kill existing process..."
+            )
+            import subprocess
+
+            try:
+                result = subprocess.run(
+                    ["netstat", "-ano"], capture_output=True, text=True
+                )
+                for line in result.stdout.split("\n"):
+                    if f":{port}" in line and "LISTENING" in line:
+                        parts = line.split()
+                        if len(parts) >= 5:
+                            pid = parts[-1]
+                            print(f"[Server] Found process on port {port}, PID: {pid}")
+                            try:
+                                subprocess.run(
+                                    ["taskkill", "/PID", pid, "/F"], check=True
+                                )
+                                print(f"[Server] Killed process {pid}, retrying...")
+                                time.sleep(1)
+                                uvicorn.run(
+                                    app,
+                                    host=host,
+                                    port=port,
+                                    log_level="warning",
+                                    reload=False,
+                                )
+                                return
+                            except Exception as kill_err:
+                                print(f"[Server] Failed to kill process: {kill_err}")
+            except Exception as netstat_err:
+                print(f"[Server] Failed to check netstat: {netstat_err}")
         print(f"[ServerThread] Error: {e}")
 
 

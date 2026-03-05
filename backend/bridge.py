@@ -1504,6 +1504,99 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
     def list_logs_in_folder(self, folder_path: str) -> str:
         return json.dumps(get_log_files_recursive(folder_path))
 
+    def get_log_level_stats(self, file_id: str) -> dict:
+        """获取日志级别统计信息"""
+        if file_id not in self._sessions:
+            return {"error": "File not found"}
+        
+        session = self._sessions[file_id]
+        from loglayer.pattern_detector import get_detector
+        
+        detector = get_detector()
+        level_counts = {"ERROR": 0, "WARN": 0, "INFO": 0, "DEBUG": 0, "TRACE": 0, "FATAL": 0}
+        
+        # Sample lines for level detection (first 1000 lines for performance)
+        sample_size = min(1000, len(session.line_offsets))
+        for i in range(sample_size):
+            try:
+                start_off = session.line_offsets[i]
+                end_off = session.line_offsets[i + 1] if i + 1 < len(session.line_offsets) else session.size
+                line = session.mmap[start_off:end_off].decode("utf-8", errors="replace").strip()
+                level = detector.detect_log_level(line)
+                if level:
+                    level_counts[level] = level_counts.get(level, 0) + 1
+            except (IndexError, ValueError, UnicodeDecodeError):
+                continue
+        
+        return {
+            "levels": level_counts,
+            "total": sample_size,
+            "sampled": sample_size,
+        }
+
+    def analyze_log_pattern(self, file_id: str, sample_size: int = 100) -> dict:
+        """分析日志文件的模式"""
+        if file_id not in self._sessions:
+            return {"error": "File not found"}
+        
+        session = self._sessions[file_id]
+        from loglayer.pattern_detector import get_detector
+        
+        detector = get_detector()
+        
+        # Sample lines for analysis
+        lines = []
+        sample_count = min(sample_size, len(session.line_offsets))
+        for i in range(sample_count):
+            try:
+                start_off = session.line_offsets[i]
+                end_off = session.line_offsets[i + 1] if i + 1 < len(session.line_offsets) else session.size
+                line = session.mmap[start_off:end_off].decode("utf-8", errors="replace").strip()
+                lines.append(line)
+            except (IndexError, ValueError, UnicodeDecodeError):
+                continue
+        
+        analysis = detector.analyze_sample(lines)
+        
+        # Convert datetime objects to ISO format for JSON serialization
+        return {
+            "sample_size": analysis["sample_size"],
+            "timestamp_formats": analysis["timestamp_formats"],
+            "dominant_timestamp_format": analysis["dominant_timestamp_format"],
+            "log_levels": analysis["log_levels"],
+            "log_formats": analysis["log_formats"],
+            "dominant_log_format": analysis["dominant_log_format"],
+            "has_structured_logs": analysis["has_structured_logs"],
+            "has_stacktraces": analysis["has_stacktraces"],
+        }
+
+    def suggest_layers(self, file_id: str) -> dict:
+        """基于日志分析结果推荐图层配置"""
+        if file_id not in self._sessions:
+            return {"error": "File not found"}
+        
+        session = self._sessions[file_id]
+        from loglayer.pattern_detector import get_detector
+        
+        detector = get_detector()
+        
+        # Sample lines for analysis
+        lines = []
+        sample_count = min(100, len(session.line_offsets))
+        for i in range(sample_count):
+            try:
+                start_off = session.line_offsets[i]
+                end_off = session.line_offsets[i + 1] if i + 1 < len(session.line_offsets) else session.size
+                line = session.mmap[start_off:end_off].decode("utf-8", errors="replace").strip()
+                lines.append(line)
+            except (IndexError, ValueError, UnicodeDecodeError):
+                continue
+        
+        analysis = detector.analyze_sample(lines)
+        suggestions = detector.suggest_layer_config(analysis)
+        
+        return suggestions
+
     # SearchMixin provides:
     # get_search_match_index, get_nearest_search_rank, get_search_matches_range,
     # toggle_bookmark, get_bookmarks, get_nearest_bookmark_index, clear_bookmarks,

@@ -17,6 +17,8 @@ interface StatusBarProps {
   performanceMetrics?: PerformanceMetrics;
   isWatching?: boolean;
   hasNewContent?: boolean;
+  paneCount?: number;
+  maxPanes?: number;
   onOpenSettings?: () => void;
   onOpenShortcuts?: () => void;
 }
@@ -26,6 +28,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   operationStatus, searchMatchCount, currentLine, pendingCliFiles,
   performanceMetrics,
   isWatching, hasNewContent,
+  paneCount, maxPanes,
   onOpenSettings, onOpenShortcuts 
 }) => {
   const { widgets, widgetData } = usePluginWidgets('statusbar');
@@ -102,6 +105,19 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         })}
 
         <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors opacity-80">UTF-8</div>
+        
+        {/* 分屏数量指示器 */}
+        {paneCount !== undefined && maxPanes && (
+          <div className={`flex items-center space-x-1 px-1.5 py-0.5 rounded transition-colors ${
+            paneCount >= maxPanes ? 'bg-yellow-500/20 text-yellow-200 border border-yellow-500/30' : 'hover:bg-white/10'
+          }`} title={paneCount >= maxPanes ? '已达到最大分屏数量' : '当前分屏数量'}>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeWidth="2" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
+              {paneCount > 1 && <path strokeWidth="2" d="M12 4v16m-6-6h12" />}
+            </svg>
+            <span className="text-xs">{paneCount}/{maxPanes}</span>
+          </div>
+        )}
         
         {showPerformance && performanceMetrics && (
           <PerformanceIndicator metrics={performanceMetrics} visible={true} />

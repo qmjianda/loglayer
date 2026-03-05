@@ -24,6 +24,7 @@ import { IndexingOverlay, FileLoadingSkeleton, PendingFilesWall } from './compon
 import { RemotePathPicker } from './components/RemotePathPicker';
 import { AIChatPanel } from './components/AIChatPanel';
 import { StatsPanel, LogLevelStats } from './components/StatsPanel';
+import { PatternAnalysisPanel } from './components/PatternAnalysisPanel';
 import { LayerType, LogLine } from './types';
 import { ProcessedCache } from './hooks/useFileManagement';
 import { openFile, syncAll, hasNativeDialogs, toggleBookmark, getNearestBookmarkIndex, getLinesByIndices, getLogLevelStats } from './bridge_client';
@@ -203,6 +204,12 @@ const AppContent: React.FC = () => {
   const [isShortcutsVisible, setIsShortcutsVisible] = useState(false);
   const [aiPanelInitialContent, setAiPanelInitialContent] = useState('');
   const [logLevelStats, setLogLevelStats] = useState<LogLevelStats>({ ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 });
+  const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'warning' | 'error' } | null>(null);
+  
+  const showNotification = useCallback((message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  }, []);
 
   // Fetch log level stats when active file changes
   useEffect(() => {
@@ -603,8 +610,8 @@ const AppContent: React.FC = () => {
     { id: 'view.ai', label: 'AI 助手', category: '视图', action: () => setActiveView('ai') },
     { id: 'view.stats', label: '统计面板', category: '视图', action: () => setActiveView('stats') },
     { id: 'view.help', label: '帮助视图', category: '视图', action: () => setActiveView('help') },
-    { id: 'pane.splitRight', label: '向右分屏', shortcut: 'Ctrl+\\', category: '分屏', action: () => splitPane(activePaneId, undefined, 'right'), enabled: panes.length < 4 },
-    { id: 'pane.splitBottom', label: '向下分屏', shortcut: 'Ctrl+Shift+\\', category: '分屏', action: () => splitPane(activePaneId, undefined, 'bottom'), enabled: panes.length < 4 },
+    { id: 'pane.splitRight', label: '向右分屏', shortcut: 'Ctrl+\\ | Ctrl+Shift+→', category: '分屏', action: () => splitPane(activePaneId, undefined, 'right'), enabled: panes.length < 4 },
+    { id: 'pane.splitBottom', label: '向下分屏', shortcut: 'Ctrl+Shift+\\ | Ctrl+Shift+↓', category: '分屏', action: () => splitPane(activePaneId, undefined, 'bottom'), enabled: panes.length < 4 },
     { id: 'pane.close', label: '关闭当前分屏', shortcut: 'Ctrl+W', category: '分屏', action: () => removePane(activePaneId), enabled: panes.length > 1 },
     { id: 'layer.new', label: '新建图层', shortcut: 'Ctrl+Shift+L', category: '图层', action: () => {
       // 添加一个默认的高亮图层
@@ -676,6 +683,22 @@ const AppContent: React.FC = () => {
 
       // Ctrl+Shift+\\: 向下分屏
       if (isCmdOrCtrl && e.key === '\\' && isShift) {
+        e.preventDefault();
+        if (panes.length < 4) {
+          splitPane(activePaneId, undefined, 'bottom');
+        }
+      }
+
+      // Ctrl+Shift+→: 向右分屏 (备用快捷键)
+      if (isCmdOrCtrl && isShift && e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (panes.length < 4) {
+          splitPane(activePaneId, undefined, 'right');
+        }
+      }
+
+      // Ctrl+Shift+↓: 向下分屏 (备用快捷键)
+      if (isCmdOrCtrl && isShift && e.key === 'ArrowDown') {
         e.preventDefault();
         if (panes.length < 4) {
           splitPane(activePaneId, undefined, 'bottom');
@@ -861,10 +884,37 @@ const AppContent: React.FC = () => {
 
           {/* 统计视图 */}
           {activeView === 'stats' && (
-            <StatsPanel 
-              stats={logLevelStats}
-              total={activeFile?.lineCount || 0}
-            />
+            <div className="flex-1 overflow-auto">
+              <StatsPanel 
+                stats={logLevelStats}
+                total={activeFile?.lineCount || 0}
+                onQuickFilter={(levels) => {
+                  // Apply level filter via layer
+                  const existingLevelLayer = layers.find(l => l.type === LayerType.LEVEL);
+                  if (existingLevelLayer) {
+                    updateLayers([{ ...existingLevelLayer, config: { ...existingLevelLayer.config, levels } }]);
+                  } else {
+                    addLayer(LayerType.LEVEL, { levels, preset: 'custom' });
+                  }
+                }}
+              />
+              <PatternAnalysisPanel 
+                fileId={activeFileId}
+                onApplySuggestion={(suggestion) => {
+                  // Apply layer suggestion
+                  if (suggestion.type === 'time') {
+                    addLayer(LayerType.TIME_RANGE, {});
+                  } else if (suggestion.type === 'level') {
+                    addLayer(LayerType.LEVEL, { preset: 'custom' });
+                  } else if (suggestion.type === 'json_tree') {
+                    // JSON tree is handled by right-click menu
+                    showNotification('JSON 日志已启用 - 右键点击日志行查看树形视图', 'info');
+                  } else if (suggestion.type === 'bookmark') {
+                    showNotification('建议：使用书签标记堆栈跟踪位置', 'info');
+                  }
+                }}
+              />
+            </div>
           )}
         </div>
 
@@ -916,7 +966,7 @@ const AppContent: React.FC = () => {
               )}
 
               {/* 中间编辑器区域（支持分屏，拖放文件到分屏位置实现多文件同时查看） */}
-              <div className="flex-1 flex overflow-hidden min-w-0 min-h-0">
+              <div className={`flex-1 flex overflow-hidden min-w-0 min-h-0 ${isDragging ? 'cursor-move' : ''}`}>
                 {panes.map((pane) => {
                   const paneFileId = pane.fileId;
                   const paneFile = files.find(f => f.id === paneFileId);
@@ -1011,8 +1061,30 @@ const AppContent: React.FC = () => {
                               <>
                                 <svg className="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                 <p className="text-sm font-medium">将日志文件拖拽至此处打开</p>
-                                <p className="text-[10px] mt-2 opacity-50">或点击浏览并打开文件/文件夹</p>
-                                <p className="text-[10px] mt-1 opacity-40">💡 提示：拖动文件标签到边缘可创建分屏</p>
+                                <p className="text-xs mt-2 opacity-60">或点击浏览并打开文件/文件夹</p>
+                                
+                                {/* 分屏功能引导 */}
+                                <div className="mt-6 p-4 bg-blue-500/10 rounded-lg border border-blue-300/30 max-w-xs">
+                                  <p className="text-xs font-semibold text-blue-400 mb-3">💡 分屏功能</p>
+                                  <ul className="text-xs space-y-2 text-muted">
+                                    <li className="flex items-start gap-2">
+                                      <span className="text-blue-400 mt-0.5">•</span>
+                                      <span>拖动文件标签到窗口边缘创建分屏</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                      <span className="text-blue-400 mt-0.5">•</span>
+                                      <span>快捷键 <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px]">Ctrl+\</kbd> 向右分屏</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                      <span className="text-blue-400 mt-0.5">•</span>
+                                      <span>快捷键 <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px]">Ctrl+Shift+\</kbd> 向下分屏</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                      <span className="text-blue-400 mt-0.5">•</span>
+                                      <span>最多支持 4 个分屏</span>
+                                    </li>
+                                  </ul>
+                                </div>
                               </>
                             )}
                           </div>
@@ -1039,6 +1111,8 @@ const AppContent: React.FC = () => {
         pendingCliFiles={pendingCliFiles}
         isWatching={isWatching}
         hasNewContent={hasNewContent}
+        paneCount={panes.length}
+        maxPanes={4}
         onOpenSettings={() => setIsSettingsVisible(true)}
         onOpenShortcuts={() => setIsShortcutsVisible(true)}
       />
@@ -1071,6 +1145,20 @@ const AppContent: React.FC = () => {
         isOpen={isShortcutsVisible}
         onClose={() => setIsShortcutsVisible(false)}
       />
+
+      {/* 通知 Toast */}
+      {notification && (
+        <div className="fixed bottom-16 right-4 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className={`px-4 py-3 rounded-lg shadow-lg border ${
+            notification.type === 'success' ? 'bg-green-500/20 border-green-500/50 text-green-400' :
+            notification.type === 'warning' ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400' :
+            notification.type === 'error' ? 'bg-red-500/20 border-red-500/50 text-red-400' :
+            'bg-blue-500/20 border-blue-500/50 text-blue-400'
+          }`}>
+            <div className="text-sm font-medium">{notification.message}</div>
+          </div>
+        </div>
+      )}
       
     </div>
   );

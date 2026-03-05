@@ -131,6 +131,11 @@ export interface FileBridgeAPI {
   reload_plugins(): Promise<boolean>;
   get_platform_info(): Promise<string>;
   get_log_level_stats(fileId: string): Promise<Record<string, number>>;
+  
+  // Pattern detection operations
+  get(endpoint: string, params?: Record<string, any>): Promise<any>;
+  analyze_log_pattern(fileId: string, sampleSize?: number): Promise<any>;
+  suggest_layers(fileId: string): Promise<any>;
 
   // Signals
   fileLoaded: { connect: (cb: (fileId: string, payloadJson: string) => void) => void };

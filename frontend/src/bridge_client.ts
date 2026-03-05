@@ -137,7 +137,7 @@ class WebBridge implements FileBridgeAPI {
         return res.json();
     }
 
-    private async get(endpoint: string, params: Record<string, any> = {}): Promise<any> {
+    async get(endpoint: string, params: Record<string, any> = {}): Promise<any> {
         const query = new URLSearchParams(params).toString();
         const res = await fetch(`${BACKEND_URL}/api/${endpoint}?${query}`);
         return res.json();
@@ -204,6 +204,15 @@ class WebBridge implements FileBridgeAPI {
     }
     async physical_to_visual_index(fileId: string, physicalIndex: number) {
         return this.get('physical_to_visual_index', { file_id: fileId, physical_index: physicalIndex });
+    }
+    
+    // Pattern detection APIs
+    async analyze_log_pattern(fileId: string, sampleSize: number = 100) {
+        return this.get('analyze_log_pattern', { file_id: fileId, sample_size: sampleSize });
+    }
+    
+    async suggest_layers(fileId: string) {
+        return this.get('suggest_layers', { file_id: fileId });
     }
 }
 
@@ -287,6 +296,26 @@ export async function getLogLevelStats(fileId: string): Promise<Record<string, n
     } catch (e) {
         console.error('[Bridge] get_log_level_stats error:', e);
         return {};
+    }
+}
+
+export async function analyzeLogPattern(fileId: string, sampleSize: number = 100): Promise<any> {
+    if (!fileBridge) return {};
+    try {
+        return await fileBridge.get('analyze_log_pattern', { file_id: fileId, sample_size: sampleSize });
+    } catch (e) {
+        console.error('[Bridge] analyze_log_pattern error:', e);
+        return {};
+    }
+}
+
+export async function suggestLayers(fileId: string): Promise<any> {
+    if (!fileBridge) return { suggestions: [] };
+    try {
+        return await fileBridge.get('suggest_layers', { file_id: fileId });
+    } catch (e) {
+        console.error('[Bridge] suggest_layers error:', e);
+        return { suggestions: [] };
     }
 }
 
