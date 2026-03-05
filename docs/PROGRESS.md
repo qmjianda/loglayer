@@ -9,9 +9,9 @@
 | 属性 | 值 |
 |:-----|:---|
 | **当前阶段** | 商业化软件优化 - 第三阶段 |
-| **会话目标** | 完善设置系统，连接组件 |
-| **上次会话** | 2026-02-22 |
-| **代码版本** | `git rev-parse HEAD` |
+| **会话目标** | 夜间自动化优化 |
+| **上次会话** | 2026-03-05 (夜间优化) |
+| **代码版本** | `dee0148` |
 
 ---
 
@@ -29,6 +29,43 @@
 - [x] 文件监视按钮 (侧边栏)
 - [x] AI 配置界面修复
 - [x] 后端 URL 修复 (开发模式)
+
+---
+
+## 夜间优化 (2026-03-05)
+
+### 性能优化
+- [x] LRU 缓存优化：使用 OrderedDict 实现 O(1) 操作 (TD-004)
+- [x] 优化大文件滚动性能
+
+### 用户体验
+- [x] 日志等级预设过滤模式 (TD-003)
+  - [x] errors_only (仅错误)
+  - [x] warnings_and_above (警告及以上)
+  - [x] production (生产环境)
+  - [x] development (开发环境)
+  - [x] quiet (静默模式)
+- [x] StatsPanel 快速过滤按钮
+- [x] 点击等级标签快速过滤
+
+### 功能增强
+- [x] JSON 导出元数据增强 (TD-002)
+  - [x] 添加完整 metadata 块
+  - [x] 添加导出限制保护
+  - [x] 包含 visual_index 信息
+
+### 文档
+- [x] 更新 TECHNICAL_DECISIONS.md (新增 TD-002, TD-003, TD-004)
+- [x] 更新 PROGRESS.md
+
+### 测试验证
+- [x] pytest tests/ ✅ 30 passed
+- [x] npm run build ✅
+- [x] npx tsc --noEmit ✅
+
+### 代码提交
+- [x] Commit: `dee0148`
+- [x] Push: origin/main ✅
 
 ---
 
