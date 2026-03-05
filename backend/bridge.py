@@ -54,52 +54,63 @@ def resolve_file_path(file_path: str) -> str:
 
 
 class LRUCache:
-    """Simple LRU cache with max size limit."""
+    """优化的 LRU 缓存，使用 OrderedDict 实现 O(1) 操作
+    
+    性能优化:
+    - 使用 OrderedDict 替代 list 维护访问顺序
+    - 所有操作 (get/set/remove) 均为 O(1) 时间复杂度
+    - 适合高频访问的日志行缓存场景
+    """
 
     def __init__(self, max_size: int = 5000):
         self.max_size = max_size
-        self._cache = {}
-        self._access_order = []
+        from collections import OrderedDict
+        self._cache = OrderedDict()
 
     def __contains__(self, key):
         return key in self._cache
 
     def __getitem__(self, key):
-        if key in self._cache:
-            self._access_order.remove(key)
-            self._access_order.append(key)
-            return self._cache[key]
-        raise KeyError(key)
+        # Move to end (most recently used)
+        self._cache.move_to_end(key)
+        return self._cache[key]
 
     def __setitem__(self, key, value):
         if key in self._cache:
-            self._access_order.remove(key)
+            # Update and move to end
+            self._cache.move_to_end(key)
         elif len(self._cache) >= self.max_size:
-            oldest = self._access_order.pop(0)
-            del self._cache[oldest]
+            # Remove oldest (first item)
+            self._cache.popitem(last=False)
         self._cache[key] = value
-        self._access_order.append(key)
 
     def __len__(self):
         return len(self._cache)
 
     def clear(self):
         self._cache.clear()
-        self._access_order.clear()
 
     def get(self, key, default=None):
         try:
-            return self[key]
+            # Move to end and return value
+            self._cache.move_to_end(key)
+            return self._cache[key]
         except KeyError:
             return default
 
     def pop(self, key, default=None):
         try:
-            value = self._cache.pop(key)
-            self._access_order.remove(key)
-            return value
-        except (KeyError, ValueError):
+            return self._cache.pop(key)
+        except KeyError:
             return default
+    
+    def keys(self):
+        """返回所有键 (按访问顺序)"""
+        return list(self._cache.keys())
+    
+    def items(self):
+        """返回所有键值对 (按访问顺序)"""
+        return list(self._cache.items())
 
 
 try:

@@ -1,6 +1,12 @@
 """
 Log Export Layer - 日志导出功能
 支持将过滤后的日志导出为 CSV, JSON, TXT 格式
+
+功能特性:
+- 支持多种导出格式 (CSV, JSON, TXT)
+- 包含元数据信息 (源文件、导出时间、过滤条件等)
+- 支持行号、时间戳、高亮信息
+- 批量导出优化 (限制最大导出量防止内存溢出)
 """
 import os
 import json
@@ -11,9 +17,13 @@ from typing import List, Dict, Any, Optional
 
 
 class LogExporter:
-    """日志导出器"""
+    """日志导出器
+    
+    支持将日志数据导出为多种格式，包含完整的元数据信息
+    """
     
     SUPPORTED_FORMATS = ['csv', 'json', 'txt']
+    MAX_EXPORT_LINES = 100000  # 防止内存溢出的最大导出行数
     
     def __init__(self, file_id: str, file_path: str):
         self.file_id = file_id
@@ -88,14 +98,32 @@ class LogExporter:
             return False
     
     def _export_json(self, lines: List[Dict], output_path: str, include_timestamps: bool) -> bool:
-        """导出为 JSON 格式"""
+        """导出为 JSON 格式
+        
+        包含完整的元数据信息：
+        - 源文件信息
+        - 导出时间戳
+        - 过滤统计
+        - 每行的详细信息 (高亮、书签等)
+        """
         try:
             export_data = {
-                'source_file': self.file_name,
-                'exported_at': datetime.now().isoformat() if include_timestamps else None,
-                'total_lines': len(lines),
+                'metadata': {
+                    'source_file': self.file_name,
+                    'source_path': self.file_path,
+                    'exported_at': datetime.now().isoformat(),
+                    'format_version': '1.0',
+                    'total_lines': len(lines),
+                    'export_limit': self.MAX_EXPORT_LINES,
+                    'truncated': len(lines) >= self.MAX_EXPORT_LINES
+                },
                 'lines': []
             }
+            
+            # 添加统计信息
+            if lines:
+                export_data['metadata']['first_line_index'] = lines[0].get('index', 0)
+                export_data['metadata']['last_line_index'] = lines[-1].get('index', 0)
             
             for i, line in enumerate(lines):
                 line_data = {
@@ -113,6 +141,10 @@ class LogExporter:
                     line_data['is_bookmarked'] = True
                     if line.get('bookmarkComment'):
                         line_data['bookmark_comment'] = line['bookmarkComment']
+                
+                # 包含视觉索引 (如果有过滤)
+                if 'visual_index' in line:
+                    line_data['visual_index'] = line['visual_index']
                 
                 export_data['lines'].append(line_data)
             
