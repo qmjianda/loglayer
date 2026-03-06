@@ -215,7 +215,7 @@ export function useVirtualScroll({
     }, [onLowFps]);
 
     const updateMemory = useCallback(() => {
-        const memory = (performance as any).memory;
+        const memory = performance.memory;
         if (memory) {
             const usedMB = Math.round(memory.usedJSHeapSize / 1048576);
             const isHighMemory = usedMB > LOG_VIEWER.MEMORY_WARNING_THRESHOLD_MB;

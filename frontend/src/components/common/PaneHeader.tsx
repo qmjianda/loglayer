@@ -12,10 +12,10 @@ export interface PaneHeaderProps {
     file: FileData | undefined;
     paneId: string;
     isActive: boolean;
-    isDragging: boolean;
+    isDragging?: boolean;
     onClose?: () => void;
-    onDragStart: (fileId: string) => void;
-    onDragEnd: () => void;
+    onDragStart?: (fileId: string) => void;
+    onDragEnd?: () => void;
     onClick: () => void;
 }
 

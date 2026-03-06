@@ -21,8 +21,6 @@ const isDev = window.location.port === '3000';
 const BACKEND_URL = isDev ? 'http://127.0.0.1:12345' : `${window.location.protocol}//${window.location.host}`;
 const WS_URL = BACKEND_URL.replace('http', 'ws') + '/ws';
 
-console.log(`[Bridge] Connecting to backend: ${BACKEND_URL}`);
-
 /**
  * 客户端信号模拟器 (Client-side Signal Emulator)
  */
@@ -234,11 +232,11 @@ export const ensureBridge = (): Promise<FileBridgeAPI | null> => {
 export const initBridge = ensureBridge;
 
 // Existing helper exports maintained for compatibility
-export async function readProcessedLines(fileId: string, start: number, count: number): Promise<any[]> {
+export async function readProcessedLines(fileId: string, start: number, count: number): Promise<Array<{index: number, content: string, highlights?: Array<{start: number, end: number, color: string, opacity: number}>}>> {
     if (!fileBridge) return [];
     try {
         const jsonStr = await fileBridge.read_processed_lines(fileId, start, count);
-        return JSON.parse(jsonStr) as any[];
+        return JSON.parse(jsonStr);
     } catch (e) {
         console.error(`Failed to read processed lines:`, e);
         return [];

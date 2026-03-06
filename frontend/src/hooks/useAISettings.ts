@@ -39,9 +39,9 @@ export function useAISettings(): UseAISettingsReturn {
   const loadConfig = async () => {
     try {
       setIsLoading(true);
-      console.log('[AISettings] Loading config from /api/ai/config...');
+      console.debug('[AISettings] Loading config from /api/ai/config...');
       const config = await fetchJson<{ provider: string; model: string; isConnected: boolean; baseUrl?: string }>('/api/ai/config');
-      console.log('[AISettings] Config loaded:', config);
+      console.debug('[AISettings] Config loaded:', config);
       setSettings({
         provider: config.provider as AIProviderType,
         model: config.model,
@@ -57,9 +57,9 @@ export function useAISettings(): UseAISettingsReturn {
 
   const loadModels = useCallback(async () => {
     try {
-      console.log('[AISettings] Loading models for provider:', settings.provider);
+      console.debug('[AISettings] Loading models for provider:', settings.provider);
       const result = await fetchJson<{ models: string[] }>('/api/ai/models');
-      console.log('[AISettings] Models loaded:', result.models);
+      console.debug('[AISettings] Models loaded:', result.models);
       setAvailableModels(result.models);
     } catch (err) {
       console.error('[AISettings] Failed to load models:', err);
@@ -84,9 +84,9 @@ export function useAISettings(): UseAISettingsReturn {
         payload.base_url = merged.baseUrl;
       }
       
-      console.log('[AISettings] Updating config:', payload);
+      console.debug('[AISettings] Updating config:', payload);
       await fetchJson('/api/ai/config', 'POST', payload);
-      console.log('[AISettings] Config updated successfully');
+      console.debug('[AISettings] Config updated successfully');
     } catch (err) {
       console.error('[AISettings] Failed to update settings:', err);
       setError(err instanceof Error ? err.message : 'Failed to update settings');
@@ -95,9 +95,9 @@ export function useAISettings(): UseAISettingsReturn {
 
   const testConnection = useCallback(async () => {
     try {
-      console.log('[AISettings] Testing connection...');
+      console.debug('[AISettings] Testing connection...');
       const result = await fetchJson<{ connected: boolean; message: string }>('/api/ai/test-connection', 'POST');
-      console.log('[AISettings] Connection test result:', result);
+      console.debug('[AISettings] Connection test result:', result);
       setSettings(prev => ({ ...prev, isConnected: result.connected }));
       return result;
     } catch (err) {

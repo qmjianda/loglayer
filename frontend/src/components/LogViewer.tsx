@@ -781,8 +781,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       if (elapsed >= 1000) {
         const fps = Math.round((frameCountRef.current * 1000) / elapsed);
         const visibleLines = endIndex - startIndex;
-        const memory = (performance as any).memory 
-          ? Math.round((performance as any).memory.usedJSHeapSize / 1048576) 
+        const memory = performance.memory 
+          ? Math.round(performance.memory.usedJSHeapSize / 1048576) 
           : 0;
         
         setPerformanceStats({ fps, visibleLines, memory });

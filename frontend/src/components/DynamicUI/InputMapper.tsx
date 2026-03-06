@@ -50,10 +50,10 @@ export const InputMapper: React.FC<InputMapperProps> = ({
                 <SearchInput
                     value={value || ''}
                     onChange={onChange}
-                    config={searchConfig || {
-                        regex: (field as any).regex,
-                        caseSensitive: (field as any).caseSensitive,
-                        wholeWord: (field as any).wholeWord
+                    config={{
+                        regex: field.regex ?? false,
+                        caseSensitive: field.caseSensitive ?? false,
+                        wholeWord: field.wholeWord ?? false
                     }}
                     onConfigChange={onSearchConfigChange}
                     placeholder={field.display_name}
@@ -115,9 +115,8 @@ export const InputMapper: React.FC<InputMapperProps> = ({
                     onChange={(e) => onChange(e.target.value)}
                 >
                     {field.options?.map((opt) => {
-                        const isObj = typeof opt === 'object' && opt !== null;
-                        const optValue = isObj ? (opt as any).value : opt;
-                        const optLabel = isObj ? (opt as any).label : opt;
+                        const optValue = typeof opt === 'object' && opt !== null ? (opt as { value: string }).value : String(opt);
+                        const optLabel = typeof opt === 'object' && opt !== null ? (opt as { label: string }).label : String(opt);
                         return (
                             <option key={optValue} value={optValue}>{optLabel}</option>
                         );
@@ -137,13 +136,12 @@ export const InputMapper: React.FC<InputMapperProps> = ({
             );
 
         case 'multiselect':
-            // For multi-select (e.g., Log Levels), we use the signature button style
             return (
                 <div className="flex flex-wrap gap-1">
                     {field.options?.map((opt) => {
                         const isObj = typeof opt === 'object' && opt !== null;
-                        const optValue = isObj ? (opt as any).value : opt;
-                        const optLabel = isObj ? (opt as any).label : opt;
+                        const optValue = isObj ? (opt as { value: string }).value : String(opt);
+                        const optLabel = isObj ? (opt as { label: string }).label : String(opt);
                         const isActive = Array.isArray(value) && value.includes(optValue);
                         return (
                             <button

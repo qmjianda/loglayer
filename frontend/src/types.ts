@@ -21,6 +21,10 @@ export interface LayerUIField {
   options?: Array<string | { label: string, value: string }>;
   min?: number;
   max?: number;
+  // Search field specific options
+  regex?: boolean;
+  caseSensitive?: boolean;
+  wholeWord?: boolean;
 }
 
 export interface LayerRegistryEntry {
@@ -154,5 +158,15 @@ declare global {
   interface Window {
     qt?: { webChannelTransport: any };
     fileBridge?: FileBridgeAPI;
+  }
+
+  interface PerformanceMemory {
+    jsHeapSizeLimit: number;
+    totalJSHeapSize: number;
+    usedJSHeapSize: number;
+  }
+
+  interface Performance {
+    memory?: PerformanceMemory;
   }
 }
