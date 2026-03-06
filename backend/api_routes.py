@@ -190,4 +190,71 @@ def create_api_router(bridge) -> APIRouter:
     def detect_patterns():
         return bridge._registry.get_pattern_detectors()
 
+    # ============================================================
+    # Saved Views API
+    # ============================================================
+
+    @router.get("/api/views/list")
+    def list_views():
+        """List all saved views."""
+        from loglayer.views import get_view_manager
+        manager = get_view_manager(bridge._workspace_path if hasattr(bridge, '_workspace_path') else None)
+        return manager.list_views(include_workspace=True)
+
+    @router.post("/api/views/save")
+    def save_view(data: Dict[str, Any] = Body(...)):
+        """Save a view."""
+        from loglayer.views import get_view_manager
+        manager = get_view_manager(bridge._workspace_path if hasattr(bridge, '_workspace_path') else None)
+        view = manager.save_view(
+            name=data['name'],
+            layers=data['layers'],
+            workspace_only=data.get('workspace_only', False)
+        )
+        return view.to_dict()
+
+    @router.post("/api/views/load")
+    def load_view(data: Dict[str, Any] = Body(...)):
+        """Load a saved view."""
+        from loglayer.views import get_view_manager
+        manager = get_view_manager(bridge._workspace_path if hasattr(bridge, '_workspace_path') else None)
+        view = manager.load_view(
+            name=data['name'],
+            prefer_workspace=data.get('prefer_workspace', True)
+        )
+        return view.to_dict() if view else None
+
+    @router.post("/api/views/delete")
+    def delete_view(data: Dict[str, Any] = Body(...)):
+        """Delete a saved view."""
+        from loglayer.views import get_view_manager
+        manager = get_view_manager(bridge._workspace_path if hasattr(bridge, '_workspace_path') else None)
+        success = manager.delete_view(
+            name=data['name'],
+            from_workspace=data.get('from_workspace', False)
+        )
+        return {'success': success}
+
+    @router.post("/api/views/export")
+    def export_views(data: Dict[str, Any] = Body(...)):
+        """Export views to JSON file."""
+        from loglayer.views import get_view_manager
+        manager = get_view_manager(bridge._workspace_path if hasattr(bridge, '_workspace_path') else None)
+        success = manager.export_views(
+            output_path=data['output_path'],
+            view_names=data.get('view_names')
+        )
+        return {'success': success}
+
+    @router.post("/api/views/import")
+    def import_views(data: Dict[str, Any] = Body(...)):
+        """Import views from JSON file."""
+        from loglayer.views import get_view_manager
+        manager = get_view_manager(bridge._workspace_path if hasattr(bridge, '_workspace_path') else None)
+        results = manager.import_views(
+            input_path=data['input_path'],
+            overwrite=data.get('overwrite', False)
+        )
+        return results
+
     return router

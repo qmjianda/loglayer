@@ -23,6 +23,7 @@ class LayerRegistry:
         from loglayer.builtin.range import RangeLayer
         from loglayer.builtin.time import TimeLayer
         from loglayer.builtin.time_range import TimeRangeFilterLayer, RelativeTimeFilterLayer
+        from loglayer.builtin.query import QueryLayer
         
         # 加载内置图层 - 渲染层
         from loglayer.builtin.highlight import HighlightLayer
@@ -37,6 +38,7 @@ class LayerRegistry:
         self.register_builtin("TIME_RANGE", TimeLayer)
         self.register_builtin("TIME_RANGE_FILTER", TimeRangeFilterLayer)
         self.register_builtin("RELATIVE_TIME_FILTER", RelativeTimeFilterLayer)
+        self.register_builtin("QUERY", QueryLayer)
         
         # 注册渲染层
         self.register_builtin("HIGHLIGHT", HighlightLayer)
