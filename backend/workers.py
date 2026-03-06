@@ -1,12 +1,5 @@
 """
 Workers module - Thread-based workers for background processing.
-
-This module provides:
-- Signal: Thread-safe event emitter
-- CustomThread: Base class for daemon threads
-- IndexingWorker: File indexing with mmap
-- PipelineWorker: Layer pipeline processing
-- StatsWorker: Statistics calculation
 """
 
 import os
@@ -16,8 +9,11 @@ import array
 import time
 import threading
 import subprocess
+import logging
 from typing import Any, Optional
 from concurrent.futures import ThreadPoolExecutor
+
+from logging_config import logger
 
 PROCESS_CLEANUP_TIMEOUT = 2
 
