@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -39,10 +39,10 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    messages: list[ChatMessage]
+    messages: List[ChatMessage]
     content: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
     message: str
-    suggestions: list[dict] = []
+    suggestions: List[dict] = []
