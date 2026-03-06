@@ -148,7 +148,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const baseBuffer = useScrollScaling ? BUFFER_LARGE : BUFFER_NORMAL;
   const velocityBuffer = Math.abs(scrollVelocityRef.current) * 200;
   const directionBonus = scrollDirectionRef.current === 'down' ? 500 : 0;
-  const dynamicBuffer = Math.min(virtualScrollBufferSetting, baseBuffer + velocityBuffer + directionBonus);
+  const dynamicBuffer = Math.floor(Math.min(virtualScrollBufferSetting, baseBuffer + velocityBuffer + directionBonus));
   const buffer = dynamicBuffer;
   const scaleFactor = useScrollScaling ? VIRTUAL_HEIGHT_LIMIT / realTotalHeight : 1;
   const virtualTotalHeight = (useScrollScaling ? VIRTUAL_HEIGHT_LIMIT : realTotalHeight) + SCROLL_MARGIN;
