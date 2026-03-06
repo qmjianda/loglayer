@@ -57,6 +57,16 @@ const shortcutCategories: ShortcutCategory[] = [
       { keys: 'Ctrl + D', description: '收藏当前行' },
     ],
   },
+  {
+    name: '分屏',
+    shortcuts: [
+      { keys: 'Ctrl + \\', description: '向右分屏' },
+      { keys: 'Ctrl + Shift + \\', description: '向下分屏' },
+      { keys: 'Ctrl + Shift + →', description: '向右分屏 (备用)' },
+      { keys: 'Ctrl + Shift + ↓', description: '向下分屏 (备用)' },
+      { keys: 'Ctrl + W', description: '关闭当前分屏' },
+    ],
+  },
 ];
 
 interface KeyboardShortcutsPanelProps {

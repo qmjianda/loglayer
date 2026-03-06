@@ -47,9 +47,10 @@ import { useBookmarks } from './hooks/useBookmarks';
 import { useSettings, SettingsProvider } from './hooks/useSettings';
 import { useResponsive } from './hooks/useResponsive';
 import { useFileWatch } from './hooks/useFileWatch';
-import { usePaneManagement } from './hooks/usePaneManagement';
+import { usePaneManagement, MAX_PANES } from './hooks/usePaneManagement';
 import { PaneHeader } from './components/common/PaneHeader';
 import { SplitPaneContainer } from './components/common/SplitPaneContainer';
+import { PaneResizeHandle } from './components/common/PaneResizeHandle';
 
 
 const AppContent: React.FC = () => {
@@ -124,7 +125,13 @@ const AppContent: React.FC = () => {
     handleDragLeave,
     handleDrop: handlePaneDrop,
     splitPane,
-    removePane
+    removePane,
+    layout,
+    setLayout,
+    paneSizes,
+    setPaneSizes,
+    updatePaneSize,
+    resetPaneSizes
   } = paneManagement;
 
   // ===== 图层管理 (Layer Management) =====
@@ -351,6 +358,27 @@ const AppContent: React.FC = () => {
     activeFilePath: activeFile?.path,
     handleFileActivate
   });
+
+  // Persist pane layout and sizes
+  const PANE_STORAGE_KEY = 'loglayer-pane-layout';
+  
+  React.useEffect(() => {
+    const saved = localStorage.getItem(PANE_STORAGE_KEY);
+    if (saved) {
+      try {
+        const { layout: savedLayout, sizes: savedSizes } = JSON.parse(saved);
+        if (savedLayout) setLayout(savedLayout);
+        if (savedSizes) setPaneSizes(savedSizes);
+      } catch (e) {
+        console.warn('[App] Failed to restore pane layout:', e);
+      }
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const data = JSON.stringify({ layout, sizes: paneSizes });
+    localStorage.setItem(PANE_STORAGE_KEY, data);
+  }, [layout, paneSizes]);
 
   // 导航到下一个搜索匹配项，并自动滚动到底部/指定行
   const findNextSearchMatchWithJump = useCallback(async (direction: 'next' | 'prev') => {
@@ -610,9 +638,13 @@ const AppContent: React.FC = () => {
     { id: 'view.ai', label: 'AI 助手', category: '视图', action: () => setActiveView('ai') },
     { id: 'view.stats', label: '统计面板', category: '视图', action: () => setActiveView('stats') },
     { id: 'view.help', label: '帮助视图', category: '视图', action: () => setActiveView('help') },
-    { id: 'pane.splitRight', label: '向右分屏', shortcut: 'Ctrl+\\ | Ctrl+Shift+→', category: '分屏', action: () => splitPane(activePaneId, undefined, 'right'), enabled: panes.length < 4 },
-    { id: 'pane.splitBottom', label: '向下分屏', shortcut: 'Ctrl+Shift+\\ | Ctrl+Shift+↓', category: '分屏', action: () => splitPane(activePaneId, undefined, 'bottom'), enabled: panes.length < 4 },
+    { id: 'pane.splitRight', label: '向右分屏', shortcut: 'Ctrl+\\ | Ctrl+Shift+→', category: '分屏', action: () => splitPane(activePaneId, undefined, 'right'), enabled: panes.length < MAX_PANES },
+    { id: 'pane.splitBottom', label: '向下分屏', shortcut: 'Ctrl+Shift+\\ | Ctrl+Shift+↓', category: '分屏', action: () => splitPane(activePaneId, undefined, 'bottom'), enabled: panes.length < MAX_PANES },
     { id: 'pane.close', label: '关闭当前分屏', shortcut: 'Ctrl+W', category: '分屏', action: () => removePane(activePaneId), enabled: panes.length > 1 },
+    { id: 'pane.layoutHorizontal', label: '水平布局', shortcut: '', category: '分屏', action: () => { setLayout('horizontal'); resetPaneSizes(); }, enabled: panes.length > 1 },
+    { id: 'pane.layoutVertical', label: '垂直布局', shortcut: '', category: '分屏', action: () => { setLayout('vertical'); resetPaneSizes(); }, enabled: panes.length > 1 },
+    { id: 'pane.layoutGrid', label: '网格布局 (2x2)', shortcut: '', category: '分屏', action: () => { setLayout('grid'); resetPaneSizes(); }, enabled: panes.length > 1 && panes.length <= 4 },
+    { id: 'pane.resetSizes', label: '重置分屏大小', shortcut: '', category: '分屏', action: () => resetPaneSizes() },
     { id: 'layer.new', label: '新建图层', shortcut: 'Ctrl+Shift+L', category: '图层', action: () => {
       // 添加一个默认的高亮图层
       addLayer(LayerType.HIGHLIGHT, { query: '', color: '#fbbf24', enabled: true });
@@ -966,26 +998,66 @@ const AppContent: React.FC = () => {
               )}
 
               {/* 中间编辑器区域（支持分屏，拖放文件到分屏位置实现多文件同时查看） */}
-              <div className={`flex-1 flex overflow-hidden min-w-0 min-h-0 ${isDragging ? 'cursor-move' : ''}`}>
-                {panes.map((pane) => {
+              <div className={`flex-1 overflow-hidden min-w-0 min-h-0 ${isDragging ? 'cursor-move' : ''} ${
+                layout === 'grid' 
+                  ? 'grid' 
+                  : layout === 'vertical' 
+                    ? 'flex-col' 
+                    : 'flex'
+              }`}
+              style={layout === 'grid' ? { gridTemplateColumns: 'repeat(2, 1fr)', gridTemplateRows: 'repeat(2, 1fr)' } : undefined}>
+                {panes.map((pane, index) => {
                   const paneFileId = pane.fileId;
                   const paneFile = files.find(f => f.id === paneFileId);
                   const processedData = paneFileId ? processedCache[paneFileId] : null;
                   const paneStats = processedData?.layerStats || {};
                   const isPaneActive = activePaneId === pane.id;
 
+                  const paneSize = paneSizes[pane.id];
+
                   return (
-                    <SplitPaneContainer
-                      key={pane.id}
-                      paneId={pane.id}
-                      isActive={isPaneActive}
-                      dragOverState={dragOverState}
-                      isDragging={isDragging}
-                      onDragOver={(e, position) => handleDragOver(e, pane.id, position)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e, position) => handlePaneDrop(e, pane.id, position)}
-                      className="bg-primary relative border-r border-subtle overflow-hidden"
-                    >
+                    <React.Fragment key={pane.id}>
+                      {index > 0 && layout === 'horizontal' && panes.length > 1 && (
+                        <PaneResizeHandle
+                          direction="horizontal"
+                          index={index}
+                          totalPanes={panes.length}
+                          onResize={(delta) => {
+                            const container = document.querySelector('.flex-1.flex.overflow-hidden') as HTMLElement | null;
+                            const containerWidth = container?.offsetWidth || 1;
+                            const percentageDelta = (delta / containerWidth) * 100;
+                            const prevPane = panes[index - 1];
+                            const prevSize = paneSizes[prevPane.id] || 50;
+                            updatePaneSize(prevPane.id, prevSize + percentageDelta);
+                          }}
+                        />
+                      )}
+                      {index > 0 && layout === 'vertical' && panes.length > 1 && (
+                        <PaneResizeHandle
+                          direction="vertical"
+                          index={index}
+                          totalPanes={panes.length}
+                          onResize={(delta) => {
+                            const container = document.querySelector('.flex-1.flex.overflow-hidden') as HTMLElement | null;
+                            const containerHeight = container?.offsetHeight || 1;
+                            const percentageDelta = (delta / containerHeight) * 100;
+                            const prevPane = panes[index - 1];
+                            const prevSize = paneSizes[prevPane.id] || 50;
+                            updatePaneSize(prevPane.id, prevSize + percentageDelta);
+                          }}
+                        />
+                      )}
+                      <SplitPaneContainer
+                        paneId={pane.id}
+                        isActive={isPaneActive}
+                        dragOverState={dragOverState}
+                        isDragging={isDragging}
+                        onDragOver={(e, position) => handleDragOver(e, pane.id, position)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e, position) => handlePaneDrop(e, pane.id, position)}
+                        className="bg-primary relative border-r border-subtle overflow-hidden"
+                        style={layout !== 'grid' && paneSize ? { flex: `0 0 ${paneSize}%` } : undefined}
+                      >
                       {/* 文件标签栏（支持拖放） */}
                       <PaneHeader
                         file={paneFile}
@@ -1091,6 +1163,7 @@ const AppContent: React.FC = () => {
                         )}
                       </div>
                     </SplitPaneContainer>
+                    </React.Fragment>
                   );
                 })}
               </div>
@@ -1112,7 +1185,7 @@ const AppContent: React.FC = () => {
         isWatching={isWatching}
         hasNewContent={hasNewContent}
         paneCount={panes.length}
-        maxPanes={4}
+        maxPanes={MAX_PANES}
         onOpenSettings={() => setIsSettingsVisible(true)}
         onOpenShortcuts={() => setIsShortcutsVisible(true)}
       />

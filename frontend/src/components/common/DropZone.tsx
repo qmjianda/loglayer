@@ -7,8 +7,10 @@
 
 import React from 'react';
 
+export type DropZonePosition = 'left' | 'right' | 'top' | 'bottom' | 'center';
+
 export interface DropZoneProps {
-    position: 'left' | 'right' | 'top' | 'bottom' | 'center';
+    position: DropZonePosition;
     isActive: boolean;
     onDragOver: (e: React.DragEvent) => void;
     onDragLeave: (e: React.DragEvent) => void;
@@ -22,20 +24,19 @@ export const DropZone: React.FC<DropZoneProps> = ({
     onDragLeave,
     onDrop
 }) => {
-    const baseClasses = "absolute z-50 transition-all duration-150 pointer-events-auto flex items-center justify-center";
+    const baseClasses = "absolute z-50 transition-all duration-150 pointer-events-auto flex items-center justify-center rounded";
     
     const positionClasses = {
-        left: "left-0 top-0 bottom-0 w-1/3 hover:bg-blue-500/15",
-        right: "right-0 top-0 bottom-0 w-1/3 hover:bg-blue-500/15",
-        top: "top-0 left-0 right-0 h-1/3 hover:bg-blue-500/15",
-        bottom: "bottom-0 left-0 right-0 h-1/3 hover:bg-blue-500/15",
-        center: "inset-0 hover:bg-blue-500/15"
+        left: "left-0 top-0 bottom-0 w-2/5 ml-1",
+        right: "right-0 top-0 bottom-0 w-2/5 mr-1",
+        top: "top-0 left-0 right-0 h-2/5 mt-1",
+        bottom: "bottom-0 left-0 right-0 h-2/5 mb-1",
+        center: "inset-0"
     };
 
-    // Always show base styling, enhance when active
     const activeClasses = isActive 
-        ? "bg-blue-500/30 border-2 border-blue-400" 
-        : "bg-blue-500/5 border border-blue-300/20";
+        ? "bg-blue-500/40 border-2 border-blue-400 shadow-lg" 
+        : "bg-blue-500/10 border border-blue-300/30 hover:bg-blue-500/20";
 
     const iconClasses = "absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-150";
     

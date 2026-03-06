@@ -21,6 +21,7 @@ export * from './useSettings';
 export * from './useBookmarks';
 export * from './useBookmarkLogic';
 export * from './useDrag';
+export * from './usePaneManagement';
 // useLoadingState merged into useFileState
 export * from './usePluginWidgets';
 export * from './useLayerRegistry';

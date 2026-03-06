@@ -13,6 +13,10 @@ export interface DragOverState {
     position: 'left' | 'right' | 'top' | 'bottom' | 'center';
 }
 
+export interface PaneSizes {
+    [paneId: string]: number;
+}
+
 export interface UsePaneManagementReturn {
     // Pane operations
     addPane: (fileId?: string, position?: 'left' | 'right' | 'top' | 'bottom') => void;
@@ -38,7 +42,16 @@ export interface UsePaneManagementReturn {
     // Layout
     layout: 'horizontal' | 'vertical' | 'grid';
     setLayout: React.Dispatch<React.SetStateAction<'horizontal' | 'vertical' | 'grid'>>;
+    
+    // Pane sizes for resizing
+    paneSizes: PaneSizes;
+    setPaneSizes: React.Dispatch<React.SetStateAction<PaneSizes>>;
+    updatePaneSize: (paneId: string, size: number) => void;
+    resetPaneSizes: () => void;
 }
+
+export const MAX_PANES = 4;
+export const MIN_PANE_SIZE = 20;
 
 export function usePaneManagement(
     panes: Pane[],
@@ -52,6 +65,18 @@ export function usePaneManagement(
     const [isDragging, setIsDragging] = useState(false);
     const [draggedFileId, setDraggedFileId] = useState<string | null>(null);
     const [layout, setLayout] = useState<'horizontal' | 'vertical' | 'grid'>('horizontal');
+    const [paneSizes, setPaneSizes] = useState<PaneSizes>({});
+    
+    const updatePaneSize = useCallback((paneId: string, size: number) => {
+        setPaneSizes(prev => ({
+            ...prev,
+            [paneId]: Math.max(MIN_PANE_SIZE, Math.min(100 - MIN_PANE_SIZE, size))
+        }));
+    }, []);
+    
+    const resetPaneSizes = useCallback(() => {
+        setPaneSizes({});
+    }, []);
 
     // Generate unique pane ID
     const generatePaneId = useCallback(() => {
@@ -216,6 +241,10 @@ export function usePaneManagement(
         handleDragLeave,
         handleDrop,
         layout,
-        setLayout
+        setLayout,
+        paneSizes,
+        setPaneSizes,
+        updatePaneSize,
+        resetPaneSizes
     };
 }
