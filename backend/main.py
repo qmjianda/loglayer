@@ -7,13 +7,15 @@ import uvicorn
 import webview
 import argparse
 import time
+import logging
+
+from logging_config import logger
 
 # Windows asyncio fix for [WinError 10054]
 if sys.platform == "win32":
     try:
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     except (AttributeError, OSError):
-        # Fallback if event loop policy not available
         pass
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Body, Request
@@ -39,9 +41,9 @@ main_loop = None
 async def lifespan(app: FastAPI):
     global main_loop
     main_loop = asyncio.get_running_loop()
-    print("[Server] Event loop captured for signal broadcasting.")
+    logger.info("Event loop captured for signal broadcasting")
     yield
-    print("[Server] Shutting down.")
+    logger.info("Server shutting down")
 
 
 # 1. Initialize FastAPI with lifespan
@@ -97,7 +99,7 @@ class ConnectionManager:
             try:
                 await connection.send_json(message)
             except Exception as e:
-                print(f"[WebSocket] Broadcast error to {connection}: {e}")
+                logger.warning(f"WebSocket broadcast error: {e}")
                 self.disconnect(connection)
 
 
@@ -113,13 +115,11 @@ def broadcast_signal(signal_name, *args):
 
     if main_loop:
         try:
-            # Schedule the coroutine on the main event loop from ANY thread
             asyncio.run_coroutine_threadsafe(manager.broadcast(message), main_loop)
         except Exception as e:
-            print(f"[Bridge] Signal broadcast failed for {signal_name}: {e}")
+            logger.warning(f"Signal broadcast failed for {signal_name}: {e}")
     else:
-        # Pre-broadcast or late broadcast
-        print(f"[Bridge] Global loop not ready for signal: {signal_name}")
+        logger.debug(f"Global loop not ready for signal: {signal_name}")
 
 
 # Connect signals
