@@ -77,33 +77,13 @@ app.add_middleware(
 # Include AI router
 app.include_router(ai_router)
 
+# Import WebSocket manager
+from websocket_manager import manager, ConnectionManager
 
-# WebSocket Manager
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
+# Import and include API routes
+from api_routes import create_api_router
 
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: dict):
-        if not self.active_connections:
-            return
-        # Fire and forget broadcasting with robust delivery
-        for connection in list(self.active_connections):
-            try:
-                await connection.send_json(message)
-            except Exception as e:
-                logger.warning(f"WebSocket broadcast error: {e}")
-                self.disconnect(connection)
-
-
-manager = ConnectionManager()
+app.include_router(create_api_router(bridge))
 
 
 # Setup Bridge Signals to WebSocket
