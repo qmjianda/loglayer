@@ -48,20 +48,27 @@ class LabelExtractor:
     Extract labels from log lines.
     
     Identifies key-value pairs using multiple pattern matching strategies.
+    
+    Performance: Compiled patterns are shared across all instances as class-level constants.
     """
     
-    def __init__(self):
-        self._compiled_patterns = []
-        self._compile_patterns()
+    # Class-level compiled patterns (shared across all instances)
+    _COMPILED_PATTERNS: List[Tuple[re.Pattern, str]] = []
     
-    def _compile_patterns(self):
-        """Compile regex patterns for performance."""
-        self._compiled_patterns = []
-        for pattern, ptype in LABEL_PATTERNS:
-            try:
-                self._compiled_patterns.append((re.compile(pattern), ptype))
-            except re.error:
-                pass
+    @classmethod
+    def _init_patterns(cls):
+        """Initialize compiled patterns once (called on first use)."""
+        if not cls._COMPILED_PATTERNS:
+            for pattern, ptype in LABEL_PATTERNS:
+                try:
+                    cls._COMPILED_PATTERNS.append((re.compile(pattern), ptype))
+                except re.error:
+                    pass
+    
+    def __init__(self):
+        # Ensure patterns are compiled (only once, class-level)
+        if not self._COMPILED_PATTERNS:
+            self._init_patterns()
     
     def extract(self, line: str) -> Dict[str, str]:
         """
@@ -88,8 +95,8 @@ class LabelExtractor:
             except (json.JSONDecodeError, ValueError):
                 pass
         
-        # Apply pattern matching
-        for pattern, ptype in self._compiled_patterns:
+        # Apply pattern matching (using class-level compiled patterns)
+        for pattern, ptype in self._COMPILED_PATTERNS:
             for match in pattern.finditer(line):
                 key = match.group(1).lower()  # Normalize key to lowercase
                 value = match.group(2)
@@ -128,8 +135,8 @@ class LabelExtractor:
             except (json.JSONDecodeError, ValueError):
                 pass
         
-        # Try pattern matching
-        for pattern, ptype in self._compiled_patterns:
+        # Try pattern matching (using class-level compiled patterns)
+        for pattern, ptype in self._COMPILED_PATTERNS:
             for match in pattern.finditer(line):
                 key = match.group(1).lower()
                 if key == field_lower:

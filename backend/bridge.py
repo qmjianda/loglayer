@@ -9,9 +9,12 @@ import threading
 import time
 import webview
 import platform
+import logging
 from pathlib import Path
 import importlib
 from concurrent.futures import ThreadPoolExecutor
+
+logger = logging.getLogger(__name__)
 
 
 def convert_windows_path_to_linux(windows_path: str) -> str:
@@ -155,7 +158,7 @@ def get_log_files_recursive(folder_path):
                     except (OSError, PermissionError):
                         continue
     except Exception as e:
-        print(f"Error walking directory {folder_path}: {e}")
+            logger.error(f"Error walking directory {folder_path}: {e}")
     return log_files
 
 
@@ -179,7 +182,7 @@ def get_directory_contents(folder_path):
                 continue
         items.sort(key=lambda x: (not x["isDir"], x["name"].lower()))
     except Exception as e:
-        print(f"Error listing directory {folder_path}: {e}")
+            logger.error(f"Error listing directory {folder_path}: {e}")
     return items
 
 
@@ -223,11 +226,12 @@ class LogSession:
         self.visible_indices = None
         self.search_matches = None
         self.layers = []
-        self.layer_instances = []  # 处理层实例
-        self.rendering_instances = []  # 渲染层实例
+        self.layer_instances = []
+        self.rendering_instances = []
         self.search_config = None
-        # 分层缓存: processing_cache (过滤/转换结果) + rendering_cache (视觉效果)
-        # 使用 LRU Cache 防止内存溢出
+        self.sparse_index = False
+        self.sparse_interval = 1
+        self.sparse_cache = {}
         self.processing_cache = {}
         self.rendering_cache = LRUCache(max_size=5000)
         self.workers = {}
@@ -315,10 +319,10 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             # Shutdown old executor gracefully (don't wait, allow pending tasks to complete)
             old_executor.shutdown(wait=False)
 
-            print(f"[WorkerPool] Adjusted to {max_workers} workers")
+            logger.info(f"[WorkerPool] Adjusted to {max_workers} workers")
             return True
         except Exception as e:
-            print(f"[WorkerPool] Failed to adjust worker count: {e}")
+            logger.warning(f"[WorkerPool] Failed to adjust worker count: {e}")
             return False
 
     def get_platform_info(self) -> str:
@@ -357,8 +361,8 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                     self._zombie_workers.remove(w)
             # 打印警告如果仍有大量僵尸
             if len(self._zombie_workers) > 10:
-                print(
-                    f"[Warning] {len(self._zombie_workers)} zombie workers still running"
+                logger.warning(
+                    f"{len(self._zombie_workers)} zombie workers still running"
                 )
 
     def _get_rg_path(self):
@@ -427,36 +431,41 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             worker.start()
             return True
         except Exception as e:
-            print(f"Error opening file: {e}")
+            logger.error(f"Error opening file: {e}")
             return False
 
     def _on_indexing_finished(self, file_id, result):
-        # Handle both old format (list) and new format (dict with partial support)
         if isinstance(result, dict):
             offsets = result.get("offsets", result)
             is_partial = result.get("partial", False)
-            # Use line_count if provided, otherwise calculate from offsets
             line_count = (
                 result.get("lineCount")
                 or result.get("line_count")
                 or result.get("total")
                 or len(offsets)
             )
+            is_sparse = result.get("sparse", False)
+            sparse_interval = result.get("sparseInterval", 1)
         else:
             offsets = result
             is_partial = False
             line_count = len(offsets)
+            is_sparse = False
+            sparse_interval = 1
 
         if file_id not in self._sessions:
             return
         session = self._sessions[file_id]
 
-        # Update offsets - for partial, we still need to set what we have
         if offsets:
             session.line_offsets = offsets
         session.visible_indices = None
         session.processing_cache.clear()
         session.rendering_cache.clear()
+        session.sparse_index = is_sparse
+        session.sparse_interval = sparse_interval
+        session.sparse_line_count = line_count
+        session.sparse_cache.clear()
 
         name = (
             session.provider.get_name(session.path)
@@ -464,7 +473,6 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             else Path(session.path).name
         )
 
-        # Emit fileLoaded with line count info
         self.fileLoaded.emit(
             file_id,
             json.dumps(
@@ -473,6 +481,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                     "size": session.size,
                     "lineCount": line_count,
                     "partial": is_partial,
+                    "sparse": is_sparse,
                 }
             ),
         )
@@ -524,7 +533,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             self._start_pipeline(file_id, session.layer_instances)
             return True
         except Exception as e:
-            print(f"Sync layers error: {file_id}: {e}")
+            logger.error(f"Sync layers error: {file_id}: {e}")
             self.operationError.emit(file_id, "sync", str(e))
             self.operationStatusChanged.emit(file_id, "ready", 100)
             return False
@@ -599,7 +608,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
 
             return True
         except Exception as e:
-            print(f"Sync decorations error: {file_id}: {e}")
+            logger.error(f"Sync decorations error: {file_id}: {e}")
             return False
 
     def _start_pipeline(self, file_id, layer_instances):
@@ -656,8 +665,8 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
     def get_layer_registry(self) -> str:
         return json.dumps(self._registry.get_all_types())
 
-    def _calculate_log_level_stats(self, file_path: str) -> dict:
-        """Calculate log level statistics for a file using ripgrep"""
+    def _calculate_log_level_stats_rg(self, file_path: str) -> dict:
+        """Calculate log level statistics for a file using ripgrep (fast, full-file scan)"""
         log_levels = ["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "FATAL"]
         results = {}
 
@@ -689,20 +698,11 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 else:
                     results[level] = 0
         except Exception as e:
-            print(f"[LogLevelStats] Error calculating stats: {e}")
+            logger.error(f"[LogLevelStats] Error calculating stats: {e}")
             for level in log_levels:
                 results[level] = 0
 
         return results
-
-    def get_log_level_stats(self, file_id: str) -> str:
-        """Get log level statistics for a file"""
-        if file_id not in self._sessions:
-            return json.dumps({})
-
-        session = self._sessions[file_id]
-        stats = self._calculate_log_level_stats(session.path)
-        return json.dumps(stats)
 
     def reload_plugins(self) -> bool:
         self._registry.discover_plugins()
@@ -727,6 +727,47 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
 
     # Search methods have been moved to SearchMixin
 
+    def _get_line_offset_sparse(self, session, line_idx):
+        if not session.sparse_index:
+            return session.line_offsets[line_idx] if line_idx < len(session.line_offsets) else session.size
+
+        if line_idx in session.sparse_cache:
+            return session.sparse_cache[line_idx]
+
+        interval = session.sparse_interval
+        sparse_offsets = session.line_offsets
+
+        if line_idx >= len(sparse_offsets) * interval:
+            return session.size
+
+        block_idx = line_idx // interval
+        start_search = sparse_offsets[block_idx] if block_idx < len(sparse_offsets) else 0
+
+        if block_idx + 1 < len(sparse_offsets):
+            end_search = sparse_offsets[block_idx + 1]
+        else:
+            end_search = session.size
+
+        target_line = line_idx % interval
+        current_line = 0
+        found_offset = start_search
+
+        mmap_obj = session.mmap
+        search_start = start_search
+        while search_start < end_search:
+            newline_pos = mmap_obj.find(b"\n", search_start, end_search)
+            if newline_pos == -1:
+                break
+            if current_line == target_line:
+                session.sparse_cache[line_idx] = found_offset
+                return found_offset
+            found_offset = newline_pos + 1
+            current_line += 1
+            search_start = newline_pos + 1
+
+        session.sparse_cache[line_idx] = found_offset
+        return found_offset
+
     def read_processed_lines(self, file_id: str, start_line: int, count: int) -> str:
         if file_id not in self._sessions:
             return "[]"
@@ -734,13 +775,19 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         try:
             if session.mmap is None or session.mmap.closed:
                 return "[]"
-            _ = len(session.mmap)  # 验证 mmap 仍然有效
+            _ = len(session.mmap)
             if start_line < 0:
                 return "[]"
             results = []
             v_indices = session.visible_indices
             offsets = session.line_offsets
-            total = len(v_indices) if v_indices is not None else len(offsets)
+            is_sparse = session.sparse_index
+
+            if is_sparse:
+                total = getattr(session, 'sparse_line_count', len(offsets) * session.sparse_interval)
+            else:
+                total = len(v_indices) if v_indices is not None else len(offsets)
+
             end_idx = min(start_line + count, total)
             for i in range(start_line, end_idx):
                 if i in session.rendering_cache:
@@ -748,14 +795,18 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                     continue
                 try:
                     real_idx = v_indices[i] if v_indices is not None else i
-                    if real_idx >= len(offsets):
-                        continue
-                    start_off = offsets[real_idx]
-                    end_off = (
-                        offsets[real_idx + 1]
-                        if real_idx + 1 < len(offsets)
-                        else session.size
-                    )
+                    if is_sparse:
+                        start_off = self._get_line_offset_sparse(session, real_idx)
+                        end_off = self._get_line_offset_sparse(session, real_idx + 1)
+                    else:
+                        if real_idx >= len(offsets):
+                            continue
+                        start_off = offsets[real_idx]
+                        end_off = (
+                            offsets[real_idx + 1]
+                            if real_idx + 1 < len(offsets)
+                            else session.size
+                        )
                     chunk = session.mmap[start_off:end_off]
                     if len(chunk) > 10000:
                         chunk = chunk[:10000] + b"... [truncated]"
@@ -851,7 +902,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                     continue
             return json.dumps(results)
         except (ValueError, RuntimeError) as e:
-            print(f"Session error for {file_id}: {e}")
+            logger.error(f"Session error for {file_id}: {e}")
             return "[]"
 
     def list_directory(self, folder_path: str) -> str:
@@ -866,7 +917,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 f.write(config_json)
             return True
         except Exception as e:
-            print(f"[Workspace] Error saving config: {e}")
+            logger.error(f"[Workspace] Error saving config: {e}")
             return False
 
     def load_workspace_config(self, folder_path: str) -> str:
@@ -877,7 +928,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             with open(config_file, "r", encoding="utf-8") as f:
                 return f.read()
         except Exception as e:
-            print(f"[Workspace] Error loading config: {e}")
+            logger.error(f"[Workspace] Error loading config: {e}")
             return ""
 
     def get_lines_by_indices(self, file_id: str, indices: list) -> str:
@@ -913,7 +964,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                     continue
             return json.dumps(results)
         except (ValueError, RuntimeError) as e:
-            print(f"get_lines_by_indices error for {file_id}: {e}")
+            logger.error(f"get_lines_by_indices error for {file_id}: {e}")
             return "[]"
 
     def ready(self):
@@ -957,7 +1008,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                     file_types=("Log files (*.log;*.txt;*.json)", "All files (*.*)"),
                 )
             except Exception as e:
-                print(f"[Bridge] select_files error: {e}")
+                logger.error(f"[Bridge] select_files error: {e}")
                 paths = self.window.create_file_dialog(
                     0,
                     allow_multiple=True,
@@ -986,7 +1037,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
 
                 path = self.window.create_file_dialog(FileDialog.FOLDER)
             except Exception as e:
-                print(f"[Bridge] select_folder error: {e}")
+                logger.error(f"[Bridge] select_folder error: {e}")
                 path = self.window.create_file_dialog(1)  # 1 is FOLDER
             return path[0] if path else ""
 
@@ -1127,6 +1178,38 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         suggestions = detector.suggest_layer_config(analysis)
 
         return suggestions
+
+    def export_visible_lines(self, file_id: str, output_path: str, format: str = 'txt') -> dict:
+        """
+        Export visible (filtered) log lines to a file.
+        
+        Args:
+            file_id: File session ID
+            output_path: Output file path
+            format: Export format (csv/json/txt)
+            
+        Returns:
+            Dict with success status and message
+        """
+        if file_id not in self._sessions:
+            return {'success': False, 'error': 'File not found'}
+        
+        from loglayer.export import LogExporter
+        
+        session = self._sessions[file_id]
+        exporter = LogExporter(file_id, session.path)
+        
+        success = exporter.export_visible_lines(
+            self, 
+            output_path, 
+            format, 
+            include_line_numbers=True
+        )
+        
+        if success:
+            return {'success': True, 'path': output_path}
+        else:
+            return {'success': False, 'error': 'Export failed'}
 
     # SearchMixin provides:
     # get_search_match_index, get_nearest_search_rank, get_search_matches_range,

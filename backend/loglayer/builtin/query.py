@@ -73,6 +73,8 @@ class QueryParser:
         grouped     = "(" query ")"
     """
     
+    MAX_REGEX_CACHE_SIZE = 100  # Limit cache size to prevent memory growth
+    
     def __init__(self):
         self.field_cache: Dict[str, re.Pattern] = {}
         self.regex_cache: Dict[str, re.Pattern] = {}
@@ -400,10 +402,15 @@ class QueryParser:
             field = cond['field']
             pattern_str = cond['pattern']
             
-            # Use cached regex pattern
+            # Use cached regex pattern with LRU eviction
             cache_key = f"{field}:~{pattern_str}"
             if cache_key not in self.regex_cache:
                 try:
+                    # Evict oldest entry if cache is full
+                    if len(self.regex_cache) >= self.MAX_REGEX_CACHE_SIZE:
+                        # Remove first (oldest) item
+                        oldest_key = next(iter(self.regex_cache))
+                        del self.regex_cache[oldest_key]
                     self.regex_cache[cache_key] = re.compile(pattern_str, re.IGNORECASE)
                 except re.error:
                     return False
