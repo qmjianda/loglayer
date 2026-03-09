@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 from loglayer.storage import StorageRegistry
 from loglayer.registry import LayerRegistry
-from loglayer.core import LayerStage
+from loglayer.core import LayerStage, ProcessedLine
 from workers import (
     CustomThread,
     IndexingWorker,
@@ -24,6 +24,13 @@ from workers import (
     StatsWorker
 )
 from search_mixin import SearchPipeline, BookmarkPipeline
+
+try:
+    import tkinter as tk
+    from tkinter import filedialog
+except ImportError:
+    tk = None
+    filedialog = None
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -861,6 +868,11 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                             pass
                     
                     # 4. 直接读取 session.bookmarks (独立于图层系统)
+                    line_data = {
+                        "index": real_idx,
+                        "content": content,
+                        "highlights": highlights,
+                    }
                     if real_idx in session.bookmarks:
                         line_data["isMarked"] = True
                         comment = session.bookmarks.get(real_idx)
@@ -871,11 +883,6 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                             row_style = {}
                         row_style["borderLeft"] = "3px solid #f59e0b"
 
-                    line_data = {
-                        "index": real_idx,
-                        "content": content,
-                        "highlights": highlights,
-                    }
                     if row_style:
                         line_data["rowStyle"] = row_style
                     # LRU Cache 会自动处理容量限制
