@@ -82,31 +82,41 @@ class LRUCache:
         self._cache = {}
         self._access_order = []
     
-    def get(self, key):
-        if key in self._cache:
-            # Move to end (most recently used)
-            self._access_order.remove(key)
-            self._access_order.append(key)
-            return self._cache[key]
-        return None
-    
-    def put(self, key, value):
+    def __setitem__(self, key, value):
         if key in self._cache:
             self._access_order.remove(key)
         elif len(self._cache) >= self.max_size:
-            # Remove least recently used
             lru_key = self._access_order.pop(0)
             del self._cache[lru_key]
-        
         self._cache[key] = value
         self._access_order.append(key)
+    
+    def __getitem__(self, key):
+        if key in self._cache:
+            self._access_order.remove(key)
+            self._access_order.append(key)
+            return self._cache[key]
+        raise KeyError(key)
+    
+    def __contains__(self, key):
+        return key in self._cache
+    
+    def __len__(self):
+        return len(self._cache)
+    
+    def get(self, key, default=None):
+        if key in self._cache:
+            self._access_order.remove(key)
+            self._access_order.append(key)
+            return self._cache[key]
+        return default
+    
+    def put(self, key, value):
+        self[key] = value
     
     def clear(self):
         self._cache.clear()
         self._access_order.clear()
-    
-    def __contains__(self, key):
-        return key in self._cache
 
 # Constants
 PROCESS_CLEANUP_TIMEOUT = 0.3  # Seconds to wait for process termination before killing
