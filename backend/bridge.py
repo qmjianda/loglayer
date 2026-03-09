@@ -29,6 +29,45 @@ from search_mixin import SearchPipeline, BookmarkPipeline
 logger = logging.getLogger(__name__)
 
 
+def convert_windows_path_to_linux(windows_path: str) -> str:
+    """将 Windows 路径转换为 Linux 路径"""
+    if platform.system() != "Windows":
+        # 处理 Windows 盘符 (如 D:\Project\... -> /mnt/d/Project/...)
+        path = windows_path.replace("\\", "/")
+
+        # 检查是否是 Windows 盘符路径
+        match = re.match(r"^([A-Za-z]):/(.*)", path)
+        if match:
+            drive_letter = match.group(1).lower()
+            rest_path = match.group(2)
+            # 动态映射任意盘符: X: -> /mnt/x
+            return f"/mnt/{drive_letter}/{rest_path}"
+
+        # 如果不是 Windows 盘符，可能是 WSL 路径或网络路径
+        # 尝试直接返回转换后的路径
+        return path
+    return windows_path
+
+
+def resolve_file_path(file_path: str) -> str:
+    """解析文件路径，处理跨平台路径问题"""
+    # 使用 Path 来规范化路径（处理正反斜杠）
+    normalized_path = Path(file_path)
+
+    # 首先检查原路径是否存在（Path会自动处理路径格式）
+    if normalized_path.exists():
+        return str(normalized_path)
+
+    # 在非 Windows 平台上，尝试转换为 Linux 路径
+    if platform.system() != "Windows":
+        linux_path = convert_windows_path_to_linux(file_path)
+        if Path(linux_path).exists():
+            return linux_path
+
+    # 返回规范化后的原始路径
+    return str(normalized_path)
+
+
 class LRUCache:
     """Simple LRU Cache implementation"""
     def __init__(self, max_size: int = 1000):
