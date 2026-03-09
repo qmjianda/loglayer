@@ -140,6 +140,24 @@ Focus on error clusters and traffic patterns. Max 5 suggestions."""
         except requests.exceptions.RequestException:
             return False
 
+    def test_connection(self) -> tuple[bool, str]:
+        """Test actual connection to Ollama"""
+        try:
+            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                models = data.get("models", [])
+                if models:
+                    return True, f"连接成功，已加载 {len(models)} 个模型"
+                return True, "Ollama 运行中，但未下载模型"
+            return False, f"服务不可用 (HTTP {response.status_code})"
+        except requests.exceptions.ConnectionError:
+            return False, "无法连接，请确保 Ollama 已启动 (默认端口 11434)"
+        except requests.exceptions.Timeout:
+            return False, "连接超时"
+        except Exception as e:
+            return False, f"连接失败: {str(e)[:50]}"
+
     def list_models(self) -> list[str]:
         """List available Ollama models"""
         try:

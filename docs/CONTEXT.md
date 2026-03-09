@@ -23,19 +23,21 @@
 
 ## 技术栈
 
+### 技术栈
+
 ### 后端
 ```
-Python 3.10+ | FastAPI | mmap | ripgrep | pywebview
+Python 3.10+ | FastAPI | mmap | ripgrep | pywebview | Ruff (linting)
 ```
 
 ### 前端
 ```
-React 19 | TypeScript | Vite | Tailwind CSS 4 | HTML5 Canvas
+React 19 | TypeScript | Vite | Tailwind CSS 4 | HTML5 Canvas | Prettier | ESLint
 ```
 
 ### 测试与构建
 ```
-pytest | PyInstaller | npm
+pytest | GitHub Actions | PyInstaller | npm
 ```
 
 ---
@@ -44,36 +46,62 @@ pytest | PyInstaller | npm
 
 ```
 backend/
-├── bridge.py           # 核心：mmap 索引、文件操作、信号处理
-├── main.py            # FastAPI 服务、REST/WS 端点
-└── loglayer/
-    ├── core.py        # 图层引擎基类
-    ├── registry.py    # 图层注册表
-    └── builtin/       # 8 种内置图层
-        ├── filter.py
-        ├── highlight.py
-        ├── level.py
-        ├── time.py
-        ├── range.py
-        ├── rowtint.py
-        ├── bookmark.py
-        └── replace.py
+├── bridge.py              # 核心：mmap 索引、文件操作、信号处理
+├── main.py               # FastAPI 服务入口
+├── api_routes.py         # REST API 端点 (已提取)
+├── websocket_manager.py  # WebSocket 实时通信管理
+├── workers.py            # 后台工作线程
+├── search_mixin.py       # 搜索混合类
+├── logging_config.py     # 日志配置
+├── loglayer/
+│   ├── core.py           # 图层引擎基类
+│   ├── registry.py       # 图层注册表
+│   ├── views.py          # 视图管理系统 (Saved Views)
+│   ├── storage.py        # 持久化存储
+│   ├── export.py         # 导出功能
+│   ├── ui.py             # UI 相关逻辑
+│   ├── pattern_detector.py # 模式检测
+│   └── builtin/          # 10 种内置图层
+│       ├── filter.py
+│       ├── highlight.py
+│       ├── level.py
+│       ├── time.py
+│       ├── time_range.py
+│       ├── range.py
+│       ├── rowtint.py
+│       ├── bookmark.py
+│       ├── replace.py
+│       ├── query.py      # KQL 查询语言
+│       ├── label.py      # 标签提取
+│       └── timeline.py   # 时间线直方图
+└── ai/                   # AI 服务模块
+    ├── service.py
+    ├── config.py
+    ├── endpoints.py
+    └── providers/
+        ├── base.py
+        ├── local.py
+        ├── cloud.py
+        └── heuristic.py
 
 frontend/
 ├── src/
 │   ├── components/
 │   │   ├── LogViewer.tsx      # 核心：Canvas 虚拟滚动
-│   │   ├── SearchPanel.tsx    # 搜索面板
-│   │   ├── LayersPanel.tsx    # 图层管理
+│   │   ├── SearchPanel.tsx     # 搜索面板
+│   │   ├── LayersPanel.tsx     # 图层管理
 │   │   ├── BookmarkPopover.tsx
-│   │   └── DynamicUI/         # Schema 驱动 UI
+│   │   ├── QueryLayerConfig.tsx # 查询层配置
+│   │   ├── SavedViewsPanel.tsx # 保存的视图
+│   │   ├── TimelineHistogram.tsx # 时间线直方图
+│   │   └── DynamicUI/          # Schema 驱动 UI
 │   ├── hooks/
 │   │   ├── useFileManagement.ts
 │   │   ├── useLayerManagement.ts
 │   │   ├── useSearch.ts
 │   │   └── useBookmarks.ts
 │   ├── bridge_client.ts       # API 客户端
-│   ├── constants.ts           # 常量定义 (新增)
+│   ├── constants.ts           # 常量定义
 │   └── types.ts               # TypeScript 类型
 ```
 
@@ -89,6 +117,14 @@ POST /api/layers/sync       # 同步图层
 GET  /api/lines/read        # 读取行范围
 POST /api/bookmark/toggle   # 切换书签
 GET  /api/platform          # 获取平台信息
+
+# 视图管理
+GET    /api/views            # 获取所有视图
+POST   /api/views            # 创建视图
+PUT    /api/views/{id}       # 更新视图
+DELETE /api/views/{id}      # 删除视图
+POST   /api/views/{id}/export # 导出视图
+POST   /api/views/import    # 导入视图
 ```
 
 ### WebSocket 信号
@@ -204,4 +240,4 @@ npm run build           # 前端构建
 
 ---
 
-*最后更新: 2026-02-21*
+*最后更新: 2026-03-08*

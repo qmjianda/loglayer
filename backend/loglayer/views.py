@@ -184,7 +184,7 @@ class ViewManager:
                             'source': 'workspace'
                         })
                         seen_names.add(view.name)
-                except Exception:
+                except (IOError, json.JSONDecodeError, KeyError):
                     continue
         
         # Load global views
@@ -199,7 +199,7 @@ class ViewManager:
                         'source': 'global'
                     })
                     seen_names.add(view.name)
-            except Exception:
+            except (IOError, json.JSONDecodeError, KeyError):
                 continue
         
         # Sort by updated_at (most recent first)
@@ -269,7 +269,7 @@ class ViewManager:
                 # Save to global views
                 self.save_view(view.name, view.layers, workspace_only=False)
                 results[view.name] = True
-            except Exception as e:
+            except (IOError, json.JSONDecodeError, KeyError) as e:
                 results[view_dict.get('name', 'unknown')] = False
         
         return results
@@ -280,7 +280,7 @@ class ViewManager:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             return SavedView.from_dict(data)
-        except Exception:
+        except (IOError, json.JSONDecodeError, KeyError, TypeError):
             return None
     
     def _sanitize_name(self, name: str) -> str:

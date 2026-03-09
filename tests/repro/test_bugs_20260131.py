@@ -27,11 +27,10 @@ def test_empty_file():
     loaded_event.wait(timeout=10)
 
     print(f"Empty file line count: {results.get('lineCount')}")
-    success = results.get("lineCount") == 0
+    assert results.get("lineCount") == 0, "Empty file should have 0 lines"
 
     if test_file.exists():
         test_file.unlink()
-    return success
 
 
 def test_stats_worker_termination():
@@ -66,19 +65,17 @@ def test_stats_worker_termination():
 
     if test_file.exists():
         test_file.unlink()
-    return not is_running
+
+    assert not is_running, "Worker should have stopped"
 
 
 if __name__ == "__main__":
-    s1 = test_empty_file()
-    s2 = test_stats_worker_termination()
+    test_empty_file()
+    test_stats_worker_termination()
 
     print("\n--- Bug Fix Summary ---")
-    print(f"Empty File Fix: {'PASS' if s1 else 'FAIL'}")
-    print(f"StatsWorker Termination: {'PASS' if s2 else 'FAIL'}")
+    print("All tests passed!")
 
     import sys
 
-    if not (s1 and s2):
-        sys.exit(1)
     sys.exit(0)

@@ -3,6 +3,10 @@ import { CommandPalette, Command } from './CommandPalette';
 import { RemotePathPicker } from './RemotePathPicker';
 import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel';
 import { SettingsPanel } from './SettingsPanel';
+import { ExportDialog } from './ExportDialog';
+import { StorageSettings } from './StorageSettings';
+import { WorkerConfigPanel } from './WorkerConfigPanel';
+import { PluginManager } from './PluginManager';
 
 interface Notification {
   type: 'success' | 'warning' | 'error' | 'info';
@@ -23,6 +27,21 @@ interface AppModalsProps {
   isShortcutsVisible: boolean;
   setIsShortcutsVisible: any;
   notification: any;
+  // New modal states
+  isExportDialogOpen?: boolean;
+  onCloseExportDialog?: () => void;
+  exportFileId?: string;
+  exportFileName?: string;
+  onExport?: (options: any) => Promise<void>;
+  isStorageSettingsOpen?: boolean;
+  onCloseStorageSettings?: () => void;
+  storageDefaultPath?: string;
+  onStoragePathChange?: (path: string) => void;
+  isWorkerConfigOpen?: boolean;
+  onCloseWorkerConfig?: () => void;
+  onWorkerConfigChange?: (maxWorkers: number) => void;
+  isPluginManagerOpen?: boolean;
+  onClosePluginManager?: () => void;
 }
 
 export const AppModals: React.FC<AppModalsProps> = ({
@@ -38,7 +57,21 @@ export const AppModals: React.FC<AppModalsProps> = ({
   setIsSettingsVisible,
   isShortcutsVisible,
   setIsShortcutsVisible,
-  notification
+  notification,
+  isExportDialogOpen,
+  onCloseExportDialog,
+  exportFileId,
+  exportFileName,
+  onExport,
+  isStorageSettingsOpen,
+  onCloseStorageSettings,
+  storageDefaultPath,
+  onStoragePathChange,
+  isWorkerConfigOpen,
+  onCloseWorkerConfig,
+  onWorkerConfigChange,
+  isPluginManagerOpen,
+  onClosePluginManager,
 }) => {
   const getRemotePickerTitle = () => {
     if (remotePickerMode === 'folder') return '选择文件夹';
@@ -72,6 +105,40 @@ export const AppModals: React.FC<AppModalsProps> = ({
         isOpen={isShortcutsVisible}
         onClose={() => setIsShortcutsVisible(false)}
       />
+
+      {isExportDialogOpen && onCloseExportDialog && exportFileId && exportFileName && onExport && (
+        <ExportDialog
+          isOpen={isExportDialogOpen}
+          onClose={onCloseExportDialog}
+          fileId={exportFileId}
+          fileName={exportFileName}
+          onExport={onExport}
+        />
+      )}
+
+      {isStorageSettingsOpen && onCloseStorageSettings && (
+        <StorageSettings
+          isOpen={isStorageSettingsOpen}
+          onClose={onCloseStorageSettings}
+          defaultPath={storageDefaultPath || ''}
+          onDefaultPathChange={onStoragePathChange || (() => {})}
+        />
+      )}
+
+      {isWorkerConfigOpen && onCloseWorkerConfig && (
+        <WorkerConfigPanel
+          isOpen={isWorkerConfigOpen}
+          onClose={onCloseWorkerConfig}
+          onConfigChange={onWorkerConfigChange}
+        />
+      )}
+
+      {isPluginManagerOpen && onClosePluginManager && (
+        <PluginManager
+          isOpen={isPluginManagerOpen}
+          onClose={onClosePluginManager}
+        />
+      )}
 
       {notification && (
         <div className="fixed bottom-16 right-4 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">

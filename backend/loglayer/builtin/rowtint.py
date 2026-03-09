@@ -1,9 +1,9 @@
 
 import re
 from loglayer.ui import SearchInput, ColorInput, RangeInput
-from loglayer.core import RenderingLayer
+from loglayer.core import DecorationLayer, RowStyle
 
-class RowTintLayer(RenderingLayer):
+class RowTintLayer(DecorationLayer):
     """
     行背景图层：为匹配行添加背景色。
     与 HighlightLayer 不同，这里着色的是整行背景而非匹配文字。
@@ -36,21 +36,20 @@ class RowTintLayer(RenderingLayer):
         except Exception as e:
             print(f"RowTintLayer Regex Error: {e}")
 
-    def get_row_style(self, content: str) -> dict:
+    def get_row_style(self, content: str, index: int = -1) -> RowStyle:
         """如果行匹配模式，返回背景色样式"""
         if not self.pattern_re:
-            return {}
+            return RowStyle()
             
         try:
             if self.pattern_re.search(content):
-                # Convert hex color to rgba with opacity
                 hex_color = self.color.lstrip('#')
                 r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
                 alpha = self.opacity / 100
-                return {
-                    "backgroundColor": f"rgba({r}, {g}, {b}, {alpha})"
-                }
+                return RowStyle(
+                    background_color=f"rgba({r}, {g}, {b}, {alpha})"
+                )
         except Exception:
             pass
             
-        return {}
+        return RowStyle()

@@ -16,7 +16,7 @@ export interface LayerUIField {
   name: string;
   type: 'str' | 'int' | 'bool' | 'dropdown' | 'color' | 'multiselect' | 'search' | 'range';
   display_name: string;
-  value?: any;
+  value?: string | number | boolean | string[];
   info?: string;
   options?: Array<string | { label: string, value: string }>;
   min?: number;
@@ -141,6 +141,13 @@ export interface FileBridgeAPI {
   analyze_log_pattern(fileId: string, sampleSize?: number): Promise<any>;
   suggest_layers(fileId: string): Promise<any>;
 
+  // Export operations
+  export_visible_lines(fileId: string, outputPath: string, format: string): Promise<string>;
+
+  // Worker configuration
+  get_worker_config(): Promise<string>;
+  set_worker_config(config: { max_workers: number }): Promise<void>;
+
   // Signals
   fileLoaded: { connect: (cb: (fileId: string, payloadJson: string) => void) => void };
   pipelineFinished: { connect: (cb: (fileId: string, newTotal: number, matchCount: number) => void) => void };
@@ -156,7 +163,7 @@ export interface FileBridgeAPI {
 
 declare global {
   interface Window {
-    qt?: { webChannelTransport: any };
+    qt?: { webChannelTransport: { send: (msg: object) => void; on: (cb: (msg: object) => void) => void } };
     fileBridge?: FileBridgeAPI;
   }
 

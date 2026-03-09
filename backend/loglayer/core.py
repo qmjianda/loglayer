@@ -1,138 +1,342 @@
+"""
+LogLayer Core - Layer System Architecture
 
-from typing import List, Dict, Optional, Any
+Three-stage, five-category architecture for high-performance log processing:
+
+Execution Stages:
+- NATIVE: ripgrep-based parallel processing (fastest)
+- LOGIC: Python single/multi-threaded processing (medium)
+- RENDERING: lightweight visual-only refresh (fastest)
+
+Categories:
+- FILTER: Line-level visibility (determines if line is visible)
+- TRANSFORM: Content modification (changes line content)
+- HIGHLIGHT: Text-level highlighting (adds color to text)
+- DECORATION: Row-level styling (background, font style)
+- WIDGET: Independent UI components (sidebar, statusbar)
+"""
+
+from abc import ABC, abstractmethod
+from typing import List, Dict, Optional, Any, Set
 from dataclasses import dataclass, field
-from .ui import Component
+from enum import Enum
+
+
+# ============================================================
+# Enums - Stage and Category
+# ============================================================
+
+class LayerStage(str, Enum):
+    """Layer execution stage"""
+    NATIVE = "native"      # ripgrep parallel processing
+    LOGIC = "logic"       # Python processing
+    RENDERING = "rendering"  # lightweight visual refresh
+
+
+class LayerCategory(str, Enum):
+    """Layer functional category"""
+    FILTER = "filter"          # Line filtering
+    TRANSFORM = "transform"    # Content transformation
+    HIGHLIGHT = "highlight"    # Text highlighting
+    DECORATION = "decoration"  # Row decoration
+    WIDGET = "widget"          # Independent UI component
+
+
+# ============================================================
+# Data Classes - Results and Context
+# ============================================================
+
+@dataclass
+class Highlight:
+    """Text highlight region"""
+    start: int
+    end: int
+    color: str = "#3b82f6"
+    opacity: float = 100.0
+
+
+@dataclass
+class RowStyle:
+    """Row-level styling"""
+    background_color: Optional[str] = None
+    color: Optional[str] = None
+    font_weight: Optional[str] = None
+
 
 @dataclass
 class ProcessedLine:
-    """处理后的行信息，包含内容和坐标映射"""
+    """Processed line information"""
     content: str
-    # 偏移量映射表 (可选): 用于处理高亮错位。
-    # 格式: {new_pos: old_pos}
     offset_map: Optional[Dict[int, int]] = None
 
-class LayerCategory:
-    """图层分类：处理层 vs 渲染层"""
-    FILTERING = "filtering"      # 过滤层: 决定可见性 (只读内容)
-    TRANSFORM = "transform"      # 转换层: 修改内容 (如脱敏、替换)
-    RENDERING = "rendering"      # 渲染层: 增加装饰 (如高亮、样式)
-    # 兼容旧代码
-    PROCESSING = "transform"
 
-class LayerStage:
-    """图层执行阶段"""
-    NATIVE = "native"  # 使用 ripgrep 执行 (极速)
-    LOGIC = "logic"    # 使用 Python 执行 (灵活)
+@dataclass
+class LayerResult:
+    """Result from layer processing"""
+    success: bool
+    indices: Optional[List[int]] = None           # Filtered line indices
+    highlights: Optional[List[Highlight]] = None  # Highlight regions
+    decorations: Optional[List[RowStyle]] = None   # Row decorations
+    stats: Optional[Dict[str, Any]] = None         # Statistics
+    transformed_lines: Optional[Dict[int, str]] = None  # Transformed content
+    error: Optional[str] = None
+
+
+@dataclass
+class PipelineContext:
+    """Pipeline execution context"""
+    file_path: str
+    line_offsets: List[int]
+    visible_indices: List[int]
+    line_count: int
+    
+    # Caches
+    filter_cache: Dict[str, Set[int]] = field(default_factory=dict)
+    transform_cache: Dict[int, str] = field(default_factory=dict)
+    highlight_cache: Dict[int, List[Highlight]] = field(default_factory=dict)
+    decoration_cache: Dict[int, RowStyle] = field(default_factory=dict)
+
 
 # ============================================================
-# 1. 过滤层 (Filtering Layer) - 仅决定可见性
+# Base Layer Class
 # ============================================================
 
-class FilterLayer(Component):
+class Layer(ABC):
     """
-    过滤图层基类。
-    职责：决定一行日志是否应该被保留。
+    Base layer class.
+    All layers must inherit from this and implement process().
     """
-    category = LayerCategory.FILTERING
-    stage = LayerStage.LOGIC
-    icon = "filter"
-
-    def filter_line(self, content: str, index: int = -1) -> bool:
-        """返回 True: 保留; 返回 False: 丢弃"""
-        return True
-
-    def reset(self):
+    type_id: str = "base"
+    display_name: str = "Base Layer"
+    description: str = ""
+    icon: str = "layer"
+    category: LayerCategory = LayerCategory.FILTER
+    stage: LayerStage = LayerStage.LOGIC
+    is_builtin: bool = True
+    is_system_managed: bool = False
+    inputs: List[Any] = []
+    
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        self.config = config or {}
+        self.id: Optional[str] = None
+        self._bind_config()
+    
+    def _bind_config(self) -> None:
+        """Bind config to instance attributes"""
+        from .ui import SearchInput
+        
+        for inp in self.inputs:
+            if isinstance(inp, SearchInput):
+                setattr(self, inp.name, self.config.get(inp.name, inp.value))
+                setattr(self, f"{inp.name}_regex", self.config.get("regex", inp.kwargs.get("regex", False)))
+                setattr(self, f"{inp.name}_caseSensitive", self.config.get("caseSensitive", inp.kwargs.get("caseSensitive", False)))
+                setattr(self, f"{inp.name}_wholeWord", self.config.get("wholeWord", inp.kwargs.get("wholeWord", False)))
+                
+                # Legacy names for single-search components
+                if not hasattr(self, "regex"):
+                    setattr(self, "regex", getattr(self, f"{inp.name}_regex", False))
+                if not hasattr(self, "caseSensitive"):
+                    setattr(self, "caseSensitive", getattr(self, f"{inp.name}_caseSensitive", False))
+                if not hasattr(self, "wholeWord"):
+                    setattr(self, "wholeWord", getattr(self, f"{inp.name}_wholeWord", False))
+            else:
+                setattr(self, inp.name, self.config.get(inp.name, inp.value))
+    
+    @classmethod
+    def get_ui_schema(cls) -> List[Dict[str, Any]]:
+        """Return UI schema for dynamic rendering"""
+        return [inp.to_dict() for inp in cls.inputs]
+    
+    def reset(self) -> None:
+        """Reset layer state (called when config changes)"""
         pass
+    
+    @abstractmethod
+    def process(self, context: PipelineContext) -> LayerResult:
+        """
+        Main processing entry point.
+        Must be implemented by subclasses.
+        """
+        pass
+    
+    def get_summary(self) -> str:
+        """Return human-readable summary of current configuration"""
+        return self.description
+
+
+# ============================================================
+# Filter Layer - Line-level filtering
+# ============================================================
+
+class FilterLayer(Layer):
+    """
+    Filter layer - determines if a log line should be visible.
+    
+    Returns True to keep the line, False to discard it.
+    """
+    category: LayerCategory = LayerCategory.FILTER
+    stage: LayerStage = LayerStage.LOGIC
+    icon: str = "filter"
+    
+    def filter_line(self, content: str, index: int = -1) -> bool:
+        """Return True: keep; False: discard"""
+        return True
+    
+    def process(self, context: PipelineContext) -> LayerResult:
+        """Default implementation - pass all lines through"""
+        return LayerResult(
+            success=True,
+            indices=list(range(context.line_count))
+        )
+
 
 class NativeFilterLayer(FilterLayer):
-    """高性能原生过滤层 (ripgrep)"""
-    stage = LayerStage.NATIVE
-
-    def get_rg_args(self) -> list:
-        return []
-
-# ============================================================
-# 2. 转换层 (Transformation Layer) - 修改内容
-# ============================================================
-
-class TransformLayer(Component):
     """
-    转换图层基类。
-    职责：修改日志内容 (脱敏、格式化等)。
+    High-performance native filter layer using ripgrep.
     """
-    category = LayerCategory.TRANSFORM
-    icon = "replace"
-
-    def process_line(self, content: str) -> ProcessedLine:
-        """返回处理后的对象"""
-        return ProcessedLine(content=content)
-
-# ============================================================
-# 3. 渲染层 (Rendering Layer) - 视觉装饰
-# ============================================================
-
-class RenderingLayer(Component):
-    """
-    渲染增强层基类。
-    职责：不改变内容，仅提供装饰信息。
-    """
-    category = LayerCategory.RENDERING
-    icon = "highlight"
-
-    def highlight_line(self, content: str) -> list:
-        """返回高亮区域列表"""
-        return []
-
-    def get_row_style(self, content: str) -> dict:
-        """返回整行样式"""
-        return {}
-
-# ============================================================
-# 向后兼容定义
-# ============================================================
-
-class DataProcessingLayer(FilterLayer, TransformLayer):
-    """旧的处理层基类 (合并了过滤和转换)"""
-    category = "processing"
-
-    def process_line(self, content: str) -> Any:
-        # 为了兼容旧代码，这里可能返回 str 或 ProcessedLine
-        return content
-
-class NativeProcessingLayer(DataProcessingLayer):
-    stage = LayerStage.NATIVE
-    def get_rg_args(self) -> list: return []
-
-BaseLayer = DataProcessingLayer
-NativeLayer = NativeProcessingLayer
-PluginLayer = DataProcessingLayer
-
-# ============================================================
-# UI 挂件
-# ============================================================
-
-class UIWidget(Component):
-    """
-    UI 挂件基类。
-    允许插件向主界面槽位（状态栏、侧边栏等）注入动态内容。
-    """
-    role = "statusbar"           # 位置: statusbar, sidebar, editor_toolbar
-    refresh_interval = 5.0      # 自动刷新间隔 (秒)，0 表示不自动刷新
+    stage: LayerStage = LayerStage.NATIVE
     
-    def get_data(self) -> dict:
-        """返回要在 UI 中渲染的数据"""
+    def get_rg_args(self) -> List[str]:
+        """Return ripgrep arguments"""
+        return []
+
+
+# ============================================================
+# Transform Layer - Content transformation
+# ============================================================
+
+class TransformLayer(Layer):
+    """
+    Transform layer - modifies log line content.
+    
+    Used for text replacement, formatting, field extraction.
+    """
+    category: LayerCategory = LayerCategory.TRANSFORM
+    stage: LayerStage = LayerStage.LOGIC
+    icon: str = "replace"
+    
+    def transform_line(self, content: str) -> str:
+        """Return transformed content"""
+        return content
+    
+    def process(self, context: PipelineContext) -> LayerResult:
+        """Default implementation - no transformation"""
+        return LayerResult(
+            success=True,
+            transformed_lines={}
+        )
+
+
+# ============================================================
+# Highlight Layer - Text highlighting
+# ============================================================
+
+class HighlightLayer(Layer):
+    """
+    Highlight layer - adds color to matched text.
+    
+    Returns list of highlight regions (start, end, color).
+    """
+    category: LayerCategory = LayerCategory.HIGHLIGHT
+    stage: LayerStage = LayerStage.RENDERING
+    icon: str = "highlight"
+    
+    def get_highlights(self, content: str) -> List[Highlight]:
+        """Return highlight regions for the content"""
+        return []
+    
+    def process(self, context: PipelineContext) -> LayerResult:
+        """Default implementation - no highlights"""
+        return LayerResult(
+            success=True,
+            highlights=[]
+        )
+
+
+# ============================================================
+# Decoration Layer - Row-level styling
+# ============================================================
+
+class DecorationLayer(Layer):
+    """
+    Decoration layer - applies row-level styling.
+    
+    Returns row style (background color, font color, etc).
+    """
+    category: LayerCategory = LayerCategory.DECORATION
+    stage: LayerStage = LayerStage.RENDERING
+    icon: str = "palette"
+    
+    def get_row_style(self, content: str, index: int = -1) -> RowStyle:
+        """Return row style"""
+        return RowStyle()
+    
+    def process(self, context: PipelineContext) -> LayerResult:
+        """Default implementation - no decoration"""
+        return LayerResult(
+            success=True,
+            decorations=[]
+        )
+
+
+# ============================================================
+# Widget - Independent UI Components
+# ============================================================
+
+class Widget(Layer):
+    """
+    Widget - independent UI component that doesn't participate in Pipeline.
+    
+    Runs asynchronously, provides data for sidebar/statusbar panels.
+    Examples: TimelineHistogram, StatsPanel, LabelPanel
+    """
+    category: LayerCategory = LayerCategory.WIDGET
+    stage: LayerStage = LayerStage.RENDERING
+    icon: str = "widget"
+    role: str = "sidebar"  # sidebar | statusbar | panel
+    refresh_interval: float = 5.0
+    
+    def get_data(self) -> Dict[str, Any]:
+        """Return data to render in UI"""
         return {}
+    
+    def process(self, context: PipelineContext) -> LayerResult:
+        """Widgets don't participate in main pipeline"""
+        return LayerResult(
+            success=True,
+            stats=self.get_data()
+        )
+
 
 # ============================================================
-# 向后兼容别名 (将在后续版本移除)
+# Legacy Aliases - Backward Compatibility
 # ============================================================
 
-# 旧的 BaseLayer 现在指向 DataProcessingLayer
-BaseLayer = DataProcessingLayer
+# Keep old names working for existing code
+class RenderingLayer(HighlightLayer):
+    """Legacy alias for HighlightLayer"""
+    pass
 
-# 旧的 NativeLayer 现在指向 NativeProcessingLayer
-NativeLayer = NativeProcessingLayer
 
-# 旧的 PluginLayer 现在指向 DataProcessingLayer
-PluginLayer = DataProcessingLayer
+class UIWidget(Widget):
+    """Legacy alias for Widget"""
+    pass
 
+
+class Component(Layer):
+    """Legacy alias for Layer"""
+    pass
+
+
+# Keep LayerCategory constants for compatibility
+class LayerCategoryCompat:
+    """Legacy LayerCategory for backward compatibility"""
+    FILTERING = "filtering"
+    TRANSFORM = "transform"
+    RENDERING = "rendering"
+    PROCESSING = "processing"  # Legacy
+    FILTER = LayerCategory.FILTER
+    TRANSFORM = LayerCategory.TRANSFORM
+    HIGHLIGHT = LayerCategory.HIGHLIGHT
+    DECORATION = LayerCategory.DECORATION
+    WIDGET = LayerCategory.WIDGET

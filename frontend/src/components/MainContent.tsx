@@ -103,7 +103,11 @@ export const MainContent: React.FC<MainContentProps> = ({
   handleOpen
 }) => {
   return (
-    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-theme-base relative select-text overflow-hidden">
+    <main
+      role="main"
+      aria-label="Main content"
+      className="flex-1 flex flex-col min-w-0 min-h-0 bg-theme-base relative select-text overflow-hidden"
+    >
       {activeView === 'help' ? (
         <HelpPanel />
       ) : (
@@ -133,7 +137,7 @@ export const MainContent: React.FC<MainContentProps> = ({
             setProcessedCache={setProcessedCache}
           />
 
-          <Allotment className="flex-1">
+          <Allotment className="flex-1" separator={false}>
             {panes.map((pane) => {
               const paneFileId = pane.fileId;
               const paneFile = files.find(f => f.id === paneFileId);
@@ -184,6 +188,6 @@ export const MainContent: React.FC<MainContentProps> = ({
           </Allotment>
         </>
       )}
-    </div>
+    </main>
   );
 };

@@ -1,9 +1,9 @@
 
 import re
+from loglayer.core import TransformLayer
 from loglayer.ui import SearchInput, StrInput
-from loglayer.core import DataProcessingLayer
 
-class ReplaceLayer(DataProcessingLayer):
+class ReplaceLayer(TransformLayer):
     """替换图层：使用正则表达式替换内容"""
     display_name = "替换图层"
     description = "使用正则表达式替换内容"

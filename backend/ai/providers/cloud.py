@@ -116,7 +116,7 @@ If no timestamp found, return {{"error": "no timestamp"}}"""
                 start_time=result.get("start_time"),
                 end_time=result.get("end_time"),
             )
-        except Exception:
+        except (json.JSONDecodeError, KeyError, TypeError):
             return None
 
     def suggest_time_range(self, log_sample: str) -> list[TimeRangeSuggestion]:
@@ -165,7 +165,7 @@ Return empty array if no timestamps found."""
                     )
                 )
             return suggestions
-        except Exception:
+        except (json.JSONDecodeError, KeyError, TypeError):
             return []
 
     def is_available(self) -> bool:

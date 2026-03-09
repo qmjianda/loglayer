@@ -69,6 +69,7 @@ def test_search_scale():
     print(f"Rank {rank_last} -> Index {idx_last} (Expected {expected_last})")
 
     success = idx0 == 0 and idx_mid == expected_mid and idx_last == expected_last
+    assert success, "Search scale optimization failed"
 
     print("Verifying range lookup...")
     range_json = bridge.get_search_matches_range("scale-id", 100, 5)
@@ -83,15 +84,14 @@ def test_search_scale():
     except Exception as e:
         print(f"Warning: Could not delete test file: {e}")
 
-    return success
-
 
 if __name__ == "__main__":
     import sys
 
-    if test_search_scale():
+    try:
+        test_search_scale()
         print("\n--- Verification PASS ---")
         sys.exit(0)
-    else:
-        print("\n--- Verification FAIL ---")
+    except Exception as e:
+        print(f"\n--- Verification FAIL: {e} ---")
         sys.exit(1)

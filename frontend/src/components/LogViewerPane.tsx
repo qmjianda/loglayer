@@ -68,7 +68,7 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
   const isLoading = paneFileId && (loadingFileIds.has(paneFileId) || indexingFileIds.has(paneFileId));
 
   return (
-    <div className={`flex-1 flex flex-col min-h-0 overflow-hidden ${isPaneActive ? 'ring-1 ring-blue-500/30' : ''}`}>
+    <div className={`flex-1 flex flex-col min-h-0 overflow-hidden ${isPaneActive ? 'ring-1 ring-blue-500/30' : ''}`} style={{ height: '100%' }}>
       <PaneHeader
         file={paneFile}
         paneId={pane.id}
@@ -76,7 +76,7 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
         onClose={canClose ? onPaneClose : undefined}
         onClick={onPaneClick}
       />
-      <div className="flex-1 flex flex-col relative min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col relative min-h-0 overflow-hidden" style={{ minHeight: 0 }}>
         {paneFileId ? (
           isLoading ? (
             <FileLoadingSkeleton fileName={paneFile?.name} />

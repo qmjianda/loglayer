@@ -1,6 +1,6 @@
 
+from loglayer.core import NativeFilterLayer
 from loglayer.ui import MultiSelectInput, DropdownInput
-from loglayer.core import NativeProcessingLayer
 
 # Common log level preset configurations
 LEVEL_PRESETS = {
@@ -12,7 +12,7 @@ LEVEL_PRESETS = {
     "quiet": ["ERROR", "FATAL"],
 }
 
-class LevelLayer(NativeProcessingLayer):
+class LevelLayer(NativeFilterLayer):
     """等级图层：按日志等级进行过滤
     
     支持多种日志等级过滤，包括预设模式（如仅错误、生产环境等）

@@ -22,6 +22,10 @@ interface UseAppCommandsParams {
   removePane: (paneId: string) => void;
   addLayer: (type: LayerType, config?: unknown) => void;
   setIsSettingsVisible: (visible: boolean) => void;
+  setIsExportDialogOpen: (visible: boolean) => void;
+  setIsStorageSettingsOpen: (visible: boolean) => void;
+  setIsWorkerConfigOpen: (visible: boolean) => void;
+  setIsPluginManagerOpen: (visible: boolean) => void;
   activePaneId: string;
   panes: Array<{ id: string }>;
   activeFileId: string | null;
@@ -40,6 +44,10 @@ export const useAppCommands = ({
   removePane,
   addLayer,
   setIsSettingsVisible,
+  setIsExportDialogOpen,
+  setIsStorageSettingsOpen,
+  setIsWorkerConfigOpen,
+  setIsPluginManagerOpen,
   activePaneId,
   panes,
   activeFileId,
@@ -115,11 +123,17 @@ export const useAppCommands = ({
       }
     },
     { id: 'settings.open', label: '打开设置', shortcut: 'Ctrl+,', category: '设置', action: () => setIsSettingsVisible(true) },
+    { id: 'export.open', label: '导出日志', category: '工具', action: () => setIsExportDialogOpen(true), enabled: !!activeFileId },
+    { id: 'storage.open', label: '存储设置', category: '工具', action: () => setIsStorageSettingsOpen(true) },
+    { id: 'worker.open', label: 'Worker 配置', category: '工具', action: () => setIsWorkerConfigOpen(true) },
+    { id: 'plugin.open', label: '插件管理', category: '工具', action: () => setIsPluginManagerOpen(true) },
   ], [
     handleOpen, handleNativeFolderSelect, setIsFindVisible, 
     findNextSearchMatchWithJump, setIsGoToLineVisible, 
     setActiveView, splitPane, removePane, addLayer, 
-    setIsSettingsVisible, activePaneId, panes, activeFileId, 
+    setIsSettingsVisible, setIsExportDialogOpen, setIsStorageSettingsOpen,
+    setIsWorkerConfigOpen, setIsPluginManagerOpen,
+    activePaneId, panes, activeFileId, 
     bookmarks, activeFileName
   ]);
 

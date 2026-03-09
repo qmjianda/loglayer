@@ -1,7 +1,10 @@
 import os
 import importlib.util
 import inspect
-from loglayer.core import DataProcessingLayer, RenderingLayer, UIWidget, LayerCategory
+from loglayer.core import (
+    Layer, FilterLayer, TransformLayer, HighlightLayer, DecorationLayer, 
+    Widget, LayerCategory, LayerStage, RenderingLayer, UIWidget
+)
 from loglayer.storage import StorageRegistry
 
 class LayerRegistry:
@@ -29,7 +32,6 @@ class LayerRegistry:
         # 加载内置图层 - 渲染层
         from loglayer.builtin.highlight import HighlightLayer
         from loglayer.builtin.rowtint import RowTintLayer
-        from loglayer.builtin.bookmark import BookmarkLayer
         
         # 注册处理层
         self.register_builtin("FILTER", FilterLayer)
@@ -45,7 +47,6 @@ class LayerRegistry:
         # 注册渲染层
         self.register_builtin("HIGHLIGHT", HighlightLayer)
         self.register_builtin("ROWTINT", RowTintLayer)
-        self.register_builtin("BOOKMARK", BookmarkLayer)
 
     def register_builtin(self, type_id, cls):
         self.builtin_layers[type_id] = cls
@@ -70,10 +71,11 @@ class LayerRegistry:
                     for attr_name in dir(module):
                         attr = getattr(module, attr_name)
                         if inspect.isclass(attr):
-                            # 1. 发现图层
-                            is_processing = issubclass(attr, DataProcessingLayer) and attr is not DataProcessingLayer
+                            # 1. 发现图层 (FilterLayer 或 TransformLayer)
+                            is_filter = issubclass(attr, FilterLayer) and attr is not FilterLayer
+                            is_transform = issubclass(attr, TransformLayer) and attr is not TransformLayer
                             is_rendering = issubclass(attr, RenderingLayer) and attr is not RenderingLayer
-                            if is_processing or is_rendering:
+                            if is_filter or is_transform or is_rendering:
                                 plugin_type = f"PYTHON_{name}_{attr_name}".upper()
                                 self.plugin_layers[plugin_type] = attr
                                 print(f"[Registry] Found layer plugin: {plugin_type}")
@@ -94,7 +96,8 @@ class LayerRegistry:
             "display_name": cls.display_name,
             "description": cls.description,
             "icon": getattr(cls, "icon", "default"),
-            "category": getattr(cls, "category", LayerCategory.PROCESSING),
+            "category": getattr(cls, "category", LayerCategory.FILTER),
+            "stage": getattr(cls, "stage", LayerStage.LOGIC),
             "ui_schema": cls.get_ui_schema(),
             "is_builtin": is_builtin
         }
@@ -112,8 +115,11 @@ class LayerRegistry:
         """按类别分组返回图层类型"""
         all_types = self.get_all_types()
         return {
-            "processing": [t for t in all_types if t["category"] == LayerCategory.PROCESSING],
-            "rendering": [t for t in all_types if t["category"] == LayerCategory.RENDERING]
+            "filter": [t for t in all_types if t["category"] == LayerCategory.FILTER],
+            "transform": [t for t in all_types if t["category"] == LayerCategory.TRANSFORM],
+            "highlight": [t for t in all_types if t["category"] == LayerCategory.HIGHLIGHT],
+            "decoration": [t for t in all_types if t["category"] == LayerCategory.DECORATION],
+            "widget": [t for t in all_types if t["category"] == LayerCategory.WIDGET],
         }
 
     def create_layer_instance(self, type_id, config):
@@ -125,7 +131,10 @@ class LayerRegistry:
     def is_rendering_layer(self, type_id):
         cls = self.builtin_layers.get(type_id) or self.plugin_layers.get(type_id)
         if not cls: return False
-        return getattr(cls, "category", None) == LayerCategory.RENDERING
+        return getattr(cls, "category", None) in [
+            LayerCategory.HIGHLIGHT, 
+            LayerCategory.DECORATION
+        ]
 
     def get_ui_widgets(self):
         """返回所有可用挂件的元信息"""

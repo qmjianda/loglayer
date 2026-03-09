@@ -6,6 +6,8 @@ from .config import (
     ChatResponse,
     TimestampDetectionResult,
     TimeRangeSuggestion,
+    load_ai_config,
+    save_ai_config,
 )
 from .providers import BaseAIProvider, HeuristicProvider, OpenAIProvider, OllamaProvider
 
@@ -14,7 +16,7 @@ class AIService:
     """Main AI service that manages providers"""
 
     def __init__(self):
-        self._config = AIConfig()
+        self._config = load_ai_config()
         self._provider: Optional[BaseAIProvider] = None
         self._heuristic = HeuristicProvider()
         self._init_provider()
@@ -36,6 +38,7 @@ class AIService:
         """Update AI configuration"""
         self._config = config
         self._init_provider()
+        save_ai_config(config)
 
     def get_config(self) -> AIConfig:
         """Get current configuration"""

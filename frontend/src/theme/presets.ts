@@ -40,13 +40,18 @@ export interface ThemePreset {
         BACKGROUND: string;
         GUTTER: string;
         GUTTER_TEXT: string;
+        GUTTER_SEPARATOR: string;
         HIGHLIGHT_LINE: string;
+        HOVER_LINE: string;
         BOOKMARK_BACKGROUND: string;
         BOOKMARK_INDICATOR: string;
         SELECTION: string;
         TEXT: string;
         RULER: string;
+        RULER_SEPARATOR: string;
+        RULER_VIEWPORT: string;
         SEARCH_HIGHLIGHT: string;
+        SEARCH_HIGHLIGHT_ACTIVE: string;
         LAYER_HIGHLIGHT: string;
         CURRENT_LINE: string;
     };
@@ -89,13 +94,18 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
             BACKGROUND: '#272822',
             GUTTER: '#272822',
             GUTTER_TEXT: '#90908A',
+            GUTTER_SEPARATOR: 'rgba(255, 255, 255, 0.06)',
             HIGHLIGHT_LINE: 'rgba(166, 226, 46, 0.15)',
+            HOVER_LINE: 'rgba(255, 255, 255, 0.03)',
             BOOKMARK_BACKGROUND: 'rgba(230, 219, 116, 0.1)',
             BOOKMARK_INDICATOR: '#E6DB74',
             SELECTION: 'rgba(249, 38, 114, 0.4)',
             TEXT: '#F8F8F2',
             RULER: '#1E1E1E',
+            RULER_SEPARATOR: 'rgba(255, 255, 255, 0.06)',
+            RULER_VIEWPORT: 'rgba(255, 255, 255, 0.08)',
             SEARCH_HIGHLIGHT: '#E6DB74',
+            SEARCH_HIGHLIGHT_ACTIVE: '#FF6188',
             LAYER_HIGHLIGHT: '#66D9EF',
             CURRENT_LINE: '#A6E22E',
         },
@@ -137,13 +147,18 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
             BACKGROUND: '#282A36',
             GUTTER: '#282A36',
             GUTTER_TEXT: '#6272A4',
+            GUTTER_SEPARATOR: 'rgba(255, 255, 255, 0.06)',
             HIGHLIGHT_LINE: 'rgba(189, 147, 249, 0.15)',
+            HOVER_LINE: 'rgba(255, 255, 255, 0.03)',
             BOOKMARK_BACKGROUND: 'rgba(255, 184, 108, 0.1)',
             BOOKMARK_INDICATOR: '#FFB86C',
             SELECTION: 'rgba(255, 85, 85, 0.4)',
             TEXT: '#F8F8F2',
             RULER: '#21222C',
+            RULER_SEPARATOR: 'rgba(255, 255, 255, 0.06)',
+            RULER_VIEWPORT: 'rgba(255, 255, 255, 0.08)',
             SEARCH_HIGHLIGHT: '#FFB86C',
+            SEARCH_HIGHLIGHT_ACTIVE: '#FF79C6',
             LAYER_HIGHLIGHT: '#BD93F9',
             CURRENT_LINE: '#BD93F9',
         },
@@ -185,13 +200,18 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
             BACKGROUND: '#2E3440',
             GUTTER: '#2E3440',
             GUTTER_TEXT: '#4C566A',
+            GUTTER_SEPARATOR: 'rgba(255, 255, 255, 0.06)',
             HIGHLIGHT_LINE: 'rgba(136, 192, 208, 0.15)',
+            HOVER_LINE: 'rgba(255, 255, 255, 0.03)',
             BOOKMARK_BACKGROUND: 'rgba(235, 203, 139, 0.1)',
             BOOKMARK_INDICATOR: '#EBCB8B',
             SELECTION: 'rgba(191, 97, 106, 0.4)',
             TEXT: '#ECEFF4',
             RULER: '#3B4252',
+            RULER_SEPARATOR: 'rgba(255, 255, 255, 0.06)',
+            RULER_VIEWPORT: 'rgba(255, 255, 255, 0.08)',
             SEARCH_HIGHLIGHT: '#EBCB8B',
+            SEARCH_HIGHLIGHT_ACTIVE: '#D08770',
             LAYER_HIGHLIGHT: '#88C0D0',
             CURRENT_LINE: '#88C0D0',
         },
@@ -233,13 +253,18 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
             BACKGROUND: '#0D1117',
             GUTTER: '#0D1117',
             GUTTER_TEXT: '#6E7681',
+            GUTTER_SEPARATOR: 'rgba(255, 255, 255, 0.06)',
             HIGHLIGHT_LINE: 'rgba(88, 166, 255, 0.15)',
+            HOVER_LINE: 'rgba(255, 255, 255, 0.03)',
             BOOKMARK_BACKGROUND: 'rgba(210, 153, 34, 0.1)',
             BOOKMARK_INDICATOR: '#D29922',
             SELECTION: 'rgba(248, 81, 73, 0.4)',
             TEXT: '#C9D1D9',
             RULER: '#161B22',
+            RULER_SEPARATOR: 'rgba(255, 255, 255, 0.06)',
+            RULER_VIEWPORT: 'rgba(255, 255, 255, 0.08)',
             SEARCH_HIGHLIGHT: '#D29922',
+            SEARCH_HIGHLIGHT_ACTIVE: '#F0883E',
             LAYER_HIGHLIGHT: '#58A6FF',
             CURRENT_LINE: '#58A6FF',
         },

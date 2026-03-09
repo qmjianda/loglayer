@@ -24,9 +24,10 @@ def test_api_layer_registry():
     registry = response.json()
     assert isinstance(registry, list)
     # Check if some default layers are there
+    # Note: BOOKMARK is now independent of layer system (stored in session.bookmarks)
     types = [l["type"] for l in registry]
     assert "FILTER" in types
-    assert "BOOKMARK" in types
+    assert "HIGHLIGHT" in types
 
 
 def test_api_open_file_not_found():

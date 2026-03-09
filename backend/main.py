@@ -433,7 +433,7 @@ def run_server(host, port):
         uvicorn.run(app, host=host, port=port, log_level="warning", reload=False)
     except OSError as e:
         if "address already in use" in str(e).lower():
-            print(
+            logger.info(
                 f"[Server] Port {port} is in use, trying to find and kill existing process..."
             )
             import subprocess
@@ -447,12 +447,12 @@ def run_server(host, port):
                         parts = line.split()
                         if len(parts) >= 5:
                             pid = parts[-1]
-                            print(f"[Server] Found process on port {port}, PID: {pid}")
+                            logger.info(f"[Server] Found process on port {port}, PID: {pid}")
                             try:
                                 subprocess.run(
                                     ["taskkill", "/PID", pid, "/F"], check=True
                                 )
-                                print(f"[Server] Killed process {pid}, retrying...")
+                                logger.info(f"[Server] Killed process {pid}, retrying...")
                                 time.sleep(1)
                                 uvicorn.run(
                                     app,
@@ -463,10 +463,10 @@ def run_server(host, port):
                                 )
                                 return
                             except Exception as kill_err:
-                                print(f"[Server] Failed to kill process: {kill_err}")
+                                logger.error(f"[Server] Failed to kill process: {kill_err}")
             except Exception as netstat_err:
-                print(f"[Server] Failed to check netstat: {netstat_err}")
-        print(f"[ServerThread] Error: {e}")
+                logger.error(f"[Server] Failed to check netstat: {netstat_err}")
+        logger.error(f"[ServerThread] Error: {e}")
 
 
 def start_app():
@@ -495,7 +495,8 @@ def start_app():
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
                 "qmjianda.loglayer.v1"
             )
-        except:
+        except (ImportError, AttributeError, OSError):
+            # Icon setting is optional, fail silently
             pass
 
     # Start server in thread
@@ -519,10 +520,10 @@ def start_app():
     if not os.path.exists(www_dir):
         # Development mode (Vite)
         url = "http://localhost:3000"
-        print(f"Backend running on http://127.0.0.1:{port}")
-        print(f"Opening dev frontend: {url}")
+        logger.info(f"Backend running on http://127.0.0.1:{port}")
+        logger.info(f"Opening dev frontend: {url}")
     else:
-        print(f"Starting LogLayer on {url}")
+        logger.info(f"Starting LogLayer on {url}")
 
     # Handle CLI paths
     def on_ready():
@@ -542,7 +543,7 @@ def start_app():
                     )
                     bridge.open_file(file_id, abs_path)
                 except Exception as e:
-                    print(f"[Main] CLI open_file error: {e}")
+                    logger.error(f"[Main] CLI open_file error: {e}")
 
     # Subscribe to frontendReady to load CLI paths
     bridge.frontendReady.connect(on_ready)
@@ -570,7 +571,7 @@ def start_app():
             pass
         except BaseException as e:
             if not isinstance(e, KeyboardInterrupt):
-                print(f"[Main] Error: {e}")
+                logger.error(f"[Main] Error: {e}")
                 import traceback
 
                 traceback.print_exc()
@@ -580,4 +581,4 @@ if __name__ == "__main__":
     try:
         start_app()
     except BaseException as e:
-        print(f"[Main] Fatal error: {e}")
+        logger.critical(f"[Main] Fatal error: {e}")

@@ -65,13 +65,18 @@ export const LOG_VIEWER_COLORS = {
     BACKGROUND: '#1e1e1e',
     GUTTER: '#1e1e1e',
     GUTTER_TEXT: '#666666',
+    GUTTER_SEPARATOR: 'rgba(255, 255, 255, 0.06)',
     HIGHLIGHT_LINE: 'rgba(34, 211, 238, 0.15)',
+    HOVER_LINE: 'rgba(255, 255, 255, 0.03)',
     BOOKMARK_BACKGROUND: 'rgba(245, 158, 11, 0.08)',
     BOOKMARK_INDICATOR: '#fbbf24',
     SELECTION: 'rgba(245, 158, 11, 0.45)',
     TEXT: '#d4d4d4',
     RULER: '#252526',
+    RULER_SEPARATOR: 'rgba(255, 255, 255, 0.06)',
+    RULER_VIEWPORT: 'rgba(255, 255, 255, 0.08)',
     SEARCH_HIGHLIGHT: '#facc15',
+    SEARCH_HIGHLIGHT_ACTIVE: '#ff9632',
     LAYER_HIGHLIGHT: '#3b82f6',
     CURRENT_LINE: '#60a5fa',
   },
@@ -79,13 +84,18 @@ export const LOG_VIEWER_COLORS = {
     BACKGROUND: '#ffffff',
     GUTTER: '#f3f3f3',
     GUTTER_TEXT: '#6e6e6e',
+    GUTTER_SEPARATOR: 'rgba(0, 0, 0, 0.08)',
     HIGHLIGHT_LINE: 'rgba(6, 182, 212, 0.15)',
+    HOVER_LINE: 'rgba(0, 0, 0, 0.03)',
     BOOKMARK_BACKGROUND: 'rgba(245, 158, 11, 0.08)',
     BOOKMARK_INDICATOR: '#d97706',
     SELECTION: 'rgba(180, 120, 0, 0.35)',
     TEXT: '#1f2937',
     RULER: '#e5e5e5',
+    RULER_SEPARATOR: 'rgba(0, 0, 0, 0.08)',
+    RULER_VIEWPORT: 'rgba(0, 0, 0, 0.06)',
     SEARCH_HIGHLIGHT: '#eab308',
+    SEARCH_HIGHLIGHT_ACTIVE: '#e67700',
     LAYER_HIGHLIGHT: '#2563eb',
     CURRENT_LINE: '#3b82f6',
   },
@@ -154,25 +164,25 @@ export function isValidTheme(id: string): id is ThemeMode {
 
 export function setCssVariables(theme: Theme): void {
   const root = document.documentElement;
-  
+
   root.style.setProperty('--bg-primary', theme.colors.background.primary);
   root.style.setProperty('--bg-secondary', theme.colors.background.secondary);
   root.style.setProperty('--bg-tertiary', theme.colors.background.tertiary);
   root.style.setProperty('--bg-elevated', theme.colors.background.elevated);
-  
+
   root.style.setProperty('--fg-primary', theme.colors.foreground.primary);
   root.style.setProperty('--fg-secondary', theme.colors.foreground.secondary);
   root.style.setProperty('--fg-muted', theme.colors.foreground.muted);
-  
+
   root.style.setProperty('--border-default', theme.colors.border.default);
   root.style.setProperty('--border-subtle', theme.colors.border.subtle);
-  
+
   root.style.setProperty('--color-primary', theme.colors.color.primary);
   root.style.setProperty('--color-success', theme.colors.color.success);
   root.style.setProperty('--color-warning', theme.colors.color.warning);
   root.style.setProperty('--color-error', theme.colors.color.error);
   root.style.setProperty('--color-info', theme.colors.color.info);
-  
+
   root.style.setProperty('--input-background', theme.colors.input.background);
   root.style.setProperty('--input-hover', theme.colors.input.hover);
   root.style.setProperty('--input-active', theme.colors.input.active);

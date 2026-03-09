@@ -45,7 +45,6 @@ def test_get_directory_contents():
     assert "size" in items[0], "项目应该有 size 字段"
 
     print("\n✅ 测试 1 通过!")
-    return True
 
 
 def test_windows_drives():
@@ -58,7 +57,7 @@ def test_windows_drives():
 
     if platform.system() != "Windows":
         print("⏭ 跳过 (非 Windows 系统)")
-        return True
+
 
     # 测试 C:\ 和 D:\
     for drive in ["C:\\", "D:\\"]:
@@ -73,7 +72,6 @@ def test_windows_drives():
                 print(f"  {item_type} {item['name']}")
 
     print("\n✅ 测试 2 通过!")
-    return True
 
 
 def test_api_endpoint():
@@ -93,7 +91,7 @@ def test_api_endpoint():
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
         print("⚠️ 服务器未运行，跳过 API 测试")
         print("  请运行: python backend/main.py")
-        return True
+
 
     # 测试 GET /api/list_directory
     print("\n测试 GET /api/list_directory:")
@@ -130,25 +128,18 @@ def test_api_endpoint():
     print(f"  (--no-ui 模式下应为 false)")
 
     print("\n✅ 测试 3 通过!")
-    return True
 
 
 def main():
     print("\n🔧 远程路径选择器后端测试\n")
 
-    all_passed = True
-
     # 运行测试
-    all_passed &= test_get_directory_contents()
-    all_passed &= test_windows_drives()
-    all_passed &= test_api_endpoint()
+    test_get_directory_contents()
+    test_windows_drives()
+    test_api_endpoint()
 
     print("\n" + "=" * 60)
-    if all_passed:
-        print("🎉 所有测试通过!")
-    else:
-        print("❌ 部分测试失败")
-        sys.exit(1)
+    print("🎉 所有测试通过!")
     print("=" * 60 + "\n")
 
 

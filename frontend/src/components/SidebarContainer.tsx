@@ -34,7 +34,9 @@ export const SidebarContainer: React.FC<SidebarContainerProps> = ({
   };
 
   return (
-    <div
+    <aside
+      role="complementary"
+      aria-label="Sidebar"
       className={`bg-secondary border-r border-subtle flex flex-col shrink-0 shadow-lg relative group/sidebar 
         ${responsive.isMobile ? 'absolute inset-y-0 left-10 z-40' : ''}`}
       style={{ 
@@ -43,10 +45,14 @@ export const SidebarContainer: React.FC<SidebarContainerProps> = ({
       }}
     >
       <div
+        role="separator"
+        aria-label="Resize sidebar"
+        aria-orientation="vertical"
         className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 z-50 transition-colors opacity-0 group-hover/sidebar:opacity-100"
         onMouseDown={handleMouseDown}
+        tabIndex={0}
       />
       {children}
-    </div>
+    </aside>
   );
 };

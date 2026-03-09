@@ -11,9 +11,12 @@ Log Export Layer - 日志导出功能
 import os
 import json
 import csv
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class LogExporter:
@@ -64,8 +67,11 @@ class LogExporter:
                 return self._export_txt(lines, output_path, include_line_numbers)
             
             return False
-        except Exception as e:
-            print(f"[LogExporter] Error: {e}")
+        except (IOError, OSError) as e:
+            logger.error(f"[LogExporter] File operation error: {e}")
+            return False
+        except ValueError as e:
+            logger.error(f"[LogExporter] Invalid value: {e}")
             return False
     
     def _export_csv(self, lines: List[Dict], output_path: str, include_line_numbers: bool) -> bool:
@@ -93,8 +99,11 @@ class LogExporter:
                     writer.writerow(row)
             
             return True
-        except Exception as e:
-            print(f"[LogExporter] CSV export error: {e}")
+        except (IOError, OSError) as e:
+            logger.error(f"[LogExporter] CSV file error: {e}")
+            return False
+        except (csv.Error, ValueError) as e:
+            logger.error(f"[LogExporter] CSV data error: {e}")
             return False
     
     def _export_json(self, lines: List[Dict], output_path: str, include_timestamps: bool) -> bool:
@@ -152,8 +161,11 @@ class LogExporter:
                 json.dump(export_data, f, indent=2, ensure_ascii=False)
             
             return True
-        except Exception as e:
-            print(f"[LogExporter] JSON export error: {e}")
+        except (IOError, OSError) as e:
+            logger.error(f"[LogExporter] JSON file error: {e}")
+            return False
+        except (TypeError, ValueError) as e:
+            logger.error(f"[LogExporter] JSON serialization error: {e}")
             return False
     
     def _export_txt(self, lines: List[Dict], output_path: str, include_line_numbers: bool) -> bool:
@@ -167,8 +179,8 @@ class LogExporter:
                     f.write('\n')
             
             return True
-        except Exception as e:
-            print(f"[LogExporter] TXT export error: {e}")
+        except (IOError, OSError) as e:
+            logger.error(f"[LogExporter] TXT file error: {e}")
             return False
     
     def export_visible_lines(
@@ -235,7 +247,7 @@ class LogExporter:
                 'index': physical_idx,
                 'content': content
             }
-        except Exception:
+        except (OSError, ValueError, IndexError, UnicodeDecodeError):
             return None
 
 

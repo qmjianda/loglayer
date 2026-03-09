@@ -3,10 +3,31 @@ API Routes - All REST API endpoints for LogLayer.
 """
 
 import json
-from fastapi import APIRouter, Body
+from fastapi import APIRouter
 from typing import Dict, Any
 
 from logging_config import logger
+from schemas import (
+    OpenFileRequest,
+    SyncLayersRequest,
+    SyncDecorationsRequest,
+    ReadProcessedLinesRequest,
+    GetLinesByIndicesRequest,
+    SearchRequest,
+    GetSearchMatchIndexRequest,
+    GetNearestSearchRankRequest,
+    GetSearchMatchesRangeRequest,
+    ToggleBookmarkRequest,
+    GetNearestBookmarkRequest,
+    UpdateBookmarkCommentRequest,
+    ExportVisibleLinesRequest,
+    PhysicalToVisualIndexRequest,
+    CloseFileRequest,
+    ListDirectoryRequest,
+    SaveWorkspaceConfigRequest,
+    LoadWorkspaceConfigRequest,
+    GetWidgetDataRequest,
+)
 
 
 def create_api_router(bridge) -> APIRouter:
@@ -22,34 +43,34 @@ def create_api_router(bridge) -> APIRouter:
         return hasattr(bridge, "window") and bridge.window is not None
 
     @router.post("/api/open_file")
-    def open_file(data: Dict[str, Any] = Body(...)):
-        return bridge.open_file(data["file_id"], data["file_path"])
+    def open_file(data: OpenFileRequest):
+        return bridge.open_file(data.file_id, data.file_path)
 
     @router.post("/api/sync_all")
-    def sync_all(data: Dict[str, Any] = Body(...)):
+    def sync_all(data: SyncLayersRequest):
         return bridge.sync_all(
-            data["file_id"],
-            data["layers_json"],
-            data.get("search_json"),
+            data.file_id,
+            data.layers_json,
+            data.search_json,
         )
 
     @router.post("/api/sync_layers")
-    def sync_layers(data: Dict[str, Any] = Body(...)):
+    def sync_layers(data: SyncLayersRequest):
         return bridge.sync_layers(
-            data["file_id"], data["layers_json"], data.get("search_json")
+            data.file_id, data.layers_json, data.search_json
         )
 
     @router.post("/api/sync_decorations")
-    def sync_decorations(data: Dict[str, Any] = Body(...)):
-        return bridge.sync_decorations(data["file_id"], data["layers_json"])
+    def sync_decorations(data: SyncDecorationsRequest):
+        return bridge.sync_decorations(data.file_id, data.layers_json)
 
     @router.get("/api/read_processed_lines")
     def read_processed_lines(file_id: str, start_line: int, count: int):
         return json.loads(bridge.read_processed_lines(file_id, start_line, count))
 
     @router.post("/api/get_lines_by_indices")
-    def get_lines_by_indices(data: Dict[str, Any] = Body(...)):
-        return json.loads(bridge.get_lines_by_indices(data["file_id"], data["indices"]))
+    def get_lines_by_indices(data: GetLinesByIndicesRequest):
+        return json.loads(bridge.get_lines_by_indices(data.file_id, data.indices))
 
     @router.get("/api/get_search_match_index")
     def get_search_match_index(file_id: str, rank: int):

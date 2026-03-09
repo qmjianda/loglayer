@@ -4,7 +4,7 @@ import threading
 from bridge import PipelineWorker
 from loglayer.builtin.filter import FilterLayer
 from loglayer.builtin.level import LevelLayer
-from loglayer.core import BaseLayer, LayerStage
+from loglayer.core import FilterLayer as BaseLayer, LayerStage
 
 class CustomLogicLayer(BaseLayer):
     """Custom logic layer for testing mixed pipeline"""
@@ -12,8 +12,17 @@ class CustomLogicLayer(BaseLayer):
     display_name = "Custom Logic"
     description = "Test logic layer"
     
+    def __init__(self, config=None):
+        super().__init__(config)
+        self._query = config.get("query", "failure") if config else "failure"
+    
     def filter_line(self, content, index=-1):
-        return "failure" in content.lower()
+        return self._query in content.lower()
+    
+    def process_line(self, content):
+        """Legacy method for pipeline compatibility"""
+        from loglayer.core import ProcessedLine
+        return ProcessedLine(content=content)
 
 def test_unified_pipeline_logic(bridge_instance, temp_log_file):
     # Setup specific test content
@@ -35,7 +44,7 @@ def test_unified_pipeline_logic(bridge_instance, temp_log_file):
         "invert": False
     })
     level_layer = LevelLayer({"levels": ["ERROR", "WARN"]})
-    logic_layer = CustomLogicLayer({})
+    logic_layer = CustomLogicLayer({"query": "failure"})
     
     layers = [filter_layer, level_layer, logic_layer]
     

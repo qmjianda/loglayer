@@ -60,6 +60,7 @@ def mock_session():
             self.cache = {}
             self.processing_cache = {}
             self.rendering_cache = {}
+            self.bookmarks = {}
 
     return MockSession()
 

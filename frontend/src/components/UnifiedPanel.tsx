@@ -357,7 +357,10 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
 
                                             {/* Action Buttons - Always visible for active file, hover for others */}
                                             {/* Use pointer-events-none when hidden to allow clicks to pass through */}
-                                            <div className={`flex items-center space-x-0.5 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'}`}>
+                                            <div
+                                                className={`flex items-center space-x-0.5 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'}`}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
                                                 {isActive && (
                                                     <>
                                                         {/* Save as Preset */}
@@ -379,7 +382,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                         {/* Add Layer Dropdown */}
                                                         <div className="relative">
                                                             <button
-                                                                onMouseDown={(e) => {
+                                                                onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setActiveMenuId(activeMenuId === file.id ? null : file.id);
                                                                 }}

@@ -68,7 +68,7 @@ def test_search_not_filtering():
     assert m_count_missing == 0, "Search for missing term should have 0 matches."
     
     print("Test passed: Search does not filter but highlights correctly.")
-    return True
+
 
 if __name__ == "__main__":
     try:

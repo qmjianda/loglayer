@@ -72,7 +72,7 @@ export function useAISettings(): UseAISettingsReturn {
       const merged = { ...settings, ...newSettings };
       setSettings(merged);
       
-      const payload: any = {
+      const payload: { provider: string; model: string; api_key?: string; base_url?: string } = {
         provider: merged.provider,
         model: merged.model,
       };

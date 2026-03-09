@@ -129,18 +129,17 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const lastScrollTopRef = useRef(0);
 
   const { LINE_HEIGHT, GUTTER_WIDTH, VIRTUAL_HEIGHT_LIMIT, BUFFER_NORMAL, BUFFER_LARGE, SCROLL_MARGIN, CHAR_WIDTH_DEFAULT, FONT } = LOG_VIEWER;
-  
+
   const fontSize = settings?.fontSize ?? 12;
   const lineHeight = settings?.lineHeight ?? LINE_HEIGHT;
   const wordWrap = settings?.wordWrap ?? false;
   const showWhitespace = settings?.showWhitespace ?? false;
   const showLineNumbers = settings?.showLineNumbers ?? true;
-  const showRuler = settings?.showRuler ?? true;
   const virtualScrollBufferSetting = settings?.virtualScrollBuffer ?? 500;
   const searchHighlightAll = settings?.searchHighlightAll ?? true;
   const theme = resolvedTheme ?? 'dark';
   const colors = getLogViewerColors(theme as 'dark' | 'light');
-  
+
   const gutterWidth = GUTTER_WIDTH;
 
   const realTotalHeight = totalLines * lineHeight;
@@ -156,6 +155,9 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const charWidthRef = useRef(CHAR_WIDTH_DEFAULT);
   const font = `${fontSize}px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
 
+  // Persistent offscreen canvas for text measurement (CJK-safe)
+  const measureCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+
   useEffect(() => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -163,19 +165,73 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       ctx.font = font;
       const testStr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       charWidthRef.current = ctx.measureText(testStr).width / testStr.length;
+      measureCtxRef.current = ctx;
     }
+  }, [font]);
+
+  /** Get pixel width for text.substring(0, charIndex) using actual measureText */
+  const measureSubstringWidth = useCallback((text: string, start: number, end: number): number => {
+    const mctx = measureCtxRef.current;
+    if (!mctx || start >= end) return 0;
+    return mctx.measureText(text.substring(start, end)).width;
   }, []);
 
+  /** Convert pixel x-offset within a line's text to a character index (binary search) */
+  const charIndexFromX = useCallback((text: string, xOffset: number): number => {
+    const mctx = measureCtxRef.current;
+    if (!mctx || xOffset <= 0 || !text) return 0;
+    // Binary search for the character position
+    let low = 0, high = text.length;
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      if (mctx.measureText(text.substring(0, mid)).width < xOffset) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
+    }
+    // Snap to nearest character boundary
+    if (low > 0) {
+      const prevW = mctx.measureText(text.substring(0, low - 1)).width;
+      const curW = mctx.measureText(text.substring(0, low)).width;
+      if (xOffset - prevW < curW - xOffset) return low - 1;
+    }
+    return Math.min(low, text.length);
+  }, []);
+
+  const initialDimensionsSet = useRef(false);
+
   useEffect(() => {
-    const handleResize = () => {
+    if (!containerRef.current) return;
+
+    const updateDimensions = () => {
       if (containerRef.current) {
-        setViewportHeight(containerRef.current.clientHeight);
-        setViewportWidth(containerRef.current.clientWidth);
+        const { clientWidth, clientHeight } = containerRef.current;
+        if (clientWidth > 0 && clientHeight > 0) {
+          setViewportWidth(clientWidth);
+          setViewportHeight(clientHeight);
+          initialDimensionsSet.current = true;
+        }
       }
     };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    updateDimensions();
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) setViewportWidth(entry.contentRect.width);
+        if (entry.contentRect.height > 0) setViewportHeight(entry.contentRect.height);
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    window.addEventListener('resize', updateDimensions);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateDimensions);
+    };
   }, []);
 
   const maxPhysicalScroll = Math.max(0, virtualTotalHeight - viewportHeight);
@@ -217,13 +273,17 @@ export const LogViewer: React.FC<LogViewerProps> = ({
             const lineIdx = startIndex + idx;
             next.set(lineIdx, line);
 
-            // 跟踪最大行宽
             const content = typeof line === 'string' ? line : line.content || '';
-            const lineW = content.length * charWidthRef.current + gutterWidth + 100;
+            const measuredW = measureCtxRef.current
+              ? measureCtxRef.current.measureText(content).width
+              : content.length * charWidthRef.current;
+            const lineW = measuredW + gutterWidth + 100;
             if (lineW > newMaxInnerWidth) newMaxInnerWidth = lineW;
           });
 
-          if (newMaxInnerWidth > maxLineWidth) setMaxLineWidth(newMaxInnerWidth);
+          if (newMaxInnerWidth > maxLineWidth) {
+            setMaxLineWidth(newMaxInnerWidth);
+          }
 
           if (next.size > LOG_VIEWER.MAX_CACHED_LINES) {
             const center = Math.floor((startIndex + endIndex) / 2);
@@ -253,32 +313,56 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     }
   }, [scrollToIndex, totalLines, viewportHeight, useScrollScaling, maxLogicalScroll, maxPhysicalScroll]);
 
-  const getPosFromEvent = (e: MouseEvent | React.MouseEvent) => {
+  const getPosFromEvent = useCallback((e: MouseEvent | React.MouseEvent) => {
     if (!containerRef.current) return null;
     const rect = containerRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+
+    // Check if mouse is actually inside the container boundaries visually
+    const isInside =
+      e.clientX >= rect.left &&
+      e.clientX <= rect.right &&
+      e.clientY >= rect.top &&
+      e.clientY <= rect.bottom;
+
     const logicalY = y + effectiveScrollTop;
     const lineIndex = Math.floor(logicalY / lineHeight);
-    const charIndex = Math.floor(Math.max(0, x - gutterWidth + scrollLeft) / charWidthRef.current);
-    return { lineIndex, charIndex, x, y };
-  };
+    // Use measureText for accurate CJK character positioning
+    const pixelOffset = Math.max(0, x - gutterWidth + scrollLeft);
+    const line = bridgedLines.get(lineIndex);
+    const lineContent = typeof line === 'string' ? line : (line as LogLine)?.content || '';
+    const charIndex = charIndexFromX(lineContent, pixelOffset);
+    return { lineIndex, charIndex, x, y, isInside };
+  }, [effectiveScrollTop, gutterWidth, scrollLeft, bridgedLines, charIndexFromX, lineHeight]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
     const pos = getPosFromEvent(e);
-    if (!pos) return;
+    if (!pos || !pos.isInside) return;
+
     setSelection({ startLine: pos.lineIndex, startChar: pos.charIndex, endLine: pos.lineIndex, endChar: pos.charIndex });
     setIsSelecting(true);
     setContextMenu(null);
-  };
+  }, [getPosFromEvent]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isSelecting) return;
     const pos = getPosFromEvent(e);
     if (!pos) return;
+
+    if (!isSelecting) {
+      // Only track hovered line if mouse is ACTUALLY inside the viewer
+      if (pos.isInside && pos.lineIndex >= 0 && pos.lineIndex < totalLines) {
+        setHoveredLineIndex(pos.lineIndex);
+      } else {
+        setHoveredLineIndex(null);
+      }
+      return;
+    }
+
+    // If we ARE selecting, keep tracking even if dragging outside bounds to allow scroll-select
     setSelection(prev => prev ? { ...prev, endLine: pos.lineIndex, endChar: pos.charIndex } : null);
-  }, [isSelecting, effectiveScrollTop]);
+  }, [isSelecting, getPosFromEvent, totalLines]);
 
   const handleMouseUp = useCallback(() => {
     setIsSelecting(false);
@@ -293,14 +377,23 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     };
   }, [handleMouseMove, handleMouseUp]);
 
-  // Custom wheel handler: normalize each tick to exactly 3 lines
+  // Custom wheel handler: normalized scrolling with trackpad support
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const linesToScroll = LOG_VIEWER.WHEEL_LINES_PER_TICK;
-      const logicalDelta = Math.sign(e.deltaY) * linesToScroll * lineHeight;
+      // Detect trackpad vs mouse wheel: trackpad typically sends smaller, pixel-based deltas
+      const isTrackpad = Math.abs(e.deltaY) < 50 && e.deltaMode === 0;
+      let logicalDelta: number;
+      if (isTrackpad) {
+        // Smooth pixel-level scrolling for trackpad
+        logicalDelta = e.deltaY;
+      } else {
+        // Discrete line-based scrolling for mouse wheel
+        const linesToScroll = LOG_VIEWER.WHEEL_LINES_PER_TICK;
+        logicalDelta = Math.sign(e.deltaY) * linesToScroll * lineHeight;
+      }
       const physicalDelta = useScrollScaling && maxLogicalScroll > 0
         ? (logicalDelta / maxLogicalScroll) * maxPhysicalScroll
         : logicalDelta;
@@ -313,6 +406,13 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   // Keyboard navigation handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape key: close context menu / popovers
+      if (e.key === 'Escape') {
+        if (contextMenu) { setContextMenu(null); return; }
+        if (commentPopover) { setCommentPopover(null); return; }
+        if (expandedJsonLine !== null) { setExpandedJsonLine(null); return; }
+      }
+
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? e.metaKey : e.ctrlKey;
 
@@ -403,7 +503,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showGoToLine, hoveredLineIndex, highlightedIndex, selection, bridgedLines, totalLines, onLineClick]);
+  }, [showGoToLine, hoveredLineIndex, highlightedIndex, selection, bridgedLines, totalLines, onLineClick, contextMenu, commentPopover, expandedJsonLine]);
 
   const handleClick = (e: React.MouseEvent) => {
     const pos = getPosFromEvent(e);
@@ -563,46 +663,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       const safeScrollTop = Number.isFinite(drawEffectiveScroll) ? drawEffectiveScroll : 0;
       const safeScrollLeft = Number.isFinite(currentScrollLeft) ? currentScrollLeft : 0;
 
-      // --- Draw Overview Ruler ---
-      const effectiveRulerWidth = showRuler ? 12 : 0;
-      const effectiveViewportWidth = viewportWidth - effectiveRulerWidth;
-
-      if (showRuler) {
-        const rulerWidth = 12;
-        const rulerX = viewportWidth - rulerWidth;
-        ctx.fillStyle = colors.BACKGROUND;
-        ctx.fillRect(rulerX, 0, rulerWidth, viewportHeight);
-
-        // Draw markers for layers/search
-        Object.entries(layerStats).forEach(([id, stats]: [string, any]) => {
-          const color = id === 'search' ? colors.SEARCH_HIGHLIGHT : colors.LAYER_HIGHLIGHT;
-          ctx.fillStyle = color;
-          stats.distribution.forEach((v: number, idx: number) => {
-            if (v > 0) {
-              const h = Math.max(2, v * (viewportHeight / 20));
-              ctx.globalAlpha = 0.5;
-              ctx.fillRect(rulerX + 2, idx * (viewportHeight / 20), rulerWidth - 4, h);
-              ctx.globalAlpha = 1.0;
-            }
-          });
-        });
-
-        // Draw markers for bookmarks
-        const bookmarkIndices = Object.keys(bookmarks).map(Number);
-        if (bookmarkIndices.length > 0) {
-          ctx.fillStyle = colors.BOOKMARK_INDICATOR;
-          bookmarkIndices.forEach(idx => {
-            const yPos = (idx / totalLines) * viewportHeight;
-            ctx.fillRect(rulerX, yPos, rulerWidth, 2);
-          });
-        }
-
-        // Draw viewport indicator in ruler (uses drawEffectiveScroll, not the outer effectiveScrollTop)
-        const viewStart = (drawEffectiveScroll / realTotalHeight) * viewportHeight;
-        const viewSize = (viewportHeight / realTotalHeight) * viewportHeight;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.strokeRect(rulerX, viewStart, rulerWidth, Math.max(5, viewSize));
-      }
+      const effectiveRulerWidth = 0;
+      const effectiveViewportWidth = viewportWidth;
 
       // 只有在有数据时才填充背景
       if (totalLines > 0) {
@@ -613,10 +675,10 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           ctx.font = '14px "JetBrains Mono"';
           ctx.fillStyle = colors.TEXT;
           ctx.textAlign = 'center';
-          
+
           const centerX = effectiveViewportWidth / 2;
           const centerY = viewportHeight / 2;
-          
+
           if (isIndexing) {
             ctx.fillText(`正在构建索引... ${Math.round(indexingProgress)}%`, centerX, centerY - 10);
             ctx.font = '12px "JetBrains Mono"';
@@ -642,7 +704,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         return;
       }
 
-      const firstVisibleY = (startIndex - Math.floor(safeScrollTop / lineHeight)) * lineHeight;
+      const firstVisibleY = (startIndex * lineHeight) - safeScrollTop;
 
       for (let i = startIndex; i < endIndex; i++) {
         if (i >= totalLines) break;
@@ -659,54 +721,52 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         const rowStyle = logLine?.rowStyle;
         const hasData = line !== undefined;
         if (highlightedIndex === i) {
-          // Current line highlight - use a more visible cyan tint
-          ctx.fillStyle = 'rgba(34, 211, 238, 0.15)';
+          // Current line highlight — use theme color
+          ctx.fillStyle = colors.HIGHLIGHT_LINE;
           ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
+          // Left indicator bar for current line
+          ctx.fillStyle = colors.CURRENT_LINE;
+          ctx.fillRect(0, y, 3, lineHeight);
         } else if (rowStyle?.backgroundColor) {
           ctx.fillStyle = rowStyle.backgroundColor;
           ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
         } else if (isMarked) {
-          ctx.fillStyle = colors.BOOKMARK_BACKGROUND;
+          // Bookmark background with subtle left-to-right gradient
+          const grad = ctx.createLinearGradient(0, y, effectiveViewportWidth * 0.5, y);
+          grad.addColorStop(0, colors.BOOKMARK_BACKGROUND);
+          grad.addColorStop(1, 'transparent');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
+        } else if (hoveredLineIndex === i && !isSelecting) {
+          // Hover highlight — subtle feedback
+          ctx.fillStyle = colors.HOVER_LINE;
           ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
         } else if (!hasData) {
-          // Loading placeholder - draw faint background to prevent transparency
+          // Loading placeholder
           ctx.fillStyle = colors.BACKGROUND;
           ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
         }
 
-        // Selection highlight
+        // Selection highlight (measureText for CJK-safe widths)
         if (selection) {
           const norm = normalizeSelection(selection);
           if (i >= norm.topLine && i <= norm.bottomLine) {
             const { s, e } = getLineSelectionRange(i, norm, content.length);
+            const selX = measureSubstringWidth(content, 0, s);
+            const selW = measureSubstringWidth(content, s, e);
             ctx.fillStyle = colors.SELECTION;
-            ctx.fillRect(gutterWidth + s * charWidthRef.current - safeScrollLeft, y, (e - s) * charWidthRef.current, lineHeight);
+            ctx.fillRect(gutterWidth + selX - safeScrollLeft, y, selW, lineHeight);
           }
         }
 
-        // Draw gutter and line numbers
-        if (showLineNumbers) {
-          ctx.fillStyle = colors.GUTTER;
-          ctx.fillRect(0, y, gutterWidth - 5, lineHeight);
+        // 2. Content text
+        ctx.save();
+        ctx.beginPath();
+        // Clip to exactly the content area, preventing text/descenders from bleeding into the gutter or adjacent lines
+        const contentLeftX = showLineNumbers ? gutterWidth : 0;
+        ctx.rect(contentLeftX, y, viewportWidth - contentLeftX, lineHeight);
+        ctx.clip();
 
-          const gutterFontSize = Math.max(10, fontSize - 2);
-          ctx.font = `${gutterFontSize}px "JetBrains Mono", monospace`;
-          ctx.fillStyle = highlightedIndex === i ? colors.CURRENT_LINE : colors.GUTTER_TEXT;
-          ctx.textAlign = 'right';
-          ctx.fillText((i + 1).toLocaleString(), gutterWidth - 15, y + lineHeight / 2 + 4);
-        }
-
-        if (isMarked) {
-          ctx.fillStyle = colors.BOOKMARK_INDICATOR;
-          ctx.textAlign = 'center';
-          ctx.font = `${fontSize}px "JetBrains Mono"`;
-          ctx.fillText(logLine?.bookmarkComment ? '★' : '●', 15, y + lineHeight / 2 + 4);
-
-          ctx.fillStyle = colors.BOOKMARK_INDICATOR;
-          ctx.fillRect(0, y, 2, lineHeight);
-        }
-
-        // 4. Content
         ctx.font = font;
         ctx.textAlign = 'left';
         const contentX = showLineNumbers ? (gutterWidth - safeScrollLeft) : (-safeScrollLeft);
@@ -728,23 +788,32 @@ export const LogViewer: React.FC<LogViewerProps> = ({
             sorted.forEach(h => {
               if (h.start > lastIdx) {
                 ctx.fillStyle = colors.TEXT;
-                ctx.fillText(text.substring(lastIdx, h.start), startX + lastIdx * charWidthRef.current, startY);
+                const segX = startX + measureSubstringWidth(text, 0, lastIdx);
+                ctx.fillText(text.substring(lastIdx, h.start), segX, startY);
               }
               const opacity = (h.opacity || 100) / 100;
               const hText = text.substring(h.start, h.end);
+              const hlPixelX = startX + measureSubstringWidth(text, 0, h.start);
               if (h.isSearch || h.color === '#facc15') {
+                // Search highlight with rounded corners (measureText for CJK)
+                const hlW = measureSubstringWidth(text, h.start, h.end);
+                const hlY = startY - lineHeight / 2 + 2;
+                const hlH = lineHeight - 4;
                 ctx.fillStyle = h.color;
-                ctx.fillRect(startX + h.start * charWidthRef.current, startY - lineHeight / 2 + 2, hText.length * charWidthRef.current, lineHeight - 4);
+                ctx.beginPath();
+                ctx.roundRect(hlPixelX, hlY, hlW, hlH, 2);
+                ctx.fill();
                 ctx.fillStyle = '#000';
               } else {
                 ctx.fillStyle = h.color.startsWith('#') ? `${h.color}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}` : h.color;
               }
-              ctx.fillText(hText, startX + h.start * charWidthRef.current, startY);
+              ctx.fillText(hText, hlPixelX, startY);
               lastIdx = h.end;
             });
             if (lastIdx < text.length) {
               ctx.fillStyle = colors.TEXT;
-              ctx.fillText(text.substring(lastIdx), startX + lastIdx * charWidthRef.current, startY);
+              const segX = startX + measureSubstringWidth(text, 0, lastIdx);
+              ctx.fillText(text.substring(lastIdx), segX, startY);
             }
           } else {
             ctx.fillStyle = rowStyle?.color || colors.TEXT;
@@ -763,11 +832,60 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         } else {
           renderText(displayContent, contentX, y + lineHeight / 2 + 4);
         }
+
+        ctx.restore();
+
+        // 3. Gutter overlay (drawn AFTER content so it always stays on top)
+        if (showLineNumbers) {
+          ctx.fillStyle = colors.GUTTER;
+          ctx.fillRect(0, y, gutterWidth, lineHeight);
+
+          // Gutter separator line (at right edge of gutter)
+          ctx.fillStyle = colors.GUTTER_SEPARATOR;
+          ctx.fillRect(gutterWidth - 1, y, 1, lineHeight);
+
+          const gutterFontSize = Math.max(10, fontSize - 2);
+          ctx.font = `${gutterFontSize}px "JetBrains Mono", monospace`;
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = highlightedIndex === i ? colors.CURRENT_LINE
+            : hoveredLineIndex === i ? colors.TEXT
+              : colors.GUTTER_TEXT;
+          ctx.textAlign = 'right';
+          ctx.fillText((i + 1).toLocaleString(), gutterWidth - 15, y + lineHeight / 2);
+          ctx.textBaseline = 'alphabetic';
+        }
+
+        if (isMarked) {
+          // Draw bookmark icon using canvas path (flag/diamond shape)
+          ctx.fillStyle = colors.BOOKMARK_INDICATOR;
+          const iconX = 15;
+          const iconY = y + lineHeight / 2;
+          if (logLine?.bookmarkComment) {
+            // Star-like bookmark with comment: filled bookmark flag
+            ctx.beginPath();
+            ctx.moveTo(iconX - 4, iconY - 5);
+            ctx.lineTo(iconX + 4, iconY - 5);
+            ctx.lineTo(iconX + 4, iconY + 5);
+            ctx.lineTo(iconX, iconY + 2);
+            ctx.lineTo(iconX - 4, iconY + 5);
+            ctx.closePath();
+            ctx.fill();
+          } else {
+            // Simple bookmark: small filled circle
+            ctx.beginPath();
+            ctx.arc(iconX, iconY, 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Left indicator bar
+          ctx.fillStyle = colors.BOOKMARK_INDICATOR;
+          ctx.fillRect(0, y, 2, lineHeight);
+        }
       }
     } catch (err) {
       console.error('Canvas draw error:', err);
     }
-  }, [viewportWidth, viewportHeight, startIndex, endIndex, bridgedLines, selection, highlightedIndex, totalLines, layerStats, bookmarks, useScrollScaling, maxPhysicalScroll, maxLogicalScroll, lineHeight, showLineNumbers, showRuler, wordWrap, showWhitespace, fontSize, searchHighlightAll, settings]);
+  }, [viewportWidth, viewportHeight, startIndex, endIndex, bridgedLines, selection, highlightedIndex, hoveredLineIndex, isSelecting, totalLines, layerStats, bookmarks, useScrollScaling, maxPhysicalScroll, maxLogicalScroll, lineHeight, showLineNumbers, wordWrap, showWhitespace, fontSize, searchHighlightAll, settings]);
 
   const frameCountRef = useRef(0);
   const lastFpsUpdateRef = useRef(performance.now());
@@ -777,14 +895,14 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       frameCountRef.current++;
       const now = performance.now();
       const elapsed = now - lastFpsUpdateRef.current;
-      
+
       if (elapsed >= 1000) {
         const fps = Math.round((frameCountRef.current * 1000) / elapsed);
         const visibleLines = endIndex - startIndex;
-        const memory = performance.memory 
-          ? Math.round(performance.memory.usedJSHeapSize / 1048576) 
+        const memory = performance.memory
+          ? Math.round(performance.memory.usedJSHeapSize / 1048576)
           : 0;
-        
+
         setPerformanceStats({ fps, visibleLines, memory });
         frameCountRef.current = 0;
         lastFpsUpdateRef.current = now;
@@ -807,20 +925,19 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         const now = performance.now();
         const st = e.currentTarget.scrollTop;
         const sl = e.currentTarget.scrollLeft;
-        
+
         if (now - lastScrollTimeRef.current > 0) {
           const delta = st - lastScrollTopRef.current;
           const timeDelta = now - lastScrollTimeRef.current;
           scrollVelocityRef.current = delta / timeDelta;
           scrollDirectionRef.current = delta > 0 ? 'down' : delta < 0 ? 'up' : scrollDirectionRef.current;
         }
-        
+
         lastScrollTimeRef.current = now;
         lastScrollTopRef.current = st;
-        
-        if (canvasRef.current) {
-          canvasRef.current.style.transform = `translate3d(${sl}px, ${st}px, 0)`;
-        }
+
+
+
         setScrollTop(st);
         setScrollLeft(sl);
       }}
@@ -828,56 +945,101 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       onContextMenu={handleContextMenu}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onMouseLeave={() => setHoveredLineIndex(null)}
     >
+      {fileId && totalLines > 0 && viewportWidth > 0 && viewportHeight > 0 && (
+        <div style={{ position: 'sticky', top: 0, left: 0, width: 0, height: 0, overflow: 'visible', zIndex: 1 }}>
+          <ErrorBoundary>
+            <canvas
+              ref={canvasRef}
+              role="log"
+              aria-label={`日志视图，共 ${totalLines.toLocaleString()} 行。当前显示第 ${startIndex + 1} 到 ${endIndex} 行`}
+              aria-readonly="true"
+              tabIndex={0}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: viewportWidth,
+                height: viewportHeight,
+                pointerEvents: 'none',
+              }}
+            />
+          </ErrorBoundary>
+        </div>
+      )}
+
       {/* Spacer in normal flow to create scrollable area */}
       <div style={{ height: virtualTotalHeight, width: maxLineWidth, pointerEvents: 'none' }} />
-
-      {fileId && totalLines > 0 && viewportWidth > 0 && viewportHeight > 0 && (
-        <ErrorBoundary>
-          <canvas
-            ref={canvasRef}
-            role="log"
-            aria-label={`日志视图，共 ${totalLines.toLocaleString()} 行。当前显示第 ${startIndex + 1} 到 ${endIndex} 行`}
-            aria-readonly="true"
-            tabIndex={0}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: viewportWidth,
-              height: viewportHeight,
-              pointerEvents: 'none',
-              zIndex: 1
-            }}
-          />
-        </ErrorBoundary>
+      {fileId && totalLines > 0 && (viewportWidth === 0 || viewportHeight === 0) && (
+        <div className="flex-1 flex items-center justify-center" style={{ backgroundColor: colors.BACKGROUND }}>
+          <span style={{ color: colors.TEXT }}>加载中...</span>
+        </div>
       )}
 
       {contextMenu && createPortal(
-        <div
-          className="context-menu-popup fixed bg-theme-surface border border-theme-default shadow-2xl rounded py-1 min-w-[160px] z-[1000] text-[12px] select-none"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          {contextMenu.text && (
-            <>
-              <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { navigator.clipboard.writeText(contextMenu.text); setContextMenu(null); }}>复制选中内容</button>
-              <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onSendToAI?.(contextMenu.text); setContextMenu(null); }}>发送给 AI</button>
-              <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onAddLayer?.(LayerType.HIGHLIGHT, { query: contextMenu.text, color: '#facc15' }); setContextMenu(null); }}>以此高亮</button>
-              <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onAddLayer?.(LayerType.FILTER, { query: contextMenu.text }); setContextMenu(null); }}>以此过滤</button>
-              {detectJson(contextMenu.text).valid && (
-                <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { setExpandedJsonLine(contextMenu.lineIndex ?? null); setContextMenu(null); }}>展开 JSON</button>
-              )}
-              <div className="h-[1px] bg-theme-subtle my-1" />
-            </>
-          )}
-          <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onToggleBookmark?.(contextMenu.lineIndex!); setContextMenu(null); }}>切换书签</button>
-          <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => {
-            const line = bridgedLines.get(contextMenu.lineIndex!);
-            navigator.clipboard.writeText(typeof line === 'string' ? line : (line as LogLine)?.content || '');
-            setContextMenu(null);
-          }}>复制整行</button>
-        </div>,
+        <>
+          {/* Backdrop to capture click-outside */}
+          <div className="fixed inset-0 z-[999]" onClick={() => setContextMenu(null)} onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }} />
+          <div
+            className="fixed z-[1000] select-none scale-in-center"
+            style={{
+              top: contextMenu.y,
+              left: contextMenu.x,
+              minWidth: 200,
+              borderRadius: 8,
+              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'rgba(30, 30, 30, 0.85)',
+              backdropFilter: 'blur(16px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2)',
+              padding: '4px 0',
+              fontSize: 12,
+            }}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            {contextMenu.text && (
+              <>
+                <button className="w-full text-left px-3 py-[6px] flex items-center gap-2 text-gray-200 hover:bg-white/10 transition-colors duration-100" onClick={() => { navigator.clipboard.writeText(contextMenu.text); setContextMenu(null); }}>
+                  <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="2" /></svg>
+                  <span className="flex-1">复制选中内容</span>
+                  <span className="text-gray-500 text-[11px] ml-4">Ctrl+C</span>
+                </button>
+                <button className="w-full text-left px-3 py-[6px] flex items-center gap-2 text-gray-200 hover:bg-white/10 transition-colors duration-100" onClick={() => { onSendToAI?.(contextMenu.text); setContextMenu(null); }}>
+                  <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                  <span className="flex-1">发送给 AI</span>
+                </button>
+                <button className="w-full text-left px-3 py-[6px] flex items-center gap-2 text-gray-200 hover:bg-white/10 transition-colors duration-100" onClick={() => { onAddLayer?.(LayerType.HIGHLIGHT, { query: contextMenu.text, color: '#facc15' }); setContextMenu(null); }}>
+                  <svg className="w-3.5 h-3.5 text-yellow-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42" /></svg>
+                  <span className="flex-1">以此高亮</span>
+                </button>
+                <button className="w-full text-left px-3 py-[6px] flex items-center gap-2 text-gray-200 hover:bg-white/10 transition-colors duration-100" onClick={() => { onAddLayer?.(LayerType.FILTER, { query: contextMenu.text }); setContextMenu(null); }}>
+                  <svg className="w-3.5 h-3.5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg>
+                  <span className="flex-1">以此过滤</span>
+                </button>
+                {detectJson(contextMenu.text).valid && (
+                  <button className="w-full text-left px-3 py-[6px] flex items-center gap-2 text-gray-200 hover:bg-white/10 transition-colors duration-100" onClick={() => { setExpandedJsonLine(contextMenu.lineIndex ?? null); setContextMenu(null); }}>
+                    <svg className="w-3.5 h-3.5 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
+                    <span className="flex-1">展开 JSON</span>
+                  </button>
+                )}
+                <div className="mx-2 my-1" style={{ height: 1, background: 'rgba(255,255,255,0.08)' }} />
+              </>
+            )}
+            <button className="w-full text-left px-3 py-[6px] flex items-center gap-2 text-gray-200 hover:bg-white/10 transition-colors duration-100" onClick={() => { onToggleBookmark?.(contextMenu.lineIndex!); setContextMenu(null); }}>
+              <svg className="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" /></svg>
+              <span className="flex-1">切换书签</span>
+            </button>
+            <button className="w-full text-left px-3 py-[6px] flex items-center gap-2 text-gray-200 hover:bg-white/10 transition-colors duration-100" onClick={() => {
+              const line = bridgedLines.get(contextMenu.lineIndex!);
+              navigator.clipboard.writeText(typeof line === 'string' ? line : (line as LogLine)?.content || '');
+              setContextMenu(null);
+            }}>
+              <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg>
+              <span className="flex-1">复制整行</span>
+            </button>
+          </div>
+        </>,
         document.body
       )}
 

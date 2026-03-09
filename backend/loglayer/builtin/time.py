@@ -1,10 +1,10 @@
 
 import re
 from datetime import datetime
+from loglayer.core import FilterLayer
 from loglayer.ui import StrInput
-from loglayer.core import DataProcessingLayer
 
-class TimeLayer(DataProcessingLayer):
+class TimeLayer(FilterLayer):
     """时间范围图层：按时间戳筛选日志"""
     display_name = "时间范围"
     description = "按时间戳筛选日志"

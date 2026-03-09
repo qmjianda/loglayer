@@ -8,31 +8,49 @@
 
 | 属性 | 值 |
 |:-----|:---|
-| **当前阶段** | 商业化软件优化 - 第三阶段 |
+| **当前阶段** | 商业化软件优化 - 第四阶段 |
 | **会话目标** | 夜间自动化优化 |
-| **上次会话** | 2026-03-05 (夜间优化) |
-| **代码版本** | `dee0148` |
+| **上次会话** | 2026-03-08 (代码质量和性能改进) |
+| **代码版本** | `a52d882` |
 
 ---
 
-## 本次任务清单 (2026-02-24)
+## 本次任务清单 (2026-03-08)
 
 ### P0 - 新功能实现
-- [x] SQL-like 查询语法 (AND, OR, NOT, CONTAINS)
-- [x] 实时文件监视功能 (Ctrl+Shift+T)
-- [x] 自动滚动到新内容
-- [x] 日志级别统计面板
-- [x] JSON 树展开功能 (右键菜单)
+- [x] QueryParser 增强：支持正则 (~)、in/not in、分组括号
+- [x] 新增 LabelLayer：Loki 风格的标签自动提取与过滤
+- [x] QueryLayer：KQL 类似查询语言 (field:value, AND/OR/NOT, 通配符)
+- [x] Saved Views：保存/加载/导出/导入视图配置
+- [x] TimelineHistogram：日志时间分布直方图
 
-### P1 - UI/UX 改进
-- [x] 统计面板侧边栏集成
-- [x] 文件监视按钮 (侧边栏)
-- [x] AI 配置界面修复
-- [x] 后端 URL 修复 (开发模式)
+### P1 - 架构改进
+- [x] 提取 API routes 到 api_routes.py
+- [x] 提取 WebSocket manager 到 websocket_manager.py
+- [x] 创建 views.py 视图管理系统
+- [x] GitHub Actions CI 工作流
+- [x] Ruff Python linting 配置
+- [x] Prettier + ESLint 前端配置
+
+### P2 - 性能优化
+- [x] 正则表达式缓存优化 (MAX_REGEX_CACHE_SIZE=100)
+- [x] LabelExtractor 使用类级别编译模式
+- [x] 修复 bridge.py 重复方法命名
+
+### 测试验证
+- [x] pytest tests/ ✅ 51 passed
+- [x] npm run build ✅
+- [x] npx tsc --noEmit ✅
+
+### 代码提交
+- [x] Commit: `a52d882`
+- [x] Push: origin/main ✅
 
 ---
 
-## 夜间优化 (2026-03-05)
+## 之前完成 (2026-03-05)
+
+### 夜间优化 (2026-03-05)
 
 ### 性能优化
 - [x] LRU 缓存优化：使用 OrderedDict 实现 O(1) 操作 (TD-004)
@@ -251,3 +269,7 @@ export const LOG_VIEWER = {
 - [CONTEXT.md](./CONTEXT.md) - 项目上下文
 - [TECHNICAL_DECISIONS.md](./TECHNICAL_DECISIONS.md) - 技术决策
 - [PROJECT_MAP.md](./PROJECT_MAP.md) - 架构地图
+
+---
+
+*最后更新: 2026-03-08*

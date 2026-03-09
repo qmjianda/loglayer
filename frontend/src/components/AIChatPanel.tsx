@@ -160,17 +160,93 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
 
 const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
   const isUser = message.role === 'user';
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const renderMarkdown = (text: string): React.ReactNode => {
+    if (!text) return null;
+    
+    const lines = text.split('\n');
+    const elements: React.ReactNode[] = [];
+    let inCodeBlock = false;
+    let codeContent: string[] = [];
+    let codeKey = 0;
+
+    lines.forEach((line, i) => {
+      if (line.startsWith('```')) {
+        if (inCodeBlock) {
+          elements.push(
+            <pre key={`code-${codeKey++}`} className="bg-[#1a1a1a] p-2 rounded my-2 overflow-x-auto text-xs">
+              <code>{codeContent.join('\n')}</code>
+            </pre>
+          );
+          codeContent = [];
+        }
+        inCodeBlock = !inCodeBlock;
+        return;
+      }
+
+      if (inCodeBlock) {
+        codeContent.push(line);
+        return;
+      }
+
+      let processedLine = line;
+
+      processedLine = processedLine.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      processedLine = processedLine.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      processedLine = processedLine.replace(/`(.+?)`/g, '<code class="bg-[#1a1a1a] px-1 rounded text-xs">$1</code>');
+      processedLine = processedLine.replace(/^- (.+)$/gm, '<li class="ml-4">$1</li>');
+      processedLine = processedLine.replace(/^(\d+)\. (.+)$/gm, '<li class="ml-4">$2</li>');
+
+      if (processedLine.trim()) {
+        elements.push(
+          <div key={i} dangerouslySetInnerHTML={{ __html: processedLine }} />
+        );
+      } else {
+        elements.push(<div key={i} className="h-2" />);
+      }
+    });
+
+    return elements;
+  };
   
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${
+        className={`max-w-[80%] px-3 py-2 rounded-lg text-sm relative group ${
           isUser
             ? 'bg-blue-600 text-white'
             : 'bg-theme-elevated text-theme-primary'
         }`}
       >
-        <div className="whitespace-pre-wrap break-words">{message.content}</div>
+        <div className="whitespace-pre-wrap break-words">
+          {isUser ? message.content : renderMarkdown(message.content)}
+        </div>
+        
+        {!isUser && (
+          <button
+            onClick={handleCopy}
+            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[#2a2a2a] rounded"
+            title="复制"
+          >
+            {copied ? (
+              <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

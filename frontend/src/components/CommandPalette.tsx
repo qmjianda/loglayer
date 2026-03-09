@@ -80,13 +80,20 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   let currentIndex = 0;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Command palette"
+      className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]"
+    >
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-[500px] bg-dark-1 border border-theme-default rounded-lg shadow-2xl overflow-hidden">
         <div className="p-2 border-b border-theme-subtle">
           <input
             ref={inputRef}
             type="text"
+            role="searchbox"
+            aria-label="Search commands"
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -94,9 +101,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             className="w-full bg-transparent text-white text-sm px-3 py-2 outline-none placeholder:text-gray-500"
           />
         </div>
-        <div className="max-h-[60vh] overflow-y-auto">
+        <div
+          className="max-h-[60vh] overflow-y-auto"
+          role="listbox"
+          aria-label="Commands"
+        >
           {Object.entries(groupedCommands).map(([category, cmds]) => (
-            <div key={category}>
+            <div key={category} role="group" aria-label={category}>
               <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-gray-500 bg-dark-3">
                 {category}
               </div>
@@ -107,6 +118,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 return (
                   <button
                     key={cmd.id}
+                    role="option"
+                    aria-selected={isSelected}
+                    aria-disabled={isDisabled}
                     disabled={isDisabled}
                     onClick={() => {
                       if (!isDisabled) {
@@ -128,7 +142,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             </div>
           ))}
           {filteredCommands.length === 0 && (
-            <div className="px-3 py-4 text-center text-gray-500 text-sm">
+            <div className="px-3 py-4 text-center text-gray-500 text-sm" role="status">
               No commands found
             </div>
           )}

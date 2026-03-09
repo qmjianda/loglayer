@@ -490,7 +490,7 @@ class QueryLayer(FilterLayer):
     display_name = "查询图层"
     description = "使用 KQL 类似语法进行高级查询过滤"
     icon = "search-query"
-    category = LayerCategory.FILTERING
+    category = LayerCategory.FILTER
     stage = LayerStage.LOGIC
     
     inputs = [

@@ -1,6 +1,13 @@
-import { FileBridgeAPI } from './types';
+import { FileBridgeAPI, LayerType } from './types';
 
-// Connection state types
+interface ApiRequest {
+  [key: string]: string | number | boolean | string[] | number[] | undefined;
+}
+
+interface ApiResponse {
+  [key: string]: unknown;
+}
+
 export type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'reconnecting';
 
 export interface ConnectionStateListener {
@@ -22,14 +29,23 @@ const BACKEND_URL = isDev ? 'http://127.0.0.1:12345' : `${window.location.protoc
 const WS_URL = BACKEND_URL.replace('http', 'ws') + '/ws';
 
 /**
- * 客户端信号模拟器 (Client-side Signal Emulator)
+ * Client-side Signal Emulator
  */
-class Signal {
-    private callbacks: Function[] = [];
-    connect(cb: Function) {
+class Signal<T extends (...args: unknown[]) => void> {
+    private callbacks: T[] = [];
+    connect(cb: T): () => void {
         this.callbacks.push(cb);
+        return () => {
+            this.disconnect(cb);
+        };
     }
-    emit(...args: any[]) {
+    disconnect(cb: T) {
+        const index = this.callbacks.indexOf(cb);
+        if (index > -1) {
+            this.callbacks.splice(index, 1);
+        }
+    }
+    emit(...args: Parameters<T>) {
         this.callbacks.forEach(cb => cb(...args));
     }
 }
@@ -39,16 +55,16 @@ class Signal {
  */
 class WebBridge implements FileBridgeAPI {
     // Signals
-    fileLoaded = new Signal();
-    pipelineFinished = new Signal();
-    statsFinished = new Signal();
-    operationStarted = new Signal();
-    operationProgress = new Signal();
-    operationError = new Signal();
-    operationStatusChanged = new Signal();
-    pendingFilesCount = new Signal();
-    workspaceOpened = new Signal();
-    frontendReady = new Signal();
+    fileLoaded = new Signal<(fileId: string, payloadJson: string) => void>();
+    pipelineFinished = new Signal<(fileId: string, newTotal: number, matchCount: number) => void>();
+    statsFinished = new Signal<(fileId: string, statsJson: string) => void>();
+    operationStarted = new Signal<(fileId: string, opName: string) => void>();
+    operationProgress = new Signal<(fileId: string, opName: string, p: number) => void>();
+    operationError = new Signal<(fileId: string, opName: string, msg: string) => void>();
+    operationStatusChanged = new Signal<(fileId: string, status: string, p: number) => void>();
+    pendingFilesCount = new Signal<(count: number) => void>();
+    workspaceOpened = new Signal<(path: string) => void>();
+    frontendReady = new Signal<() => void>();
 
     private ws: WebSocket | null = null;
 
@@ -64,6 +80,19 @@ class WebBridge implements FileBridgeAPI {
 
     constructor() {
         this.initWebSocket();
+    }
+
+    destroy() {
+        // 清理WebSocket连接
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        if (this.ws) {
+            this.ws.onclose = null;  // 防止触发重连
+            this.ws.close();
+            this.ws = null;
+        }
     }
 
     private initWebSocket() {
@@ -82,8 +111,9 @@ class WebBridge implements FileBridgeAPI {
         this.ws.onmessage = (event) => {
             try {
                 const { signal, args } = JSON.parse(event.data);
-                if (this[signal as keyof WebBridge] instanceof Signal) {
-                    (this[signal as keyof WebBridge] as Signal).emit(...args);
+                const target = (this as Record<string, unknown>)[signal];
+                if (target && typeof target === 'object' && 'emit' in target && typeof target.emit === 'function') {
+                    (target as { emit: (...args: unknown[]) => void }).emit(...args);
                 }
             } catch (e) {
                 console.error('[Bridge] WS message error:', e);
@@ -126,7 +156,7 @@ class WebBridge implements FileBridgeAPI {
         this.stateListeners.forEach(cb => cb(state));
     }
 
-    private async post(endpoint: string, body: any = {}): Promise<any> {
+    private async post(endpoint: string, body: ApiRequest = {}): Promise<any> {
         const res = await fetch(`${BACKEND_URL}/api/${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -135,8 +165,8 @@ class WebBridge implements FileBridgeAPI {
         return res.json();
     }
 
-    async get(endpoint: string, params: Record<string, any> = {}): Promise<any> {
-        const query = new URLSearchParams(params).toString();
+    async get(endpoint: string, params: Record<string, string | number | boolean> = {}): Promise<any> {
+        const query = new URLSearchParams(params as Record<string, string>).toString();
         const res = await fetch(`${BACKEND_URL}/api/${endpoint}?${query}`);
         return res.json();
     }
@@ -211,6 +241,20 @@ class WebBridge implements FileBridgeAPI {
     
     async suggest_layers(fileId: string) {
         return this.get('suggest_layers', { file_id: fileId });
+    }
+
+    // Export API
+    async export_visible_lines(fileId: string, outputPath: string, format: string) {
+        return this.post('export_visible_lines', { file_id: fileId, output_path: outputPath, format });
+    }
+
+    // Worker config APIs
+    async get_worker_config() {
+        return this.get('worker_config');
+    }
+
+    async set_worker_config(config: { max_workers: number }) {
+        return this.post('worker_config', config);
     }
 }
 
@@ -499,5 +543,59 @@ export async function physicalToVisualIndex(fileId: string, physicalIndex: numbe
     } catch (e) {
         console.error('[Bridge] physicalToVisualIndex error:', e);
         return physicalIndex;
+    }
+}
+
+/**
+ * 导出日志
+ */
+export interface ExportOptions {
+    fileId: string;
+    outputPath: string;
+    format: 'txt' | 'csv' | 'json';
+    includeLineNumbers?: boolean;
+    includeTimestamps?: boolean;
+}
+
+export async function exportVisibleLines(options: ExportOptions): Promise<{ success: boolean; error?: string }> {
+    if (!fileBridge) return { success: false, error: 'Bridge not initialized' };
+    try {
+        const result = await fileBridge.export_visible_lines(
+            options.fileId,
+            options.outputPath,
+            options.format
+        );
+        return typeof result === 'string' ? JSON.parse(result) : result;
+    } catch (e) {
+        console.error('[Bridge] exportVisibleLines error:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/**
+ * 获取 Worker 配置
+ */
+export async function getWorkerConfig(): Promise<{ maxWorkers: number; currentWorkers: number }> {
+    if (!fileBridge) return { maxWorkers: 4, currentWorkers: 2 };
+    try {
+        const res = await fileBridge.get_worker_config();
+        return typeof res === 'string' ? JSON.parse(res) : res;
+    } catch (e) {
+        console.error('[Bridge] getWorkerConfig error:', e);
+        return { maxWorkers: 4, currentWorkers: 2 };
+    }
+}
+
+/**
+ * 设置 Worker 配置
+ */
+export async function setWorkerConfig(maxWorkers: number): Promise<boolean> {
+    if (!fileBridge) return false;
+    try {
+        await fileBridge.set_worker_config({ max_workers: maxWorkers });
+        return true;
+    } catch (e) {
+        console.error('[Bridge] setWorkerConfig error:', e);
+        return false;
     }
 }

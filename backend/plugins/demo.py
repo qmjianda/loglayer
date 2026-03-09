@@ -1,12 +1,9 @@
 import psutil
-from loglayer.core import DataProcessingLayer, UIWidget
+import re
+from loglayer.core import TransformLayer, UIWidget, ProcessedLine
 from loglayer.ui import SearchInput
 
-class AnonymizerLayer(DataProcessingLayer):
-    """
-    脱敏图层示例。
-    发现并替换敏感词（如 IP 地址）。
-    """
+class AnonymizerLayer(TransformLayer):
     display_name = "Anonymizer"
     description = "Mask sensitive data (demonstrating Python logic layer)"
     icon = "transform"
@@ -15,11 +12,10 @@ class AnonymizerLayer(DataProcessingLayer):
         SearchInput("pattern", "Pattern to Mask", value=r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", regex=True)
     ]
 
-    def process_line(self, content: str) -> str:
-        import re
-        # Example: Mask IPv4 addresses with [INTERNAL_IP]
+    def process_line(self, content: str) -> ProcessedLine:
         pattern = self.config.get("pattern", r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
-        return re.sub(pattern, "[MASKED]", content)
+        masked = re.sub(pattern, "[MASKED]", content)
+        return ProcessedLine(content=masked)
 
 class SystemStatsWidget(UIWidget):
     """

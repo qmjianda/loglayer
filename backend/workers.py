@@ -52,7 +52,7 @@ class Signal:
             try:
                 callback(*args)
             except Exception as e:
-                print(f"Error in signal callback: {e}")
+                logger.error(f"Error in signal callback: {e}")
 
 
 class CustomThread:
@@ -96,6 +96,10 @@ class IndexingWorker(CustomThread):
     """Worker for indexing log file line offsets using mmap."""
 
     FAST_PREVIEW_BYTES = 10 * 1024 * 1024  # 10MB for quick preview
+    # Memory limit: stop full indexing when offsets exceed this size (~400MB for 50M lines)
+    MAX_OFFSETS_SIZE = 50_000_000
+    # Use sparse indexing for files exceeding limit (store every Nth offset)
+    SPARSE_INTERVAL = 100
 
     def __init__(self, mmap_obj, size, file_path=None):
         super().__init__()
@@ -124,15 +128,16 @@ class IndexingWorker(CustomThread):
             preview_count = scanned
             preview_time = time.time() - start_time
 
-            # Send preview immediately so user can see content
+            # Send preview immediately - MUST copy the array to avoid memory aliasing
+            preview_offsets = array.array("Q", offsets)
             self.finished.emit(
                 {
-                    "offsets": offsets,
+                    "offsets": preview_offsets,
                     "partial": True,
                     "lineCount": preview_count,
                 }
             )
-            print(f"[Indexing] Preview: {preview_count} lines in {preview_time:.2f}s")
+            logger.info(f"[Indexing] Preview: {preview_count} lines in {preview_time:.2f}s")
             self.progress.emit(10)
 
             # Phase 2: Continue full indexing in background
@@ -145,6 +150,14 @@ class IndexingWorker(CustomThread):
                     offsets.append(last_offset + m.start() + 1)
                     scanned += 1
 
+                    # Check memory limit - if too many offsets, switch to sparse mode
+                    if scanned > self.MAX_OFFSETS_SIZE:
+                        logger.warning(
+                            f"[Indexing] File too large ({scanned} lines), switching to sparse indexing"
+                        )
+                        self._finish_with_sparse(offsets, scanned, start_time)
+                        return
+
                     if scanned % 1000000 == 0:
                         progress = 10 + (scanned / max(1, self.size / 80) * 90)
                         self.progress.emit(min(100, progress))
@@ -155,7 +168,7 @@ class IndexingWorker(CustomThread):
 
             total_time = time.time() - start_time
             speed_mbps = self.size / total_time / 1024 / 1024
-            print(
+            logger.info(
                 f"[Indexing] Complete: {len(offsets)} lines in {total_time:.2f}s ({speed_mbps:.1f} MB/s)"
             )
             self.finished.emit(
@@ -163,11 +176,35 @@ class IndexingWorker(CustomThread):
                     "offsets": offsets,
                     "partial": False,
                     "lineCount": len(offsets),
+                    "sparse": False,
                 }
             )
 
         except Exception as e:
             self.error.emit(str(e))
+
+    def _finish_with_sparse(self, current_offsets, scanned, start_time):
+        sparse_offsets = array.array("Q", [0])
+        for i in range(0, len(current_offsets), self.SPARSE_INTERVAL):
+            sparse_offsets.append(current_offsets[i])
+
+        if len(sparse_offsets) == 0 or sparse_offsets[-1] != current_offsets[-1]:
+            sparse_offsets.append(current_offsets[-1])
+
+        total_time = time.time() - start_time
+        logger.info(
+            f"[Indexing] Sparse: {len(sparse_offsets)} index points for {scanned} lines in {total_time:.2f}s"
+        )
+
+        self.finished.emit(
+            {
+                "offsets": sparse_offsets,
+                "partial": False,
+                "lineCount": scanned,
+                "sparse": True,
+                "sparseInterval": self.SPARSE_INTERVAL,
+            }
+        )
 
 
 class PipelineWorker(CustomThread):
@@ -185,6 +222,8 @@ class PipelineWorker(CustomThread):
 
     def run(self):
         from loglayer.core import LayerStage, ProcessedLine
+        
+        logger.info(f"[PipelineWorker] Starting pipeline for {self.file_path}, native_layers={len([l for l in self.layers if l.stage == LayerStage.NATIVE])}, logic_layers={len([l for l in self.layers if l.stage == LayerStage.LOGIC])}")
 
         try:
             native_layers = [l for l in self.layers if l.stage == LayerStage.NATIVE]
@@ -231,7 +270,7 @@ class PipelineWorker(CustomThread):
                                 matching_physicals.add(int(parts[0]) - 1)
                     sp.wait(timeout=5)
                 except Exception as e:
-                    print(f"[Pipeline] Search match calculation error: {e}")
+                    logger.error(f"[Pipeline] Search match calculation error: {e}")
 
             if not native_layers and not logic_layers:
                 visible_indices = None
@@ -330,13 +369,15 @@ class PipelineWorker(CustomThread):
 
                     line_count += 1
                     if line_count % 10000 == 0:
-                        self.progress.emit(0)
+                        self.progress.emit(float(line_count))  # Emit actual line count for progress tracking
 
             if self._is_running:
+                logger.info(f"[PipelineWorker] Pipeline completed: {len(visible_indices)} visible lines, {len(search_matches)} search matches")
                 self.finished.emit(visible_indices, search_matches)
 
         except Exception as e:
             if self._is_running:
+                logger.error(f"[PipelineWorker] Pipeline error: {e}")
                 self.error.emit(str(e))
         finally:
             self._cleanup_processes()
@@ -346,15 +387,15 @@ class PipelineWorker(CustomThread):
             try:
                 if p.poll() is None:
                     p.terminate()
-            except Exception:
+            except (OSError, subprocess.SubprocessError):
                 pass
         for p in self._processes:
             try:
                 p.wait(timeout=timeout)
-            except Exception:
+            except (OSError, subprocess.TimeoutExpired):
                 try:
                     p.kill()
-                except Exception:
+                except (OSError, subprocess.SubprocessError):
                     pass
         self._processes = []
 
@@ -428,7 +469,7 @@ class StatsWorker(CustomThread):
                         if lid and res:
                             results[lid] = res
                     except Exception as e:
-                        print(f"Stats task error: {e}")
+                        logger.error(f"Stats task error: {e}")
             if self._is_running:
                 self.finished.emit(json.dumps(results))
         except Exception as e:
@@ -518,9 +559,9 @@ class StatsWorker(CustomThread):
                 try:
                     p.terminate()
                     p.wait(timeout=0.1)
-                except Exception:
+                except (OSError, subprocess.SubprocessError):
                     pass
-        except Exception:
+        except (OSError, subprocess.SubprocessError, ValueError):
             pass
         max_val = max(distribution) if any(v > 0 for v in distribution) else 0
         norm_dist = [v / max_val if max_val > 0 else 0 for v in distribution]

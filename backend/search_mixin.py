@@ -92,104 +92,97 @@ class SearchPipeline:
 class BookmarkPipeline:
     """
     Pipeline for bookmark operations.
-    Expected to be mixed into a class with:
-    - self._sessions
-    - self._registry
-    - self._emit_refresh_signal (method)
+    Bookmarks are now stored directly in session.bookmarks (independent of layer system).
     """
 
-    def _get_bookmark_layer(self, session):
-        for layer in session.rendering_instances:
-            if layer.__class__.__name__ == "BookmarkLayer":
-                return layer
-        return None
-
-    def _ensure_bookmark_layer(self, session, file_id: str):
-        layer = self._get_bookmark_layer(session)
-        if layer is None:
-            layer = self._registry.create_layer_instance(
-                "BOOKMARK", {"color": "#f59e0b", "bookmarks": {}}
-            )
-            if layer:
-                layer.id = f"system-bookmark-{file_id}"
-                session.rendering_instances.append(layer)
-                session.layers.append(
-                    {
-                        "id": layer.id,
-                        "type": "BOOKMARK",
-                        "name": "书签",
-                        "enabled": True,
-                        "isSystemManaged": True,
-                        "config": {"color": "#f59e0b", "bookmarks": {}},
-                    }
-                )
-        return layer
-
-    def _sync_bookmark_config_and_refresh(self, session, layer, file_id):
-        for l_conf in session.layers:
-            if l_conf.get("id") == layer.id:
-                l_conf["config"]["bookmarks"] = layer.bookmarks
-                break
-
+    def toggle_bookmark(self, file_id: str, line_index: int) -> str:
+        """Toggle bookmark for a specific line."""
+        if file_id not in self._sessions:
+            return "{}"
+        session = self._sessions[file_id]
+        
+        # 直接操作 session.bookmarks
+        if line_index in session.bookmarks:
+            del session.bookmarks[line_index]
+        else:
+            session.bookmarks[line_index] = ""
+        
+        # 轻量刷新：清除渲染缓存并发送信号
         session.rendering_cache.clear()
         self._emit_refresh_signal(file_id)
-
-    def toggle_bookmark(self, file_id: str, line_index: int) -> str:
-        if file_id not in self._sessions:
-            return "{}"
-        session = self._sessions[file_id]
-        layer = self._ensure_bookmark_layer(session, file_id)
-        if not layer:
-            return "{}"
-
-        layer.toggle(line_index)
-        self._sync_bookmark_config_and_refresh(session, layer, file_id)
-        return json.dumps(layer.bookmarks)
+        
+        return json.dumps(session.bookmarks)
 
     def get_bookmarks(self, file_id: str) -> str:
+        """Get all bookmarks for a file."""
         if file_id not in self._sessions:
             return "{}"
         session = self._sessions[file_id]
-        layer = self._get_bookmark_layer(session)
-        return json.dumps(layer.bookmarks if layer else {})
+        return json.dumps(session.bookmarks)
 
-    def update_bookmark_comment(
-        self, file_id: str, line_index: int, comment: str
-    ) -> str:
+    def update_bookmark_comment(self, file_id: str, line_index: int, comment: str) -> str:
+        """Update bookmark comment."""
         if file_id not in self._sessions:
             return "{}"
         session = self._sessions[file_id]
-        layer = self._get_bookmark_layer(session)
-        if layer:
-            layer.set_comment(line_index, comment)
-            self._sync_bookmark_config_and_refresh(session, layer, file_id)
-        return json.dumps(layer.bookmarks if layer else {})
+        
+        if line_index in session.bookmarks:
+            session.bookmarks[line_index] = comment
+            session.rendering_cache.clear()
+            self._emit_refresh_signal(file_id)
+        
+        return json.dumps(session.bookmarks)
 
-    def get_nearest_bookmark_index(
-        self, file_id: str, current_index: int, direction: str
-    ) -> int:
+    def get_nearest_bookmark_index(self, file_id: str, current_index: int, direction: str) -> int:
+        """Find the nearest bookmark index."""
         if file_id not in self._sessions:
             return -1
         session = self._sessions[file_id]
-        layer = self._get_bookmark_layer(session)
-        if not layer:
+        
+        if not session.bookmarks:
             return -1
-
-        return layer.get_nearest_index(
-            current_index,
-            direction,
-            session.visible_indices,
-            lambda pi: self.physical_to_visual_index(file_id, pi),
-        )
+        
+        sorted_bookmarks = sorted(session.bookmarks.keys())
+        
+        # 确定当前物理索引
+        current_physical = current_index
+        if session.visible_indices is not None:
+            if session.visible_indices and 0 <= current_index < len(session.visible_indices):
+                current_physical = session.visible_indices[current_index]
+            elif current_index >= len(session.visible_indices):
+                current_physical = session.visible_indices[-1] + 1 if session.visible_indices else 0
+            else:
+                current_physical = 0
+        
+        # 查找最近的物理索引
+        if direction == 'next':
+            idx = bisect.bisect_right(sorted_bookmarks, current_physical)
+            if idx < len(sorted_bookmarks):
+                target_physical = sorted_bookmarks[idx]
+            else:
+                target_physical = sorted_bookmarks[0]  # Loop to start
+        else:  # prev
+            idx = bisect.bisect_left(sorted_bookmarks, current_physical) - 1
+            if idx >= 0:
+                target_physical = sorted_bookmarks[idx]
+            else:
+                target_physical = sorted_bookmarks[-1]  # Loop to end
+        
+        # 转换回虚拟索引
+        if session.visible_indices is not None:
+            return self.physical_to_visual_index(file_id, target_physical)
+        return target_physical
 
     def clear_bookmarks(self, file_id: str) -> str:
+        """Clear all bookmarks for a file."""
         if file_id not in self._sessions:
             return "{}"
         session = self._sessions[file_id]
-        layer = self._get_bookmark_layer(session)
-        if layer:
-            layer.clear_all()
-            self._sync_bookmark_config_and_refresh(session, layer, file_id)
+        
+        session.bookmarks.clear()
+        session.rendering_cache.clear()
+        self._emit_refresh_signal(file_id)
+        
         return "{}"
 
 

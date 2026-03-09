@@ -57,7 +57,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={cancel}>
-      <div 
+      <div
         className="bg-theme-surface border border-theme-default rounded-lg shadow-2xl w-[700px] h-[550px] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
@@ -84,11 +84,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full text-left px-3 py-2 text-sm rounded flex items-center gap-2 ${
-                  activeTab === tab.id 
-                    ? 'bg-blue-600 text-theme-primary' 
+                className={`w-full text-left px-3 py-2 text-sm rounded flex items-center gap-2 ${activeTab === tab.id
+                    ? 'bg-blue-600 text-theme-primary'
                     : 'text-theme-secondary hover:bg-theme-hover'
-                }`}
+                  }`}
               >
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
@@ -98,7 +97,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
 
           {/* 设置内容 */}
           <div className="flex-1 overflow-y-auto p-4">
-            
+
             {/* 通用设置 */}
             {activeTab === 'general' && (
               <div className="space-y-6">
@@ -142,11 +141,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                       <button
                         key={t}
                         onClick={() => handleChange('theme', t)}
-                        className={`px-4 py-3 text-sm rounded border flex-1 ${
-                          currentSettings.theme === t
+                        className={`px-4 py-3 text-sm rounded border flex-1 ${currentSettings.theme === t
                             ? 'border-blue-500 bg-blue-500/20 text-theme-primary'
                             : 'border-theme-default text-theme-secondary hover:border-gray-500'
-                        }`}
+                          }`}
                       >
                         <div className="text-center">
                           <div className="text-lg mb-1">{t === 'dark' ? '🌙' : t === 'light' ? '☀️' : '💻'}</div>
@@ -183,12 +181,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     checked={currentSettings.showLineNumbers}
                     onChange={v => handleChange('showLineNumbers', v)}
                   />
-                  <Toggle
-                    label="显示标尺"
-                    description="显示垂直参考线"
-                    checked={currentSettings.showRuler}
-                    onChange={v => handleChange('showRuler', v)}
-                  />
+
                 </Section>
               </div>
             )}

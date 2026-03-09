@@ -1,132 +1,66 @@
 import os
 import sys
 import mmap
-import array
 import json
-import re
-import subprocess
-import threading
 import time
-import webview
+import re
+import array
+import threading
+import traceback
 import platform
 import logging
+import subprocess
 from pathlib import Path
-import importlib
-from concurrent.futures import ThreadPoolExecutor
+from typing import Dict, List, Optional, Set, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from PyQt6.QtCore import QObject, pyqtSignal, QThread
+from loglayer.storage import StorageRegistry
+from loglayer.registry import LayerRegistry
+from loglayer.core import LayerStage
+from workers import (
+    CustomThread,
+    IndexingWorker,
+    PipelineWorker,
+    StatsWorker
+)
+from search_mixin import SearchPipeline, BookmarkPipeline
 
+# Setup logger
 logger = logging.getLogger(__name__)
 
 
-def convert_windows_path_to_linux(windows_path: str) -> str:
-    """将 Windows 路径转换为 Linux 路径"""
-    if platform.system() != "Windows":
-        # 处理 Windows 盘符 (如 D:\Project\... -> /mnt/d/Project/...)
-        path = windows_path.replace("\\", "/")
-
-        # 检查是否是 Windows 盘符路径
-        match = re.match(r"^([A-Za-z]):/(.*)", path)
-        if match:
-            drive_letter = match.group(1).lower()
-            rest_path = match.group(2)
-            # 动态映射任意盘符: X: -> /mnt/x
-            return f"/mnt/{drive_letter}/{rest_path}"
-
-        # 如果不是 Windows 盘符，可能是 WSL 路径或网络路径
-        # 尝试直接返回转换后的路径
-        return path
-    return windows_path
-
-
-def resolve_file_path(file_path: str) -> str:
-    """解析文件路径，处理跨平台路径问题"""
-    # 使用 Path 来规范化路径（处理正反斜杠）
-    normalized_path = Path(file_path)
-
-    # 首先检查原路径是否存在（Path会自动处理路径格式）
-    if normalized_path.exists():
-        return str(normalized_path)
-
-    # 在非 Windows 平台上，尝试转换为 Linux 路径
-    if platform.system() != "Windows":
-        linux_path = convert_windows_path_to_linux(file_path)
-        if Path(linux_path).exists():
-            return linux_path
-
-    # 返回规范化后的原始路径
-    return str(normalized_path)
-
-
 class LRUCache:
-    """优化的 LRU 缓存，使用 OrderedDict 实现 O(1) 操作
-
-    性能优化:
-    - 使用 OrderedDict 替代 list 维护访问顺序
-    - 所有操作 (get/set/remove) 均为 O(1) 时间复杂度
-    - 适合高频访问的日志行缓存场景
-    """
-
-    def __init__(self, max_size: int = 5000):
+    """Simple LRU Cache implementation"""
+    def __init__(self, max_size: int = 1000):
         self.max_size = max_size
-        from collections import OrderedDict
-
-        self._cache = OrderedDict()
-
-    def __contains__(self, key):
-        return key in self._cache
-
-    def __getitem__(self, key):
-        # Move to end (most recently used)
-        self._cache.move_to_end(key)
-        return self._cache[key]
-
-    def __setitem__(self, key, value):
+        self._cache = {}
+        self._access_order = []
+    
+    def get(self, key):
         if key in self._cache:
-            # Update and move to end
-            self._cache.move_to_end(key)
+            # Move to end (most recently used)
+            self._access_order.remove(key)
+            self._access_order.append(key)
+            return self._cache[key]
+        return None
+    
+    def put(self, key, value):
+        if key in self._cache:
+            self._access_order.remove(key)
         elif len(self._cache) >= self.max_size:
-            # Remove oldest (first item)
-            self._cache.popitem(last=False)
+            # Remove least recently used
+            lru_key = self._access_order.pop(0)
+            del self._cache[lru_key]
+        
         self._cache[key] = value
-
-    def __len__(self):
-        return len(self._cache)
-
+        self._access_order.append(key)
+    
     def clear(self):
         self._cache.clear()
-
-    def get(self, key, default=None):
-        try:
-            # Move to end and return value
-            self._cache.move_to_end(key)
-            return self._cache[key]
-        except KeyError:
-            return default
-
-    def pop(self, key, default=None):
-        try:
-            return self._cache.pop(key)
-        except KeyError:
-            return default
-
-    def keys(self):
-        """返回所有键 (按访问顺序)"""
-        return list(self._cache.keys())
-
-    def items(self):
-        """返回所有键值对 (按访问顺序)"""
-        return list(self._cache.items())
-
-
-try:
-    import tkinter as tk
-    from tkinter import filedialog
-except ImportError:
-    tk = None
-    filedialog = None
-
-from loglayer.registry import LayerRegistry
-from loglayer.core import LayerStage, LayerCategory, ProcessedLine
-from search_mixin import SearchPipeline, BookmarkPipeline
+        self._access_order.clear()
+    
+    def __contains__(self, key):
+        return key in self._cache
 
 # Constants
 PROCESS_CLEANUP_TIMEOUT = 0.3  # Seconds to wait for process termination before killing
@@ -214,6 +148,8 @@ from workers import Signal, CustomThread, IndexingWorker, PipelineWorker, StatsW
 # ============================================================
 
 
+import threading
+
 class LogSession:
     def __init__(self, file_id, path, provider=None):
         self.id = file_id
@@ -221,6 +157,7 @@ class LogSession:
         self.provider = provider
         self.file_obj = None
         self.mmap = None
+        self._mmap_lock = threading.RLock()  # 线程安全锁
         self.size = 0
         self.line_offsets = array.array("Q")
         self.visible_indices = None
@@ -235,6 +172,9 @@ class LogSession:
         self.processing_cache = {}
         self.rendering_cache = LRUCache(max_size=5000)
         self.workers = {}
+        
+        # 独立于图层系统的书签存储 (line_index -> comment)
+        self.bookmarks = {}
 
     @property
     def cache(self):
@@ -242,6 +182,7 @@ class LogSession:
         return {**self.processing_cache, **self.rendering_cache._cache}
 
     def close(self, bridge=None):
+        # 先停止所有worker
         for name, worker in list(self.workers.items()):
             if bridge:
                 bridge._retire_worker(worker)
@@ -250,18 +191,21 @@ class LogSession:
                     worker.stop()
                     worker.wait()
         self.workers.clear()
-        if self.mmap:
-            try:
-                self.mmap.close()
-            except Exception:
-                pass
-            self.mmap = None
-        if self.file_obj:
-            try:
-                self.file_obj.close()
-            except Exception:
-                pass
-            self.file_obj = None
+        
+        # 使用锁保护mmap关闭
+        with self._mmap_lock:
+            if self.mmap:
+                try:
+                    self.mmap.close()
+                except (OSError, ValueError):
+                    pass
+                self.mmap = None
+            if self.file_obj:
+                try:
+                    self.file_obj.close()
+                except (OSError, ValueError):
+                    pass
+                self.file_obj = None
 
 
 class FileBridge(SearchPipeline, BookmarkPipeline):
@@ -337,7 +281,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             worker.error.disconnect()
             if hasattr(worker, "progress"):
                 worker.progress.disconnect()
-        except Exception:
+        except (RuntimeError, TypeError):
             pass
         worker.stop()
         self._zombie_workers.append(worker)
@@ -359,11 +303,6 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 if not w.isRunning():
                     w.wait(timeout=0.5)
                     self._zombie_workers.remove(w)
-            # 打印警告如果仍有大量僵尸
-            if len(self._zombie_workers) > 10:
-                logger.warning(
-                    f"{len(self._zombie_workers)} zombie workers still running"
-                )
 
     def _get_rg_path(self):
         if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
@@ -612,6 +551,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             return False
 
     def _start_pipeline(self, file_id, layer_instances):
+        logger.info(f"[Pipeline] Starting pipeline for file_id={file_id}, layers={len(layer_instances)}")
         if file_id not in self._sessions:
             return
         session = self._sessions[file_id]
@@ -643,6 +583,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 lambda e: self.operationError.emit(file_id, "pipeline", e)
             )
             worker.start()
+            logger.info(f"[Pipeline] Pipeline worker started for file_id={file_id}")
         if any(
             l.get("enabled") and l.get("type") in ["HIGHLIGHT", "FILTER", "LEVEL"]
             for l in session.layers
@@ -877,8 +818,19 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                                         "isSearch": True,
                                     }
                                 )
-                        except Exception:
+                        except (re.error, AttributeError):
                             pass
+                    
+                    # 4. 直接读取 session.bookmarks (独立于图层系统)
+                    if real_idx in session.bookmarks:
+                        line_data["isMarked"] = True
+                        comment = session.bookmarks.get(real_idx)
+                        if comment:
+                            line_data["bookmarkComment"] = comment
+                        # 添加书签视觉标记
+                        if not row_style:
+                            row_style = {}
+                        row_style["borderLeft"] = "3px solid #f59e0b"
 
                     line_data = {
                         "index": real_idx,
@@ -887,14 +839,6 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                     }
                     if row_style:
                         line_data["rowStyle"] = row_style
-                        # 提升 isBookmarked 到根属性 isMarked
-                        # 提升 isMarked 到根属性
-                        if row_style.get("isMarked") or row_style.get("isBookmarked"):
-                            line_data["isMarked"] = True
-                            if "bookmarkComment" in row_style:
-                                line_data["bookmarkComment"] = row_style[
-                                    "bookmarkComment"
-                                ]
                     # LRU Cache 会自动处理容量限制
                     session.rendering_cache[i] = line_data
                     results.append(line_data)

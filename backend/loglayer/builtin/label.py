@@ -156,7 +156,7 @@ class LabelLayer(FilterLayer):
     display_name = "标签过滤"
     description = "基于自动提取的标签进行过滤 (类似 Loki)"
     icon = "tag"
-    category = LayerCategory.FILTERING
+    category = LayerCategory.FILTER
     stage = LayerStage.LOGIC
     
     inputs = [

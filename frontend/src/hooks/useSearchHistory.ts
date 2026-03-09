@@ -20,7 +20,9 @@ function getHistoryLimit(): number {
             const parsed = JSON.parse(saved);
             return parsed.searchHistoryLimit || 50;
         }
-    } catch { }
+            } catch (e) {
+                console.warn('[useSearchHistory] Failed to parse search history:', e);
+            }
     return 50;
 }
 
@@ -34,7 +36,9 @@ export function useSearchHistory() {
             try {
                 const parsed = JSON.parse(saved);
                 setSearchHistory(parsed);
-            } catch { }
+    } catch (e) {
+        console.warn('[useSearchHistory] Failed to parse settings:', e);
+    }
         }
     }, []);
 

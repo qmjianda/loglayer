@@ -204,6 +204,10 @@ const AppContent: React.FC = () => {
   const [isCommandPaletteVisible, setIsCommandPaletteVisible] = useState(false);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [isShortcutsVisible, setIsShortcutsVisible] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isStorageSettingsOpen, setIsStorageSettingsOpen] = useState(false);
+  const [isWorkerConfigOpen, setIsWorkerConfigOpen] = useState(false);
+  const [isPluginManagerOpen, setIsPluginManagerOpen] = useState(false);
   const [aiPanelInitialContent, setAiPanelInitialContent] = useState('');
   const [logLevelStats, setLogLevelStats] = useState<LogLevelStats>({ ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 });
   const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'warning' | 'error' } | null>(null);
@@ -611,6 +615,10 @@ const AppContent: React.FC = () => {
     removePane,
     addLayer,
     setIsSettingsVisible,
+    setIsExportDialogOpen,
+    setIsStorageSettingsOpen,
+    setIsWorkerConfigOpen,
+    setIsPluginManagerOpen,
     activePaneId,
     panes,
     activeFileId,
@@ -630,6 +638,8 @@ const AppContent: React.FC = () => {
 
   return (
     <div
+      role="application"
+      aria-label="LogLayer"
       className="flex flex-col h-screen select-none overflow-hidden text-sm bg-theme-base text-primary"
       onDragOver={(e) => {
         // 关键修复：防止浏览器默认的拖拽操作（如直接打开文件）
@@ -838,6 +848,24 @@ const AppContent: React.FC = () => {
         isShortcutsVisible={isShortcutsVisible}
         setIsShortcutsVisible={setIsShortcutsVisible}
         notification={notification}
+        isExportDialogOpen={isExportDialogOpen}
+        onCloseExportDialog={() => setIsExportDialogOpen(false)}
+        exportFileId={activeFileId || ''}
+        exportFileName={activeFile?.name || ''}
+        onExport={async (options) => {
+          const { exportVisibleLines } = await import('./bridge_client');
+          await exportVisibleLines(options);
+          setNotification({ message: '导出成功', type: 'success' });
+        }}
+        isStorageSettingsOpen={isStorageSettingsOpen}
+        onCloseStorageSettings={() => setIsStorageSettingsOpen(false)}
+        storageDefaultPath={''}
+        onStoragePathChange={(path) => console.log('Storage path:', path)}
+        isWorkerConfigOpen={isWorkerConfigOpen}
+        onCloseWorkerConfig={() => setIsWorkerConfigOpen(false)}
+        onWorkerConfigChange={(maxWorkers) => console.log('Worker config:', maxWorkers)}
+        isPluginManagerOpen={isPluginManagerOpen}
+        onClosePluginManager={() => setIsPluginManagerOpen(false)}
       />
       
     </div>
