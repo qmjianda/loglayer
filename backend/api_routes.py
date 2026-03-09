@@ -3,7 +3,7 @@ API Routes - All REST API endpoints for LogLayer.
 """
 
 import json
-from fastapi import APIRouter
+from fastapi import APIRouter, Body
 from typing import Dict, Any
 
 from logging_config import logger
