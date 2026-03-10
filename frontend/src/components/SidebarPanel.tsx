@@ -4,11 +4,10 @@ import { SearchPanel } from './SearchPanel';
 import { AIChatPanel } from './AIChatPanel';
 import { StatsPanel } from './StatsPanel';
 import { PatternAnalysisPanel } from './PatternAnalysisPanel';
-import { SavedViewsPanel } from './SavedViewsPanel';
 import { LayerType } from '../types';
 import { FileInfo } from './UnifiedPanel';
 
-type ViewType = 'main' | 'search' | 'ai' | 'stats' | 'help' | 'views';
+type ViewType = 'main' | 'search' | 'ai' | 'stats' | 'help';
 
 interface SidebarPanelProps {
   activeView: ViewType;
@@ -182,18 +181,6 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
             onApplySuggestion={onApplyPatternSuggestion}
           />
         </div>
-      )}
-
-      {activeView === 'views' && (
-        <SavedViewsPanel
-          isOpen={true}
-          onClose={() => {}}
-          currentLayers={layers}
-          onLoadView={(viewName, viewLayers) => {
-            onPresetApply({ layers: viewLayers });
-            showNotification?.(`已加载视图: ${viewName}`, 'success');
-          }}
-        />
       )}
     </>
   );

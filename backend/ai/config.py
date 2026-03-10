@@ -24,7 +24,16 @@ class AIProvider(str, Enum):
     HEURISTIC = "heuristic"
     OPENAI = "openai"
     OLLAMA = "ollama"
-    CUSTOM = "custom"  # OpenAI-compatible third-party providers
+    CUSTOM = "custom"
+
+
+class AIModelParams(BaseModel):
+    temperature: float = 0.7
+    max_tokens: int = 4096
+    top_p: float = 1.0
+    top_k: int = 40
+    presence_penalty: float = 0.0
+    frequency_penalty: float = 0.0
 
 
 def _get_encryption_key() -> Optional[bytes]:
@@ -95,6 +104,7 @@ class AIConfig(BaseModel):
     api_key: Optional[str] = None
     model: str = "gpt-4o-mini"
     base_url: Optional[str] = None
+    params: AIModelParams = AIModelParams()
 
     class Config:
         use_enum_values = True

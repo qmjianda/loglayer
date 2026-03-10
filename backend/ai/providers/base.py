@@ -5,6 +5,7 @@ from ..config import (
     ChatResponse,
     TimestampDetectionResult,
     TimeRangeSuggestion,
+    AIModelParams,
 )
 
 
@@ -16,10 +17,12 @@ class BaseAIProvider(ABC):
         api_key: Optional[str] = None,
         model: str = "gpt-4o-mini",
         base_url: Optional[str] = None,
+        params: Optional[AIModelParams] = None,
     ):
         self.api_key = api_key
         self.model = model
         self.base_url = base_url
+        self.params = params or AIModelParams()
 
     @abstractmethod
     def chat(self, messages: list[ChatMessage], content: str) -> ChatResponse:

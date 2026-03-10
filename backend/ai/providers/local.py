@@ -6,6 +6,7 @@ from ..config import (
     ChatResponse,
     TimestampDetectionResult,
     TimeRangeSuggestion,
+    AIModelParams,
 )
 
 
@@ -17,8 +18,9 @@ class OllamaProvider(BaseAIProvider):
         api_key: Optional[str] = None,
         model: str = "llama3.2",
         base_url: Optional[str] = None,
+        params: Optional[AIModelParams] = None,
     ):
-        super().__init__(api_key, model, base_url)
+        super().__init__(api_key, model, base_url, params)
         self.base_url = base_url or "http://localhost:11434"
 
     def _request(self, endpoint: str, data: dict) -> Optional[dict]:
@@ -46,7 +48,16 @@ Log content:
 Provide your analysis."""
 
         result = self._request(
-            "/api/generate", {"model": self.model, "prompt": prompt, "stream": False}
+            "/api/generate", {
+                "model": self.model, 
+                "prompt": prompt, 
+                "stream": False,
+                "options": {
+                    "temperature": self.params.temperature,
+                    "num_predict": self.params.max_tokens,
+                    "top_p": self.params.top_p,
+                }
+            }
         )
 
         if result:

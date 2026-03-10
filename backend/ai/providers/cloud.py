@@ -5,6 +5,7 @@ from ..config import (
     ChatResponse,
     TimestampDetectionResult,
     TimeRangeSuggestion,
+    AIModelParams,
 )
 
 
@@ -17,8 +18,9 @@ class OpenAIProvider(BaseAIProvider):
         model: str = "gpt-4o-mini",
         base_url: Optional[str] = None,
         is_custom: bool = False,
+        params: Optional[AIModelParams] = None,
     ):
-        super().__init__(api_key, model, base_url)
+        super().__init__(api_key, model, base_url, params)
         self._client = None
         self._is_custom = is_custom
 
@@ -62,7 +64,9 @@ Format suggestions as JSON with "type" (filter/highlight), "value", and "reason"
             response = client.chat.completions.create(
                 model=self.model,
                 messages=openai_messages,
-                temperature=0.7,
+                temperature=self.params.temperature,
+                max_tokens=self.params.max_tokens,
+                top_p=self.params.top_p,
             )
 
             response_text = response.choices[0].message.content or ""

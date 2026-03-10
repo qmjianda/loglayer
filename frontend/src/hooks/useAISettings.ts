@@ -1,7 +1,16 @@
 import { useState, useCallback, useEffect } from 'react';
-import { getBackendUrl, fetchJson } from '../utils';
+import { fetchJson } from '../utils';
 
 export type AIProviderType = 'heuristic' | 'openai' | 'ollama' | 'custom';
+
+export interface AIModelParams {
+  temperature: number;
+  maxTokens: number;
+  topP: number;
+  topK: number;
+  presencePenalty: number;
+  frequencyPenalty: number;
+}
 
 export interface AISettings {
   provider: AIProviderType;
@@ -9,13 +18,24 @@ export interface AISettings {
   apiKey?: string;
   baseUrl?: string;
   isConnected: boolean;
+  params: AIModelParams;
 }
+
+export const DEFAULT_MODEL_PARAMS: AIModelParams = {
+  temperature: 0.7,
+  maxTokens: 4096,
+  topP: 1.0,
+  topK: 40,
+  presencePenalty: 0.0,
+  frequencyPenalty: 0.0,
+};
 
 export interface UseAISettingsReturn {
   settings: AISettings;
   isLoading: boolean;
   error: string | null;
   updateSettings: (newSettings: Partial<AISettings>) => Promise<void>;
+  updateParams: (newParams: Partial<AIModelParams>) => Promise<void>;
   testConnection: () => Promise<{ connected: boolean; message: string }>;
   availableModels: string[];
   loadModels: () => Promise<void>;
@@ -26,7 +46,8 @@ export function useAISettings(): UseAISettingsReturn {
     provider: 'heuristic',
     model: 'gpt-4o-mini',
     baseUrl: 'http://localhost:11434',
-    isConnected: false
+    isConnected: false,
+    params: { ...DEFAULT_MODEL_PARAMS }
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,13 +61,20 @@ export function useAISettings(): UseAISettingsReturn {
     try {
       setIsLoading(true);
       console.debug('[AISettings] Loading config from /api/ai/config...');
-      const config = await fetchJson<{ provider: string; model: string; isConnected: boolean; baseUrl?: string }>('/api/ai/config');
+      const config = await fetchJson<{ 
+        provider: string; 
+        model: string; 
+        isConnected: boolean; 
+        baseUrl?: string;
+        params?: AIModelParams;
+      }>('/api/ai/config');
       console.debug('[AISettings] Config loaded:', config);
       setSettings({
         provider: config.provider as AIProviderType,
         model: config.model,
         isConnected: config.isConnected,
-        baseUrl: config.baseUrl
+        baseUrl: config.baseUrl,
+        params: config.params || { ...DEFAULT_MODEL_PARAMS }
       });
     } catch (err) {
       console.error('[AISettings] Failed to load AI config:', err);
@@ -72,7 +100,7 @@ export function useAISettings(): UseAISettingsReturn {
       const merged = { ...settings, ...newSettings };
       setSettings(merged);
       
-      const payload: { provider: string; model: string; api_key?: string; base_url?: string } = {
+      const payload: { provider: string; model: string; api_key?: string; base_url?: string; params?: AIModelParams } = {
         provider: merged.provider,
         model: merged.model,
       };
@@ -83,6 +111,9 @@ export function useAISettings(): UseAISettingsReturn {
       if (merged.baseUrl) {
         payload.base_url = merged.baseUrl;
       }
+      if (merged.params) {
+        payload.params = merged.params;
+      }
       
       console.debug('[AISettings] Updating config:', payload);
       await fetchJson('/api/ai/config', 'POST', payload);
@@ -90,6 +121,27 @@ export function useAISettings(): UseAISettingsReturn {
     } catch (err) {
       console.error('[AISettings] Failed to update settings:', err);
       setError(err instanceof Error ? err.message : 'Failed to update settings');
+    }
+  }, [settings]);
+
+  const updateParams = useCallback(async (newParams: Partial<AIModelParams>) => {
+    try {
+      const newFullParams = { ...settings.params, ...newParams };
+      const merged = { ...settings, params: newFullParams };
+      setSettings(merged);
+      
+      const payload: { provider: string; model: string; params: AIModelParams } = {
+        provider: merged.provider,
+        model: merged.model,
+        params: newFullParams,
+      };
+      
+      console.debug('[AISettings] Updating params:', payload);
+      await fetchJson('/api/ai/config', 'POST', payload);
+      console.debug('[AISettings] Params updated successfully');
+    } catch (err) {
+      console.error('[AISettings] Failed to update params:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update parameters');
     }
   }, [settings]);
 
@@ -111,6 +163,7 @@ export function useAISettings(): UseAISettingsReturn {
     isLoading,
     error,
     updateSettings,
+    updateParams,
     testConnection,
     availableModels,
     loadModels
