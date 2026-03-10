@@ -25,7 +25,14 @@ class AIService:
         """Initialize the current provider based on config"""
         if self._config.provider == AIProvider.OPENAI:
             self._provider = OpenAIProvider(
-                api_key=self._config.api_key, model=self._config.model
+                api_key=self._config.api_key, model=self._config.model, base_url=self._config.base_url
+            )
+        elif self._config.provider == AIProvider.CUSTOM:
+            self._provider = OpenAIProvider(
+                api_key=self._config.api_key,
+                model=self._config.model,
+                base_url=self._config.base_url,
+                is_custom=True,
             )
         elif self._config.provider == AIProvider.OLLAMA:
             self._provider = OllamaProvider(

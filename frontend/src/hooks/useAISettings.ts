@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getBackendUrl, fetchJson } from '../utils';
 
-export type AIProviderType = 'heuristic' | 'openai' | 'ollama';
+export type AIProviderType = 'heuristic' | 'openai' | 'ollama' | 'custom';
 
 export interface AISettings {
   provider: AIProviderType;

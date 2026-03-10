@@ -9,16 +9,18 @@ from ..config import (
 
 
 class OpenAIProvider(BaseAIProvider):
-    """OpenAI API provider"""
+    """OpenAI API provider with support for OpenAI-compatible third-party APIs"""
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: str = "gpt-4o-mini",
         base_url: Optional[str] = None,
+        is_custom: bool = False,
     ):
         super().__init__(api_key, model, base_url)
         self._client = None
+        self._is_custom = is_custom
 
     def _get_client(self):
         """Lazy load OpenAI client"""
@@ -173,7 +175,7 @@ Return empty array if no timestamps found."""
         return bool(self.api_key)
 
     def test_connection(self) -> tuple[bool, str]:
-        """Test actual connection to OpenAI API"""
+        """Test actual connection to OpenAI API or custom endpoint"""
         if not self.api_key:
             return False, "API Key 未设置"
 
@@ -182,18 +184,50 @@ Return empty array if no timestamps found."""
             return False, "OpenAI 客户端不可用"
 
         try:
-            # Make a minimal API call to test connection
-            response = client.models.list()
-            return True, f"连接成功，已获取 {len(response.data)} 个模型"
+            if self._is_custom and self.base_url:
+                response = client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": "Hi"}],
+                    max_tokens=5,
+                )
+            else:
+                response = client.models.list()
+                return True, f"连接成功，已获取 {len(response.data)} 个模型"
+            
+            if response.choices and len(response.choices) > 0:
+                return True, "连接成功"
+            return False, "连接成功但无法获取响应"
         except Exception as e:
             error_msg = str(e)
             if "authentication" in error_msg.lower() or "api key" in error_msg.lower():
                 return False, "API Key 无效"
-            elif "connection" in error_msg.lower() or "timeout" in error_msg.lower():
-                return False, "连接失败，请检查网络"
+            elif "connection" in error_msg.lower() or "timeout" in error_msg.lower() or "refused" in error_msg.lower():
+                return False, "连接失败，请检查网络和地址"
+            elif "404" in error_msg or "model" in error_msg.lower():
+                return False, f"模型 {self.model} 不存在，请检查模型名称"
+            elif "400" in error_msg:
+                return False, "请求格式错误"
             else:
-                return False, f"连接失败: {error_msg[:50]}"
+                return False, f"连接失败: {error_msg[:80]}"
 
     def list_models(self) -> list[str]:
-        """List available OpenAI models"""
+        """List available OpenAI models or fetch from custom endpoint"""
+        if self._is_custom and self.base_url:
+            return self._fetch_models_from_custom_endpoint()
         return ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]
+
+    def _fetch_models_from_custom_endpoint(self) -> list[str]:
+        """Fetch models from custom OpenAI-compatible endpoint"""
+        try:
+            import requests
+            response = requests.get(
+                f"{self.base_url.rstrip('/v1').rstrip('/')}/v1/models",
+                headers={"Authorization": f"Bearer {self.api_key}"} if self.api_key else {},
+                timeout=10,
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return [m.get("id") for m in data.get("data", []) if m.get("id")]
+        except Exception:
+            pass
+        return []

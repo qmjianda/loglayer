@@ -54,6 +54,7 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
     { value: 'heuristic', label: '启发式 (离线)', desc: '无需网络，使用正则表达式分析' },
     { value: 'openai', label: 'OpenAI (云端)', desc: '使用 GPT 模型，需要 API Key' },
     { value: 'ollama', label: 'Ollama (本地)', desc: '使用本地运行的模型' },
+    { value: 'custom', label: '自定义 (OpenAI 兼容)', desc: '支持第三方 LLM 服务商，如硅基流动、OneAPI 等' },
   ];
 
   if (isLoading) {
@@ -124,6 +125,17 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
                 <option value="gpt-3.5-turbo">gpt-3.5-turbo (最便宜)</option>
               </>
             )}
+            {settings.provider === 'custom' && (
+              <>
+                {availableModels.length > 0 ? (
+                  availableModels.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))
+                ) : (
+                  <option value="">请先配置 API 地址</option>
+                )}
+              </>
+            )}
             {settings.provider === 'ollama' && (
               <>
                 {availableModels.length > 0 ? (
@@ -145,18 +157,23 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
       )}
 
       {/* Base URL (for OpenAI compatible APIs) */}
-      {settings.provider === 'openai' && (
+      {(settings.provider === 'openai' || settings.provider === 'custom') && (
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-theme-primary">API 地址 (Base URL)</label>
+          <label className="block text-sm font-medium text-theme-primary">
+            API 地址 (Base URL)
+            {settings.provider === 'custom' && <span className="text-red-400 ml-1">*</span>}
+          </label>
           <input
             type="text"
             value={settings.baseUrl || ''}
             onChange={(e) => updateSettings({ baseUrl: e.target.value })}
-            placeholder="https://api.openai.com/v1"
+            placeholder={settings.provider === 'custom' ? 'https://api.siliconflow.cn/v1' : 'https://api.openai.com/v1'}
             className="w-full px-3 py-2 bg-theme-surface border border-theme-default rounded text-sm text-theme-primary placeholder-theme-muted focus:border-blue-500 focus:outline-none"
           />
           <p className="text-xs text-theme-muted">
-            用于自定义 API 地址，如 OpenAI 兼容的第三方服务。默认: https://api.openai.com/v1
+            {settings.provider === 'custom' 
+              ? '输入 OpenAI 兼容的第三方 API 地址，如硅基流动: https://api.siliconflow.cn/v1'
+              : '用于自定义 API 地址，如 OpenAI 兼容的第三方服务。默认: https://api.openai.com/v1'}
           </p>
         </div>
       )}
@@ -178,10 +195,13 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
         </div>
       )}
 
-      {/* API Key (for OpenAI) */}
-      {settings.provider === 'openai' && (
+      {/* API Key (for OpenAI and Custom) */}
+      {(settings.provider === 'openai' || settings.provider === 'custom') && (
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-theme-primary">API Key</label>
+          <label className="block text-sm font-medium text-theme-primary">
+            API Key
+            {settings.provider === 'custom' && <span className="text-red-400 ml-1">*</span>}
+          </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input

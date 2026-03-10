@@ -24,6 +24,7 @@ class AIProvider(str, Enum):
     HEURISTIC = "heuristic"
     OPENAI = "openai"
     OLLAMA = "ollama"
+    CUSTOM = "custom"  # OpenAI-compatible third-party providers
 
 
 def _get_encryption_key() -> Optional[bytes]:
