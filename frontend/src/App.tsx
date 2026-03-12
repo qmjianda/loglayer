@@ -359,14 +359,22 @@ const AppContent: React.FC = () => {
   });
 
   // 导航到下一个搜索匹配项，并自动滚动到底部/指定行
-  const findNextSearchMatchWithJump = useCallback(async (direction: 'next' | 'prev') => {
+  const findNextSearchMatchWithJump = useCallback(async (direction: 'next' | 'prev', overrideMatchCount?: number) => {
+    console.log('[App] findNextSearchMatchWithJump called, direction:', direction, 'highlightedIndex:', highlightedIndex, 'overrideMatchCount:', overrideMatchCount);
+    // Use overrideMatchCount if provided (from onPipelineFinished callback), otherwise get from cache
+    const matchCount = overrideMatchCount ?? processedCache[activeFileId ?? '']?.searchMatchCount ?? 0;
+    console.log('[App] using matchCount:', matchCount);
+
     // [OPTIMIZATION] Nearest neighbor jumping
     // If we have a highlighted index (user click or previous jump), we find the match nearest to it.
-    const nextIdx = await findNextSearchMatch(direction, highlightedIndex);
+    // If no highlighted index, use 0 (start from beginning to find nearest)
+    const startIndex = highlightedIndex !== null ? highlightedIndex : 0;
+    const nextIdx = await findNextSearchMatch(direction, startIndex, matchCount);
+    console.log('[App] findNextSearchMatchWithJump nextIdx:', nextIdx);
     if (nextIdx !== -1) {
       handleJumpToLine(nextIdx, activeFile?.lineCount || 0);
     }
-  }, [findNextSearchMatch, handleJumpToLine, activeFile?.lineCount, highlightedIndex]);
+  }, [findNextSearchMatch, handleJumpToLine, activeFile?.lineCount, highlightedIndex, processedCache, activeFileId]);
 
   // 增强版：激活文件，并确保其在后端也处于同步状态
   const handleFileActivateWithLoad = useCallback((fileId: string) => {
@@ -456,11 +464,13 @@ const AppContent: React.FC = () => {
 
         // [BUG FIX 3] Nearest jumping after search finishes
         // If we are in searching mode and no rank is selected yet, jump to the nearest!
+        console.log('[App] autoJump check - searchQuery:', searchQuery, 'matchCount:', matchCount, 'currentMatchRank:', currentMatchRank);
         if (searchQuery && matchCount > 0 && currentMatchRank === -1) {
+          console.log('[App] autoJump triggered!');
           // Use a tiny timeout to let React finish the current state update cycle (setProcessedCache)
           // so the subsequent findNextSearchMatchWithJump sees the correct matchCount.
           setTimeout(() => {
-            findNextSearchMatchWithJump('next');
+            findNextSearchMatchWithJump('next', matchCount);
           }, 0);
         }
       }
@@ -699,9 +709,6 @@ const AppContent: React.FC = () => {
             bookmarks={bookmarks}
             bookmarkPreviews={bookmarkPreviews}
             logLevelStats={logLevelStats}
-            searchConfig={searchConfig}
-            searchMatchCount={searchMatchCount}
-            currentMatchNumber={currentMatchNumber}
             fileId={activeFileId}
             onOpen={handleOpen}
             onOpenFileByPath={handleOpenFileByPath}
@@ -726,9 +733,6 @@ const AppContent: React.FC = () => {
             onToggleBookmark={handleToggleBookmark}
             onClearBookmarks={handleClearBookmarks}
             onJumpToBookmark={(idx) => handleJumpToBookmark(idx, (visualIdx) => handleJumpToLine(visualIdx, activeFile?.lineCount || 0))}
-            onSearch={setSearchQuery}
-            onSearchConfigChange={setSearchConfig}
-            onNavigateSearch={findNextSearchMatchWithJump}
             onAiPanelClose={() => { setActiveView('main'); setAiPanelInitialContent(''); }}
             onAiPanelInitialContent={aiPanelInitialContent}
             onApplyAiSuggestion={(type, value) => {
@@ -795,6 +799,7 @@ const AppContent: React.FC = () => {
           activePaneId={activePaneId}
           scrollToIndex={scrollToIndex}
           highlightedIndex={highlightedIndex}
+          setHighlightedIndex={setHighlightedIndex}
           loadingFileIds={loadingFileIds}
           indexingFileIds={indexingFileIds}
           pendingCliFiles={pendingCliFiles}

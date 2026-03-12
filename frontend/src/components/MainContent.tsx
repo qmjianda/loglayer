@@ -37,6 +37,7 @@ interface MainContentProps {
   activePaneId: string;
   scrollToIndex: number | null;
   highlightedIndex: number | null;
+  setHighlightedIndex: (index: number | null) => void;
   loadingFileIds: Set<string>;
   indexingFileIds: Set<string>;
   pendingCliFiles: number;
@@ -83,6 +84,7 @@ export const MainContent: React.FC<MainContentProps> = ({
   activePaneId,
   scrollToIndex,
   highlightedIndex,
+  setHighlightedIndex,
   loadingFileIds,
   indexingFileIds,
   pendingCliFiles,
@@ -165,7 +167,7 @@ export const MainContent: React.FC<MainContentProps> = ({
                     canClose={panes.length > 1}
                     onLineClick={(idx) => {
                       if (!isPaneActive) setActivePaneId(pane.id);
-                      // setHighlightedIndex(idx);
+                      setHighlightedIndex(idx);
                     }}
                     onAddLayer={addLayer}
                     onToggleBookmark={handleToggleBookmark}

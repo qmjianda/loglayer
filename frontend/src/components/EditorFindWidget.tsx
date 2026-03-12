@@ -3,6 +3,26 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 
 export type SearchMode = 'highlight' | 'filter';
 
+const SEARCH_HISTORY_KEY = 'loglayer_find_history';
+const MAX_HISTORY = 20;
+
+function loadHistory(): string[] {
+  try {
+    const stored = localStorage.getItem(SEARCH_HISTORY_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveHistory(history: string[]) {
+  try {
+    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
+  } catch (e) {}
+}
+
 interface EditorFindWidgetProps {
   query: string;
   onQueryChange: (q: string) => void;
@@ -33,6 +53,64 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
   const widgetRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(440);
   const [isResizing, setIsResizing] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [showHistory, setShowHistory] = useState(false);
+  const lastSubmittedValue = useRef<string>('');
+
+  // 调试：打印 matchCount 和 currentMatch 的变化
+  useEffect(() => {
+    console.log('[EditorFindWidget] matchCount:', matchCount, 'currentMatch:', currentMatch);
+  }, [matchCount, currentMatch]);
+  const isInitialLoad = useRef(true); // 标记是否首次加载（Ctrl+F打开）
+
+  useEffect(() => {
+    const loaded = loadHistory();
+    console.log('[EditorFindWidget] loadHistory:', loaded, 'query:', query);
+    setHistory(loaded);
+
+    // 如果有传入的 query（选中的文字），自动搜索并记录历史
+    if (query && query.trim()) {
+      console.log('[EditorFindWidget] query from selection:', query);
+      lastSubmittedValue.current = query;
+      const filtered = loaded.filter(item => item !== query);
+      const newHistory = [query, ...filtered].slice(0, MAX_HISTORY);
+      saveHistory(newHistory);
+      setHistory(newHistory);
+      console.log('[EditorFindWidget] history saved, calling onQueryChange:', query);
+      onQueryChange(query);
+      isInitialLoad.current = false;
+    }
+    // 没有选中文字，只打开搜索框，不自动搜索
+    else {
+      console.log('[EditorFindWidget] no query, just open search, query:', query);
+      // 清空输入框，让用户自己输入
+      onQueryChange('');
+      isInitialLoad.current = false;
+    }
+  }, []);
+
+  // 当开始输入时，重置历史索引，标记不再是最开始
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    isInitialLoad.current = false;
+    onQueryChange(e.target.value);
+    setHistoryIndex(-1);
+  }, [onQueryChange]);
+
+  const addToHistory = useCallback((q: string) => {
+    console.log('[EditorFindWidget] addToHistory called with:', q);
+    if (!q.trim()) return;
+    lastSubmittedValue.current = q;
+    console.log('[EditorFindWidget] saving to localStorage, key:', SEARCH_HISTORY_KEY);
+    setHistory(prev => {
+      const filtered = prev.filter(item => item !== q);
+      const newHistory = [q, ...filtered].slice(0, MAX_HISTORY);
+      saveHistory(newHistory);
+      console.log('[EditorFindWidget] newHistory saved:', newHistory);
+      return newHistory;
+    });
+    setHistoryIndex(-1);
+  }, []);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -40,11 +118,63 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
   }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    console.log('[EditorFindWidget] keyDown:', e.key, 'history:', history, 'historyIndex:', historyIndex, 'query:', query);
+    // 上下键切换历史（像终端一样，即使输入框有内容也可以切换）
+    if (e.key === 'ArrowUp') {
       e.preventDefault();
-      onNavigate(e.shiftKey ? 'prev' : 'next');
+      if (history.length === 0) {
+        console.log('[EditorFindWidget] history is empty');
+        return;
+      }
+      const newIndex = historyIndex < history.length - 1 ? historyIndex + 1 : historyIndex;
+      setHistoryIndex(newIndex);
+      const item = history[newIndex];
+      if (item !== undefined) {
+        console.log('[EditorFindWidget] ArrowUp setting query to:', item);
+        onQueryChange(item);
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        const item = history[newIndex];
+        if (item !== undefined) {
+          onQueryChange(item);
+        }
+      } else if (historyIndex === 0) {
+        setHistoryIndex(-1);
+        onQueryChange('');
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        onNavigate('prev');
+      } else {
+        addToHistory(query);
+        onNavigate('next');
+      }
     } else if (e.key === 'Escape') {
       onClose();
+    } else if (e.key === 'Tab' && showHistory) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        if (historyIndex > 0) {
+          const newIndex = historyIndex - 1;
+          setHistoryIndex(newIndex);
+          onQueryChange(history[newIndex]);
+        } else if (historyIndex === 0) {
+          setHistoryIndex(-1);
+          onQueryChange(lastSubmittedValue.current);
+        }
+      } else {
+        const newIndex = historyIndex < history.length - 1 ? historyIndex + 1 : historyIndex;
+        setHistoryIndex(newIndex);
+        const item = history[newIndex];
+        if (item !== undefined) {
+          onQueryChange(item);
+        }
+      }
     }
   };
 
@@ -106,16 +236,36 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
         </button>
       )}
 
-      <div className="flex-1 flex items-center bg-theme-input border border-blue-500/30 rounded overflow-hidden ml-1">
+      <div className="flex-1 flex items-center bg-theme-input border border-blue-500/30 rounded overflow-hidden ml-1 relative">
         <input
           ref={inputRef}
           type="text"
           value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onFocus={() => query === '' && history.length > 0 && setShowHistory(true)}
+          onBlur={() => setTimeout(() => setShowHistory(false), 150)}
           placeholder="查找"
           className="bg-transparent text-white text-xs px-2 py-1 w-full focus:outline-none select-text"
         />
+        
+        {showHistory && history.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-dark-2 border border-white/10 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+            <div className="py-1">
+              {history.map((item, index) => (
+                <div
+                  key={index}
+                  className={`px-3 py-1.5 text-xs cursor-pointer flex items-center justify-between ${
+                    index === historyIndex ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-theme-input'
+                  }`}
+                  onClick={() => { onQueryChange(item); lastSubmittedValue.current = item; setShowHistory(false); }}
+                >
+                  <span className="truncate font-mono">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center pr-1 bg-theme-input shrink-0">
           <button

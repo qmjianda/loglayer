@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 
-export type ActiveView = 'main' | 'search' | 'ai' | 'stats' | 'help';
+export type ActiveView = 'main' | 'ai' | 'stats' | 'help';
 
 export interface UseUIStateProps {
     undo: () => void;
@@ -211,10 +211,10 @@ export function useUIState({
         if (highlightedIndex !== null) {
             setHighlightedIndex(null);
         }
-        if (!isFindVisible && activeView !== 'search' && searchQuery) {
+        if (!isFindVisible && searchQuery) {
             setSearchQuery('');
         }
-    }, [highlightedIndex, isFindVisible, activeView, searchQuery, setSearchQuery]);
+    }, [highlightedIndex, isFindVisible, searchQuery, setSearchQuery]);
 
     return {
         activeView,
