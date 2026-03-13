@@ -238,6 +238,7 @@ class PipelineWorker(CustomThread):
                     "--no-filename",
                     "--color",
                     "never",
+                    "--binary",  # 匹配二进制文件中的字符串
                 ]
                 if self.search.get("regex"):
                     search_cmd.append("-e")
@@ -292,6 +293,7 @@ class PipelineWorker(CustomThread):
                     "--no-filename",
                     "--color",
                     "never",
+                    "--binary",  # 匹配二进制文件中的字符串
                 ]
                 if is_first:
                     cmd.append("--line-number")
