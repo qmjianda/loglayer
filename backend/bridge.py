@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 from loglayer.storage import StorageRegistry
 from loglayer.registry import LayerRegistry
-from loglayer.core import LayerStage, ProcessedLine
+from loglayer.core import LayerStage, ProcessedLine, RowStyle
 from workers import (
     CustomThread,
     IndexingWorker,
@@ -815,7 +815,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
 
                     # 1. 应用处理层的内容变换
                     highlights = []
-                    row_style = {}
+                    row_style: Dict[str, Any] = {}
                     # 只有 Transform 类型的图层允许修改内容
                     logic_layers = [
                         l
@@ -825,23 +825,27 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                     current_offset_map = None
 
                     for layer in logic_layers:
-                        res = layer.process_line(content)
-                        if isinstance(res, ProcessedLine):
-                            content = res.content
-                            # 这里可以累加 offset_map，如果多个转换层叠加
-                            if res.offset_map:
-                                current_offset_map = res.offset_map
-                        else:
-                            content = res
+                        # Only call process_line if the layer has this method (TransformLayer, etc.)
+                        if hasattr(layer, 'process_line'):
+                            res = layer.process_line(content)
+                            if isinstance(res, ProcessedLine):
+                                content = res.content
+                                # 这里可以累加 offset_map，如果多个转换层叠加
+                                if res.offset_map:
+                                    current_offset_map = res.offset_map
+                            else:
+                                content = res
 
                     # 2. 应用渲染层的高亮和行样式
                     # 此时渲染层面对的是已经过滤且转换后的 content
                     rendering_layers = getattr(session, "rendering_instances", [])
                     for layer in reversed(rendering_layers):
-                        hls = layer.highlight_line(content)
-                        if hls:
-                            # 如果未来需要将高亮映射回原始行，可以使用 current_offset_map
-                            highlights.extend(hls)
+                        # 获取高亮 (如 HighlightLayer)
+                        if hasattr(layer, "highlight_line"):
+                            hls = layer.highlight_line(content)
+                            if hls:
+                                # 如果未来需要将高亮映射回原始行，可以使用 current_offset_map
+                                highlights.extend(hls)
 
                         # 获取行样式 (如 RowTintLayer)
                         if hasattr(layer, "get_row_style"):
@@ -851,7 +855,14 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                                 else layer.get_row_style(content)
                             )
                             if style:
-                                row_style.update(style)
+                                # RowStyle dataclass -> dict
+                                if hasattr(style, '__dataclass_fields__'):
+                                    for field in style.__dataclass_fields__:
+                                        val = getattr(style, field)
+                                        if val is not None:
+                                            row_style[field] = val
+                                else:
+                                    row_style.update(style)
 
                     # 3. 应用搜索高亮
                     if session.search_config and session.search_config.get("query"):

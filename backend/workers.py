@@ -355,13 +355,17 @@ class PipelineWorker(CustomThread):
                     is_visible = True
                     if logic_layers:
                         for layer in logic_layers:
-                            res = layer.process_line(content)
-                            content = (
-                                res.content if isinstance(res, ProcessedLine) else res
-                            )
-                            if not layer.filter_line(content, index=physical_idx):
-                                is_visible = False
-                                break
+                            # Only call process_line if the layer has this method (TransformLayer, etc.)
+                            if hasattr(layer, 'process_line'):
+                                res = layer.process_line(content)
+                                content = (
+                                    res.content if isinstance(res, ProcessedLine) else res
+                                )
+                            # Only call filter_line if the layer has this method (FilterLayer, RangeLayer, TimeLayer, etc.)
+                            if hasattr(layer, 'filter_line'):
+                                if not layer.filter_line(content, index=physical_idx):
+                                    is_visible = False
+                                    break
 
                     if is_visible:
                         visible_indices.append(physical_idx)
