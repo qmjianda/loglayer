@@ -42,8 +42,11 @@ class MultiSelectInput(Input):
 
 class SearchInput(Input):
     """专门用于搜索查询的输入项（支持正则、大小写敏感等开关）"""
-    def __init__(self, name, display_name, value="", regex=False, caseSensitive=False, wholeWord=False, info=None):
-        super().__init__(name, display_name, value, info, regex=regex, caseSensitive=caseSensitive, wholeWord=wholeWord)
+    def __init__(self, name, display_name, value="", regex=False, caseSensitive=False, wholeWord=False,
+                 showRegex=True, showCaseSensitive=True, showWholeWord=True, info=None):
+        super().__init__(name, display_name, value, info,
+                         regex=regex, caseSensitive=caseSensitive, wholeWord=wholeWord,
+                         showRegex=showRegex, showCaseSensitive=showCaseSensitive, showWholeWord=showWholeWord)
 
 class Component:
     """
