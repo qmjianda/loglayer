@@ -52,8 +52,8 @@ export const TOKENS = {
     },
 
     lineHeight: {
-        tight: 1.25,
-        normal: 1.5,
+        tight: 1.75,
+        normal: 1.75,
         relaxed: 1.75,
     },
 

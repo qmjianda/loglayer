@@ -85,7 +85,7 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
               key={paneFileId}
               totalLines={paneFile?.lineCount || 0}
               fileId={pane.fileId}
-              searchQuery={(isFindVisible || activeView === 'search') ? searchQuery : ''}
+              searchQuery={isFindVisible ? searchQuery : ''}
               searchConfig={searchConfig}
               scrollToIndex={isPaneActive ? scrollToIndex : null}
               highlightedIndex={isPaneActive ? highlightedIndex : null}

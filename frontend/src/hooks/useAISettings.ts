@@ -92,7 +92,7 @@ export function useAISettings(): UseAISettingsReturn {
     } catch (err) {
       console.error('[AISettings] Failed to load models:', err);
     }
-  }, [settings.provider]);
+  }, []);
 
   const updateSettings = useCallback(async (newSettings: Partial<AISettings>) => {
     try {

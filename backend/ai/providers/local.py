@@ -1,4 +1,5 @@
 from typing import Optional
+import json
 import requests
 from .base import BaseAIProvider
 from ..config import (
@@ -86,8 +87,6 @@ If no timestamp, return {{"error": "none"}}"""
 
         if result:
             try:
-                import json
-
                 text = result.get("response", "")
                 start = text.find("{")
                 end = text.rfind("}") + 1
@@ -121,8 +120,6 @@ Focus on error clusters and traffic patterns. Max 5 suggestions."""
 
         if result:
             try:
-                import json
-
                 text = result.get("response", "")
                 start = text.find("[")
                 end = text.rfind("]") + 1

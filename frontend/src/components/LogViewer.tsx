@@ -795,17 +795,21 @@ export const LogViewer: React.FC<LogViewerProps> = ({
               const hText = text.substring(h.start, h.end);
               const hlPixelX = startX + measureSubstringWidth(text, 0, h.start);
               if (h.isSearch || h.color === '#facc15') {
-                // Search highlight with rounded corners (measureText for CJK)
                 const hlW = measureSubstringWidth(text, h.start, h.end);
-                const hlY = startY - lineHeight / 2 + 2;
-                const hlH = lineHeight - 4;
+                const hlY = y;
+                const hlH = lineHeight;
                 ctx.fillStyle = h.color;
                 ctx.beginPath();
                 ctx.roundRect(hlPixelX, hlY, hlW, hlH, 2);
                 ctx.fill();
                 ctx.fillStyle = '#000';
               } else {
+                const hlW = measureSubstringWidth(text, h.start, h.end);
+                const hlY = y;
+                const hlH = lineHeight;
                 ctx.fillStyle = h.color.startsWith('#') ? `${h.color}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}` : h.color;
+                ctx.fillRect(hlPixelX, hlY, hlW, hlH);
+                ctx.fillStyle = '#000';
               }
               ctx.fillText(hText, hlPixelX, startY);
               lastIdx = h.end;

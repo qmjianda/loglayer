@@ -132,9 +132,9 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     setInputValue(item.query);
     setConfig(prev => ({
       ...prev,
-      regex: item.config.regex,
-      caseSensitive: item.config.caseSensitive,
-      wholeWord: item.config.wholeWord || false
+      regex: item.config?.regex ?? false,
+      caseSensitive: item.config?.caseSensitive ?? false,
+      wholeWord: item.config?.wholeWord ?? false
     }));
     onSearch(item.query);
     setShowHistory(false);
@@ -264,8 +264,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <span className="text-[10px] text-gray-400 truncate font-mono">{item.query}</span>
                     <div className="flex gap-1 shrink-0">
-                      {item.config.regex && <span className="text-[8px] px-1 bg-blue-500/20 text-blue-400 rounded">.*</span>}
-                      {item.config.caseSensitive && <span className="text-[8px] px-1 bg-blue-500/20 text-blue-400 rounded">Aa</span>}
+                      {item.config?.regex && <span className="text-[8px] px-1 bg-blue-500/20 text-blue-400 rounded">.*</span>}
+                      {item.config?.caseSensitive && <span className="text-[8px] px-1 bg-blue-500/20 text-blue-400 rounded">Aa</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

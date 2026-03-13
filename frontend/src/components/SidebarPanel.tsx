@@ -1,13 +1,12 @@
 import React from 'react';
 import { UnifiedPanel } from './UnifiedPanel';
-import { SearchPanel } from './SearchPanel';
 import { AIChatPanel } from './AIChatPanel';
 import { StatsPanel } from './StatsPanel';
 import { PatternAnalysisPanel } from './PatternAnalysisPanel';
 import { LayerType } from '../types';
 import { FileInfo } from './UnifiedPanel';
 
-type ViewType = 'main' | 'search' | 'ai' | 'stats' | 'help';
+type ViewType = 'main' | 'ai' | 'stats' | 'help';
 
 interface SidebarPanelProps {
   activeView: ViewType;
@@ -24,9 +23,6 @@ interface SidebarPanelProps {
   bookmarks: unknown;
   bookmarkPreviews: unknown;
   logLevelStats: { ERROR: number; WARN: number; INFO: number; DEBUG: number; TRACE: number; FATAL?: number };
-  searchConfig: { regex: boolean; caseSensitive: boolean };
-  searchMatchCount: number;
-  currentMatchNumber: number;
   fileId: string | null;
   onOpen: () => void;
   onOpenFileByPath: (path: string, name: string) => void;
@@ -47,9 +43,6 @@ interface SidebarPanelProps {
   onToggleBookmark: (lineIndex: number) => void;
   onClearBookmarks: () => void;
   onJumpToBookmark: (idx: number) => void;
-  onSearch: (query: string) => void;
-  onSearchConfigChange: (config: unknown) => void;
-  onNavigateSearch: (direction: 'next' | 'prev') => void;
   onAiPanelClose: () => void;
   onAiPanelInitialContent: string;
   onApplyAiSuggestion: (type: string, value: string) => void;
@@ -75,9 +68,6 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
   bookmarks,
   bookmarkPreviews,
   logLevelStats,
-  searchConfig,
-  searchMatchCount,
-  currentMatchNumber,
   fileId,
   onOpen,
   onOpenFileByPath,
@@ -98,9 +88,6 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
   onToggleBookmark,
   onClearBookmarks,
   onJumpToBookmark,
-  onSearch,
-  onSearchConfigChange,
-  onNavigateSearch,
   onAiPanelClose,
   onAiPanelInitialContent,
   onApplyAiSuggestion,
@@ -147,17 +134,6 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
           onToggleBookmark={onToggleBookmark}
           onClearBookmarks={onClearBookmarks}
           onJumpToBookmark={onJumpToBookmark}
-        />
-      )}
-
-      {activeView === 'search' && (
-        <SearchPanel
-          onSearch={onSearch}
-          config={searchConfig}
-          setConfig={onSearchConfigChange}
-          matchCount={searchMatchCount}
-          onNavigate={onNavigateSearch}
-          currentIndex={currentMatchNumber}
         />
       )}
 

@@ -481,6 +481,46 @@ export const COLORS = {
 
 ---
 
+### TD-013: 高亮渲染垂直对齐策略
+
+**日期**: 2026-03-12
+**状态**: 已通过
+**类别**: UI 渲染一致性
+
+#### 背景
+Canvas 渲染中，搜索高亮/图层高亮的文字背景高度与选中高亮（selection）不一致，导致视觉上高亮背景比选中区域低 4px，出现错位感。
+
+#### 问题分析
+```javascript
+// 选中高亮 - 使用 y 作为起始位置 (正确)
+ctx.fillRect(gutterWidth + selX - safeScrollLeft, y, selW, lineHeight);
+
+// 搜索高亮 - 使用 startY - lineHeight/2 (错误)
+// startY = y + lineHeight/2 + 4
+// 所以 hlY = y + 4，比选中高亮低 4px
+const hlY = startY - lineHeight / 2;
+```
+
+#### 方案
+- **方案 A**: 保持现状，接受视觉错位
+- **方案 B**: 统一所有高亮背景使用行起始位置 `y`
+
+#### 决策
+选择 **方案 B**。
+
+#### 实施
+修复 `LogViewer.tsx` 中的 `renderText` 函数：
+- 搜索高亮 (`h.isSearch || h.color === '#facc15'`): `hlY = y`
+- 图层高亮 (else 分支): `hlY = y`
+
+所有高亮背景现在统一从行顶部 (`y`) 开始，高度为 `lineHeight`，与选中高亮完全对齐。
+
+#### 后果
+- **正面**: 视觉一致性提升，高亮背景与选中区域对齐
+- **负面**: 无
+
+---
+
 ### TD-012: AI 集成方向
 
 **状态**: 待讨论
