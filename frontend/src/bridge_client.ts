@@ -206,6 +206,9 @@ class WebBridge implements FileBridgeAPI {
         const res = await this.get('get_search_matches_range', { file_id: fileId, start_rank: start, count: count });
         return JSON.stringify(res);
     }
+    async is_search_match(fileId: string, index: number) {
+        return this.get('is_search_match', { file_id: fileId, index });
+    }
     async get_layer_registry() { return JSON.stringify(await this.get('get_layer_registry')); }
     async reload_plugins() { return this.post('reload_plugins'); }
     async get_platform_info() { return this.get('platform'); }
@@ -313,6 +316,11 @@ export async function getSearchMatchIndex(fileId: string, rank: number): Promise
 export async function getNearestSearchRank(fileId: string, currentIndex: number, direction: 'next' | 'prev'): Promise<number> {
     if (!fileBridge) return -1;
     return await fileBridge.get_nearest_search_rank(fileId, currentIndex, direction);
+}
+
+export async function isSearchMatch(fileId: string, index: number): Promise<boolean> {
+    if (!fileBridge) return false;
+    return await fileBridge.is_search_match(fileId, index);
 }
 
 export async function getLayerRegistry(): Promise<string> {

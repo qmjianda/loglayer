@@ -164,7 +164,7 @@ export function useSearch({
         const effectiveMatchCount = overrideMatchCount ?? searchMatchCount;
         if (!searchQuery || !activeFileId) return -1;
 
-        const { getSearchMatchIndex, getNearestSearchRank } = await import('../bridge_client');
+        const { getSearchMatchIndex, getNearestSearchRank, isSearchMatch } = await import('../bridge_client');
 
         let nextRank = -1;
 
@@ -173,6 +173,22 @@ export function useSearch({
         const effectiveCurrentIndex = (fromIndex !== undefined && fromIndex !== null) ? fromIndex : -1;
 
         if (effectiveCurrentIndex !== -1) {
+            // If direction is 'next' and current line is already a match, stay on current line
+            if (direction === 'next') {
+                const isMatch = await isSearchMatch(activeFileId, effectiveCurrentIndex);
+                if (isMatch) {
+                    // Stay on current line - need to find the rank for this match
+                    // Search forward from rank 0 to find matching rank
+                    for (let r = 0; r < effectiveMatchCount; r++) {
+                        const idx = await getSearchMatchIndex(activeFileId, r);
+                        if (idx === effectiveCurrentIndex) {
+                            setCurrentMatchRank(r);
+                            setCurrentMatchIndex(effectiveCurrentIndex);
+                            return effectiveCurrentIndex;
+                        }
+                    }
+                }
+            }
             // Use backend to find nearest match rank from current line
             nextRank = await getNearestSearchRank(activeFileId, effectiveCurrentIndex, direction);
         } else {

@@ -25,6 +25,10 @@ export interface LayerUIField {
   regex?: boolean;
   caseSensitive?: boolean;
   wholeWord?: boolean;
+  // Show/hide option buttons
+  showRegex?: boolean;
+  showCaseSensitive?: boolean;
+  showWholeWord?: boolean;
 }
 
 export interface LayerRegistryEntry {
@@ -129,6 +133,7 @@ export interface FileBridgeAPI {
   get_search_match_index(fileId: string, rank: number): Promise<number>;
   get_nearest_search_rank(fileId: string, currentIndex: number, direction: string): Promise<number>;
   get_search_matches_range(fileId: string, startRank: number, count: number): Promise<string>;
+  is_search_match(fileId: string, index: number): Promise<boolean>;
 
   // Registry operations
   get_layer_registry(): Promise<string>;

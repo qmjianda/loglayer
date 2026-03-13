@@ -20,6 +20,18 @@ class SearchPipeline:
             return -1
         return session.search_matches[rank]
 
+    def is_search_match(self, file_id: str, index: int) -> bool:
+        """Check if the given index is a search match."""
+        if file_id not in self._sessions:
+            return False
+        session = self._sessions[file_id]
+        matches = session.search_matches
+        if matches is None or len(matches) == 0:
+            return False
+        # Use bisect_left to find exact match
+        pos = bisect.bisect_left(matches, index)
+        return pos < len(matches) and matches[pos] == index
+
     def get_nearest_search_rank(
         self, file_id: str, current_index: int, direction: str
     ) -> int:
