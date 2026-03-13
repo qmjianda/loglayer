@@ -9,7 +9,7 @@ LogLayer 前端代码当前状态：
 - 缺少现代交互组件（Toast、Popover、Dropdown）
 
 **约束**：
-- 逐步迁移，避免大规模重写
+- 不维护向后兼容，重构优于修补
 - 保持性能不退化（Canvas 虚拟滚动是关键路径）
 
 ## Goals / Non-Goals
