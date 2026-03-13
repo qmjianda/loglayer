@@ -20,6 +20,7 @@ build/
 *.local
 .pytest_cache/
 coverage/
+skills-lock.json
 
 # Editor directories and files
 .vscode/*
