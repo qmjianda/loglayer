@@ -238,7 +238,7 @@ class PipelineWorker(CustomThread):
                     "--no-filename",
                     "--color",
                     "never",
-                    "--binary",  # 匹配二进制文件中的字符串
+                    "-a",  # 将二进制文件当作文本处理
                 ]
                 if self.search.get("regex"):
                     search_cmd.append("-e")
