@@ -117,11 +117,9 @@ export function useSearch({
 
     // Sync with backend when layers or search changes
     useEffect(() => {
-        console.log('[useSearch] searchQuery changed:', searchQuery, 'activeFileId:', activeFileId);
         if (!activeFileId) return;
 
         const timer = setTimeout(async () => {
-            console.log('[useSearch] executing search with query:', searchQuery);
             const searchConf = searchQuery ? {
                 query: searchQuery,
                 regex: searchConfig.regex,
@@ -142,7 +140,6 @@ export function useSearch({
 
             await syncAll(activeFileId, layers, searchConf);
 
-            console.log('[useSearch] search completed, searchQuery:', searchQuery);
             if (!searchQuery) {
                 setIsSearching(false);
                 setCurrentMatchRank(-1);
@@ -165,7 +162,6 @@ export function useSearch({
         // searchMatchCount might be 0 in current render but we still want to try backend jump if fromIndex is provided.
         // Use overrideMatchCount if provided (for auto-jump after search completes)
         const effectiveMatchCount = overrideMatchCount ?? searchMatchCount;
-        console.log('[useSearch] findNextSearchMatch called, searchQuery:', searchQuery, 'activeFileId:', activeFileId, 'searchMatchCount:', searchMatchCount, 'effectiveMatchCount:', effectiveMatchCount, 'currentMatchRank:', currentMatchRank, 'fromIndex:', fromIndex);
         if (!searchQuery || !activeFileId) return -1;
 
         const { getSearchMatchIndex, getNearestSearchRank } = await import('../bridge_client');
@@ -176,8 +172,6 @@ export function useSearch({
         // we find the nearest match from there. Otherwise we use currentMatchRank.
         const effectiveCurrentIndex = (fromIndex !== undefined && fromIndex !== null) ? fromIndex : -1;
 
-        console.log('[useSearch] effectiveCurrentIndex:', effectiveCurrentIndex);
-
         if (effectiveCurrentIndex !== -1) {
             // Use backend to find nearest match rank from current line
             nextRank = await getNearestSearchRank(activeFileId, effectiveCurrentIndex, direction);
@@ -185,9 +179,7 @@ export function useSearch({
             // Sequential navigation - requires matchCount to be > 0
             // 但自动跳转时（fromIndex === null），即使 searchMatchCount === 0 也尝试
             // 因为后端可能已经返回了结果，只是前端 state 还没更新
-            console.log('[useSearch] sequential navigation, effectiveMatchCount:', effectiveMatchCount, 'currentMatchRank:', currentMatchRank, 'fromIndex:', fromIndex);
             if (effectiveMatchCount === 0 && fromIndex !== null) {
-                console.log('[useSearch] effectiveMatchCount is 0, returning -1');
                 return -1;
             }
 
@@ -196,7 +188,6 @@ export function useSearch({
                 // 如果 effectiveMatchCount > 0，使用它；否则默认为 0（后端会有结果）
                 const count = effectiveMatchCount > 0 ? effectiveMatchCount : 1;
                 nextRank = direction === 'next' ? 0 : count - 1;
-                console.log('[useSearch] no current match, setting nextRank to:', nextRank);
             } else {
                 if (direction === 'next') {
                     nextRank = (currentMatchRank + 1) % effectiveMatchCount;
@@ -207,7 +198,6 @@ export function useSearch({
         }
 
         // Final safety check for rank validity
-        console.log('[useSearch] final nextRank:', nextRank);
         if (nextRank !== -1) {
             setCurrentMatchRank(nextRank);
             const index = await getSearchMatchIndex(activeFileId, nextRank);

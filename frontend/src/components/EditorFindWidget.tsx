@@ -57,33 +57,24 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [showHistory, setShowHistory] = useState(false);
   const lastSubmittedValue = useRef<string>('');
-
-  // 调试：打印 matchCount 和 currentMatch 的变化
-  useEffect(() => {
-    console.log('[EditorFindWidget] matchCount:', matchCount, 'currentMatch:', currentMatch);
-  }, [matchCount, currentMatch]);
   const isInitialLoad = useRef(true); // 标记是否首次加载（Ctrl+F打开）
 
   useEffect(() => {
     const loaded = loadHistory();
-    console.log('[EditorFindWidget] loadHistory:', loaded, 'query:', query);
     setHistory(loaded);
 
     // 如果有传入的 query（选中的文字），自动搜索并记录历史
     if (query && query.trim()) {
-      console.log('[EditorFindWidget] query from selection:', query);
       lastSubmittedValue.current = query;
       const filtered = loaded.filter(item => item !== query);
       const newHistory = [query, ...filtered].slice(0, MAX_HISTORY);
       saveHistory(newHistory);
       setHistory(newHistory);
-      console.log('[EditorFindWidget] history saved, calling onQueryChange:', query);
       onQueryChange(query);
       isInitialLoad.current = false;
     }
     // 没有选中文字，只打开搜索框，不自动搜索
     else {
-      console.log('[EditorFindWidget] no query, just open search, query:', query);
       // 清空输入框，让用户自己输入
       onQueryChange('');
       isInitialLoad.current = false;
@@ -98,15 +89,12 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
   }, [onQueryChange]);
 
   const addToHistory = useCallback((q: string) => {
-    console.log('[EditorFindWidget] addToHistory called with:', q);
     if (!q.trim()) return;
     lastSubmittedValue.current = q;
-    console.log('[EditorFindWidget] saving to localStorage, key:', SEARCH_HISTORY_KEY);
     setHistory(prev => {
       const filtered = prev.filter(item => item !== q);
       const newHistory = [q, ...filtered].slice(0, MAX_HISTORY);
       saveHistory(newHistory);
-      console.log('[EditorFindWidget] newHistory saved:', newHistory);
       return newHistory;
     });
     setHistoryIndex(-1);
@@ -118,19 +106,16 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
   }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    console.log('[EditorFindWidget] keyDown:', e.key, 'history:', history, 'historyIndex:', historyIndex, 'query:', query);
     // 上下键切换历史（像终端一样，即使输入框有内容也可以切换）
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (history.length === 0) {
-        console.log('[EditorFindWidget] history is empty');
         return;
       }
       const newIndex = historyIndex < history.length - 1 ? historyIndex + 1 : historyIndex;
       setHistoryIndex(newIndex);
       const item = history[newIndex];
       if (item !== undefined) {
-        console.log('[EditorFindWidget] ArrowUp setting query to:', item);
         onQueryChange(item);
       }
     } else if (e.key === 'ArrowDown') {
