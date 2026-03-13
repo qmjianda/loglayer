@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { LogLayer, LayerType } from '../types';
 import { DynamicForm } from './DynamicUI/DynamicForm';
 import { useLayerRegistry } from '../hooks/useLayerRegistry';
+import { Icon } from './common/Icon';
 
 interface LayersPanelProps {
   layers: LogLayer[];
@@ -101,21 +102,29 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     const entry = registry[layer.type];
     const iconKey = entry?.icon || 'default';
 
-    const ICON_LIBRARY: Record<string, React.ReactNode> = {
-      filter: <svg className="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M3 4h18l-7 9v6l-4 2V13L3 4z" /></svg>,
-      highlight: <svg className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21a9 9 0 110-18 9 9 0 010 18z" /></svg>,
-      range: <svg className="w-3.5 h-3.5 text-teal-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M7 8l-4 4 4 4M17 8l4 4-4 4M13 4l-2 16" /></svg>,
-      time: <svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-      transform: <svg className="w-3.5 h-3.5 text-orange-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M4 4h16v16H4V4zm4 4h8v8H8V8z" /></svg>,
-      folder: <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>,
-      level: <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
-      rowtint: <svg className="w-3.5 h-3.5 text-pink-400" fill="currentColor" viewBox="0 0 24 24"><path d="M4 5h16v3H4V5zm0 5h16v3H4v-3zm0 5h16v3H4v-3z" /></svg>,
-      bookmark: <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" /></svg>,
-      default: <svg className="w-3.5 h-3.5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+    const ICON_COLORS: Record<string, string> = {
+      filter: 'text-blue-400',
+      zap: 'text-yellow-400',
+      split: 'text-teal-400',
+      clock: 'text-purple-400',
+      transform: 'text-orange-400',
+      alertTriangle: 'text-red-400',
+      columns: 'text-pink-400',
+      bookmark: 'text-amber-400',
+      folder: 'text-gray-400',
+      search: 'text-cyan-400',
+      tag: 'text-green-400',
+      default: 'text-gray-500'
     };
 
-    if (layer.type === LayerType.FOLDER) return ICON_LIBRARY.folder;
-    return ICON_LIBRARY[iconKey] || ICON_LIBRARY.default;
+    if (layer.type === LayerType.FOLDER) {
+      return <Icon name="folder" size={14} className="w-4 h-4 text-gray-400" />;
+    }
+
+    const iconName = iconKey as any;
+    const color = ICON_COLORS[iconKey] || ICON_COLORS.default;
+    
+    return <Icon name={iconName} size={14} className={`w-3.5 h-3.5 ${color}`} />;
   };
 
   const renderStatsBar = (layer: LogLayer) => {

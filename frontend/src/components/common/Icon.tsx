@@ -154,6 +154,7 @@ import {
     Frown,
     Meh,
     Laugh,
+    SwitchCamera,
     LucideProps
 } from 'lucide-react';
 
@@ -219,6 +220,7 @@ const iconMap = {
     rotateCcw: RotateCcw,
     split: Split,
     columns: Columns,
+    transform: SwitchCamera,
     table: Table,
     bold: Bold,
     italic: Italic,
@@ -355,5 +357,5 @@ export {
     Terminal, Bot, MessageSquare, BarChart2, HelpCircle,
     Keyboard, Command, Loader2, Save, Undo, Redo,
     ArrowRight, ArrowLeft, Eye, EyeOff, MousePointer,
-    ZoomIn, ZoomOut, RotateCcw, Split, Columns
+    ZoomIn, ZoomOut, RotateCcw, Split, Columns, SwitchCamera
 };

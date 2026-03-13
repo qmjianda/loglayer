@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { LayerUIField } from '../../types';
-import { SearchInput } from '../SearchInput';
+import { TextInputWithOptions } from '../TextInputWithOptions';
 import { ColorPicker } from './ColorPicker';
 
 interface InputMapperProps {
@@ -26,12 +26,17 @@ export const InputMapper: React.FC<InputMapperProps> = ({
         case 'str':
             if (isSearchField && searchConfig && onSearchConfigChange) {
                 return (
-                    <SearchInput
+                    <TextInputWithOptions
                         value={value || ''}
                         onChange={onChange}
-                        config={searchConfig}
-                        onConfigChange={onSearchConfigChange}
                         placeholder={field.display_name}
+                        showCaseSensitive
+                        showWholeWord
+                        showRegex
+                        caseSensitive={searchConfig.caseSensitive}
+                        wholeWord={searchConfig.wholeWord}
+                        regex={searchConfig.regex}
+                        onConfigChange={onSearchConfigChange}
                     />
                 );
             }
@@ -46,17 +51,19 @@ export const InputMapper: React.FC<InputMapperProps> = ({
             );
 
         case 'search':
+            // Use TextInputWithOptions with field-level show config (from backend)
             return (
-                <SearchInput
+                <TextInputWithOptions
                     value={value || ''}
                     onChange={onChange}
-                    config={{
-                        regex: field.regex ?? false,
-                        caseSensitive: field.caseSensitive ?? false,
-                        wholeWord: field.wholeWord ?? false
-                    }}
-                    onConfigChange={onSearchConfigChange}
                     placeholder={field.display_name}
+                    showCaseSensitive={field.showCaseSensitive ?? true}
+                    showWholeWord={field.showWholeWord ?? true}
+                    showRegex={field.showRegex ?? true}
+                    caseSensitive={searchConfig?.caseSensitive ?? field.caseSensitive ?? false}
+                    wholeWord={searchConfig?.wholeWord ?? field.wholeWord ?? false}
+                    regex={searchConfig?.regex ?? field.regex ?? false}
+                    onConfigChange={onSearchConfigChange}
                 />
             );
 
