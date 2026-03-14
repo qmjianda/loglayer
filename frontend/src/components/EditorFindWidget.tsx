@@ -283,14 +283,20 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
 
       <div className="flex items-center shrink-0 select-none">
         <button
-          onClick={() => onNavigate('prev')}
+          onClick={() => {
+            console.log('[EditorFindWidget] Prev button clicked, calling onNavigate');
+            onNavigate?.('prev');
+          }}
           className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-theme-input rounded transition-colors"
           title="上一个匹配项 (Shift+Enter)"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 15l7-7 7 7" /></svg>
         </button>
         <button
-          onClick={() => onNavigate('next')}
+          onClick={() => {
+            console.log('[EditorFindWidget] Next button clicked, calling onNavigate');
+            onNavigate?.('next');
+          }}
           className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-theme-input rounded transition-colors"
           title="下一个匹配项 (Enter)"
         >

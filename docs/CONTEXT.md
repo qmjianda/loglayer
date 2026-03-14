@@ -88,7 +88,6 @@ frontend/
 ├── src/
 │   ├── components/
 │   │   ├── LogViewer.tsx      # 核心：Canvas 虚拟滚动
-│   │   ├── SearchPanel.tsx     # 搜索面板
 │   │   ├── LayersPanel.tsx     # 图层管理
 │   │   ├── BookmarkPopover.tsx
 │   │   ├── QueryLayerConfig.tsx # 查询层配置

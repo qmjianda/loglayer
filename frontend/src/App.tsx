@@ -11,7 +11,6 @@
 import React, { useMemo, useCallback, useEffect, useState, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { LogViewer } from './components/LogViewer';
-import { SearchPanel } from './components/SearchPanel';
 import { EditorFindWidget } from './components/EditorFindWidget';
 import { EditorGoToLineWidget } from './components/EditorGoToLineWidget';
 import { CommandPalette, Command } from './components/CommandPalette';
@@ -197,9 +196,7 @@ const AppContent: React.FC = () => {
     clearSearch
   } = search;
 
-  // Search Mode for UI Widget (Highlight vs Filter)
-  // This is purely UI state for the widget, though it might sync with searchConfig.mode later
-  const [searchMode, setSearchMode] = useState<'highlight' | 'filter'>('highlight');
+  // searchConfig is managed in useSearch hook
   const [canvasSelectedText, setCanvasSelectedText] = useState('');
   const [isCommandPaletteVisible, setIsCommandPaletteVisible] = useState(false);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
@@ -358,16 +355,15 @@ const AppContent: React.FC = () => {
     handleFileActivate
   });
 
-  // 导航到下一个搜索匹配项，并自动滚动到底部/指定行
   const findNextSearchMatchWithJump = useCallback(async (direction: 'next' | 'prev', overrideMatchCount?: number) => {
-    // Use overrideMatchCount if provided (from onPipelineFinished callback), otherwise get from cache
+    console.log('[DEBUG findNextSearchMatchWithJump] Called:', direction, 'overrideMatchCount:', overrideMatchCount);
     const matchCount = overrideMatchCount ?? processedCache[activeFileId ?? '']?.searchMatchCount ?? 0;
-
-    // [OPTIMIZATION] Nearest neighbor jumping
-    // If we have a highlighted index (user click or previous jump), we find the match nearest to it.
-    // If no highlighted index, use 0 (start from beginning to find nearest)
-    const startIndex = highlightedIndex !== null ? highlightedIndex : 0;
-    const nextIdx = await findNextSearchMatch(direction, startIndex, matchCount);
+    console.log('[DEBUG] matchCount from cache:', matchCount, 'activeFileId:', activeFileId);
+    const effectiveMatchCount = matchCount > 0 ? matchCount : null;
+    const startIndex = highlightedIndex !== null ? highlightedIndex : null;
+    console.log('[DEBUG] startIndex:', startIndex, 'effectiveMatchCount:', effectiveMatchCount);
+    const nextIdx = await findNextSearchMatch(direction, startIndex, effectiveMatchCount);
+    console.log('[DEBUG] nextIdx returned:', nextIdx);
     if (nextIdx !== -1) {
       handleJumpToLine(nextIdx, activeFile?.lineCount || 0);
     }
@@ -776,14 +772,14 @@ const AppContent: React.FC = () => {
           searchConfig={searchConfig}
           searchMatchCount={searchMatchCount}
           currentMatchNumber={currentMatchNumber}
-          searchMode={searchMode}
+          searchMode={searchConfig.mode}
           activeFile={activeFile}
           activeFileId={activeFileId}
           processedCache={processedCache}
           setSearchQuery={setSearchQuery}
           setSearchConfig={setSearchConfig}
           findNextSearchMatchWithJump={findNextSearchMatchWithJump}
-          setSearchMode={setSearchMode}
+          setSearchMode={(mode: 'highlight' | 'filter') => setSearchConfig(prev => ({...prev, mode}))}
           handleJumpToLine={handleJumpToLine}
           setIsFindVisible={setIsFindVisible}
           setIsGoToLineVisible={setIsGoToLineVisible}

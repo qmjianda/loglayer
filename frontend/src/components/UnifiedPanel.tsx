@@ -121,9 +121,6 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
-    // Debug: show system-managed layers
-    const [showSystemLayers, setShowSystemLayers] = useState(false);
-
     // Click outside to close menu
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -306,14 +303,6 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                         <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                     </svg>
                     <span className="text-[10px] uppercase font-black tracking-wider opacity-60">已打开</span>
-                    {/* Debug toggle for system layers */}
-                    <button
-                        onClick={(e) => { e.stopPropagation(); setShowSystemLayers(prev => !prev); }}
-                        className={`ml-2 px-1 py-0.5 text-[8px] rounded transition-colors ${showSystemLayers ? 'bg-amber-500/30 text-amber-400' : 'bg-white/5 text-theme-muted hover:text-theme-primary'}`}
-                        title={showSystemLayers ? '隐藏系统图层' : '显示系统图层'}
-                    >
-                        {showSystemLayers ? '系统' : '用户'}
-                    </button>
                     <span className="ml-auto text-[9px] text-theme-muted">{files.length}</span>
                 </div>
 
@@ -328,8 +317,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                             files.map(file => {
                                 const isExpanded = expandedFiles[file.id] === true;
                                 const isActive = file.id === activeFileId;
-                                // Filter out system-managed layers unless debug mode is on
-                                const visibleLayers = file.layers ? file.layers.filter(l => showSystemLayers || !l.isSystemManaged) : [];
+                                const visibleLayers = file.layers || [];
                                 const hasLayers = visibleLayers.length > 0;
 
                                 return (

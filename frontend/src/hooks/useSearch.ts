@@ -158,11 +158,15 @@ export function useSearch({
 
     // Find next/prev match
     const findNextSearchMatch = useCallback(async (direction: 'next' | 'prev', fromIndex?: number | null, overrideMatchCount?: number): Promise<number> => {
+        
         // [MODIFIED] Robust check - searchQuery and activeFileId are mandatory.
         // searchMatchCount might be 0 in current render but we still want to try backend jump if fromIndex is provided.
         // Use overrideMatchCount if provided (for auto-jump after search completes)
         const effectiveMatchCount = overrideMatchCount ?? searchMatchCount;
-        if (!searchQuery || !activeFileId) return -1;
+        
+        if (!searchQuery || !activeFileId) {
+          return -1;
+        }
 
         const { getSearchMatchIndex, getNearestSearchRank, isSearchMatch } = await import('../bridge_client');
 
@@ -173,24 +177,35 @@ export function useSearch({
         const effectiveCurrentIndex = (fromIndex !== undefined && fromIndex !== null) ? fromIndex : -1;
 
         if (effectiveCurrentIndex !== -1) {
-            // If direction is 'next' and current line is already a match, stay on current line
             if (direction === 'next') {
                 const isMatch = await isSearchMatch(activeFileId, effectiveCurrentIndex);
                 if (isMatch) {
-                    // Stay on current line - need to find the rank for this match
-                    // Search forward from rank 0 to find matching rank
                     for (let r = 0; r < effectiveMatchCount; r++) {
                         const idx = await getSearchMatchIndex(activeFileId, r);
                         if (idx === effectiveCurrentIndex) {
-                            setCurrentMatchRank(r);
-                            setCurrentMatchIndex(effectiveCurrentIndex);
-                            return effectiveCurrentIndex;
+                            nextRank = (r + 1) % effectiveMatchCount;
+                            break;
                         }
                     }
                 }
+                if (nextRank === -1) {
+                    nextRank = await getNearestSearchRank(activeFileId, effectiveCurrentIndex, direction);
+                }
+            } else {
+                const isMatch = await isSearchMatch(activeFileId, effectiveCurrentIndex);
+                if (isMatch) {
+                    for (let r = 0; r < effectiveMatchCount; r++) {
+                        const idx = await getSearchMatchIndex(activeFileId, r);
+                        if (idx === effectiveCurrentIndex) {
+                            nextRank = (r - 1 + effectiveMatchCount) % effectiveMatchCount;
+                            break;
+                        }
+                    }
+                }
+                if (nextRank === -1) {
+                    nextRank = await getNearestSearchRank(activeFileId, effectiveCurrentIndex, direction);
+                }
             }
-            // Use backend to find nearest match rank from current line
-            nextRank = await getNearestSearchRank(activeFileId, effectiveCurrentIndex, direction);
         } else {
             // Sequential navigation - requires matchCount to be > 0
             // 但自动跳转时（fromIndex === null），即使 searchMatchCount === 0 也尝试

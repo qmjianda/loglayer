@@ -217,12 +217,15 @@ export const RemotePathPicker: React.FC<RemotePathPickerProps> = ({
         }
     }, [open, initialPath, loadDirectory, quickAccessItems]);
 
-    // 监听键盘快捷键 (Ctrl+R 刷新)
+    // 监听键盘快捷键 (Ctrl+R 刷新, ESC 关闭)
     useEffect(() => {
         if (!open) return;
 
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.ctrlKey && e.key === 'r') {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                onOpenChange(false);
+            } else if (e.ctrlKey && e.key === 'r') {
                 e.preventDefault();
                 handleRefresh();
             }
@@ -230,7 +233,7 @@ export const RemotePathPicker: React.FC<RemotePathPickerProps> = ({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [open, handleRefresh]);
+    }, [open, handleRefresh, onOpenChange]);
 
     // 处理输入变化（带防抖的路径自动补全）
     const handleInputChange = useCallback((value: string) => {
@@ -336,7 +339,7 @@ export const RemotePathPicker: React.FC<RemotePathPickerProps> = ({
     if (!open) return null;
 
     return (
-        <div className="remote-path-picker-overlay" onClick={() => onOpenChange(false)}>
+        <div className="remote-path-picker-overlay" onClick={(e) => e.stopPropagation()}>
             <div
                 className="remote-path-picker-container"
                 onClick={(e) => e.stopPropagation()}
