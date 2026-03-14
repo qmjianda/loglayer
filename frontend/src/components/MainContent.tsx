@@ -19,14 +19,12 @@ interface MainContentProps {
   searchConfig: { regex: boolean; caseSensitive: boolean };
   searchMatchCount: number;
   currentMatchNumber: number;
-  searchMode: any;
   activeFile: { lineCount?: number } | null;
   activeFileId: string | null;
   processedCache: any;
   setSearchQuery: (query: string) => void;
   setSearchConfig: (config: any) => void;
   findNextSearchMatchWithJump: (direction: 'next' | 'prev') => void;
-  setSearchMode: any;
   handleJumpToLine: (line: number, total: number) => void;
   setIsFindVisible: (visible: boolean) => void;
   setIsGoToLineVisible: (visible: boolean) => void;
@@ -66,14 +64,12 @@ export const MainContent: React.FC<MainContentProps> = ({
   searchConfig,
   searchMatchCount,
   currentMatchNumber,
-  searchMode,
   activeFile,
   activeFileId,
   processedCache,
   setSearchQuery,
   setSearchConfig,
   findNextSearchMatchWithJump,
-  setSearchMode,
   handleJumpToLine,
   setIsFindVisible,
   setIsGoToLineVisible,
@@ -121,14 +117,12 @@ export const MainContent: React.FC<MainContentProps> = ({
             searchConfig={searchConfig}
             searchMatchCount={searchMatchCount}
             currentMatchNumber={currentMatchNumber}
-            searchMode={searchMode}
             totalLines={activeFile?.lineCount || 0}
             activeFileId={activeFileId}
             processedCache={processedCache}
             onQueryChange={setSearchQuery}
             onConfigChange={setSearchConfig}
             onNavigate={findNextSearchMatchWithJump}
-            onSearchModeChange={setSearchMode}
             onGoToLine={(lineNum) => {
               handleJumpToLine(lineNum - 1, activeFile?.lineCount || 0);
               setIsGoToLineVisible(false);

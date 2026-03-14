@@ -14,14 +14,12 @@ interface FloatingWidgetsProps {
   searchConfig: SearchConfig;
   searchMatchCount: number;
   currentMatchNumber: number;
-  searchMode: any;
   totalLines: number;
   activeFileId: string | null;
   processedCache: any;
   onQueryChange: (query: string) => void;
   onConfigChange: (config: SearchConfig) => void;
   onNavigate: (direction: 'next' | 'prev') => void;
-  onSearchModeChange: any;
   onGoToLine: (lineNum: number) => void;
   onCloseFind: () => void;
   onCloseGoToLine: () => void;
@@ -36,14 +34,12 @@ export const FloatingWidgets: React.FC<FloatingWidgetsProps> = ({
   searchConfig,
   searchMatchCount,
   currentMatchNumber,
-  searchMode,
   totalLines,
   activeFileId,
   processedCache,
   onQueryChange,
   onConfigChange,
   onNavigate,
-  onSearchModeChange,
   onGoToLine,
   onCloseFind,
   onCloseGoToLine,
@@ -76,8 +72,6 @@ export const FloatingWidgets: React.FC<FloatingWidgetsProps> = ({
           matchCount={searchMatchCount}
           currentMatch={currentMatchNumber}
           onNavigate={onNavigate}
-          searchMode={searchMode}
-          onSearchModeChange={onSearchModeChange}
           onClose={handleFindClose}
         />
       )}

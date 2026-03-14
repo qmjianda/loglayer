@@ -1,8 +1,6 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 
-export type SearchMode = 'highlight' | 'filter';
-
 const SEARCH_HISTORY_KEY = 'loglayer_find_history';
 const MAX_HISTORY = 20;
 
@@ -32,9 +30,6 @@ interface EditorFindWidgetProps {
   currentMatch: number;
   onNavigate: (direction: 'next' | 'prev') => void;
   onClose: () => void;
-  // New: Search mode support
-  searchMode?: SearchMode;
-  onSearchModeChange?: (mode: SearchMode) => void;
 }
 
 export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
@@ -45,9 +40,7 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
   matchCount,
   currentMatch,
   onNavigate,
-  onClose,
-  searchMode = 'highlight',
-  onSearchModeChange
+  onClose
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -186,12 +179,6 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
     window.addEventListener('mouseup', onMouseUp);
   }, [width]);
 
-  const toggleSearchMode = () => {
-    if (onSearchModeChange) {
-      onSearchModeChange(searchMode === 'highlight' ? 'filter' : 'highlight');
-    }
-  };
-
   return (
     <div
       ref={widgetRef}
@@ -206,20 +193,6 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
       >
         <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-[1px] h-4 bg-gray-600 group-hover:bg-blue-400" />
       </div>
-
-      {/* Search Mode Toggle */}
-      {onSearchModeChange && (
-        <button
-          onClick={toggleSearchMode}
-          className={`ml-1 px-2 py-1 rounded text-[9px] font-medium tracking-wide transition-all shrink-0 ${searchMode === 'filter'
-              ? 'bg-blue-600 text-white'
-              : 'bg-theme-input text-gray-400 hover:text-white'
-            }`}
-          title={searchMode === 'highlight' ? '当前: 仅高亮模式。点击切换到过滤模式' : '当前: 过滤模式（隐藏不匹配行）。点击切换到仅高亮模式'}
-        >
-          {searchMode === 'filter' ? '过滤' : '高亮'}
-        </button>
-      )}
 
       <div className="flex-1 flex items-center bg-theme-input border border-blue-500/30 rounded overflow-hidden ml-1 relative">
         <input

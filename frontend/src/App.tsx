@@ -772,14 +772,12 @@ const AppContent: React.FC = () => {
           searchConfig={searchConfig}
           searchMatchCount={searchMatchCount}
           currentMatchNumber={currentMatchNumber}
-          searchMode={searchConfig.mode}
           activeFile={activeFile}
           activeFileId={activeFileId}
           processedCache={processedCache}
           setSearchQuery={setSearchQuery}
           setSearchConfig={setSearchConfig}
           findNextSearchMatchWithJump={findNextSearchMatchWithJump}
-          setSearchMode={(mode: 'highlight' | 'filter') => setSearchConfig(prev => ({...prev, mode}))}
           handleJumpToLine={handleJumpToLine}
           setIsFindVisible={setIsFindVisible}
           setIsGoToLineVisible={setIsGoToLineVisible}
