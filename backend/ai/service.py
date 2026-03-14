@@ -10,6 +10,7 @@ from .config import (
     save_ai_config,
 )
 from .providers import BaseAIProvider, HeuristicProvider, OpenAIProvider, OllamaProvider
+from .retry import retry_api_call
 
 
 class AIService:
@@ -64,10 +65,12 @@ class AIService:
             return self._provider
         return self._heuristic
 
+    @retry_api_call
     def chat(self, messages: list[ChatMessage], content: str) -> ChatResponse:
         """Send chat message"""
         return self.provider.chat(messages, content)
 
+    @retry_api_call
     def detect_timestamp(self, log_sample: str) -> Optional[TimestampDetectionResult]:
         """Detect timestamp format"""
         result = self.provider.detect_timestamp(log_sample)
@@ -75,6 +78,7 @@ class AIService:
             return self._heuristic.detect_timestamp(log_sample)
         return result
 
+    @retry_api_call
     def suggest_time_range(self, log_sample: str) -> list[TimeRangeSuggestion]:
         """Suggest time ranges"""
         result = self.provider.suggest_time_range(log_sample)
@@ -85,6 +89,10 @@ class AIService:
     def is_connected(self) -> bool:
         """Check if current provider is connected"""
         return self.provider.is_available()
+
+    def is_configured(self) -> bool:
+        """Check if AI is properly configured (not using default/heuristic)"""
+        return self._config.provider != AIProvider.HEURISTIC
 
     def list_models(self) -> list[str]:
         """List available models"""

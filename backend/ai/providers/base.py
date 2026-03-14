@@ -49,6 +49,10 @@ class BaseAIProvider(ABC):
         """List available models"""
         pass
 
+    def is_offline(self) -> bool:
+        """Check if provider works in offline mode (no network required)"""
+        return False
+
     def test_connection(self) -> Tuple[bool, str]:
         """Test connection to provider. Override in subclass for real test."""
         if self.is_available():

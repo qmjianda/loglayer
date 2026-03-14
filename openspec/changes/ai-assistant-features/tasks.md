@@ -90,7 +90,7 @@
 
 - [x] 5.1.1 Test heuristic timestamp detection
 - [ ] 5.1.2 Test OpenAI provider (with mock)
-- [ ] 5.1.3 Test endpoint error handling
+- [x] 5.1.3 Test endpoint error handling
 
 ### 5.2 Frontend Tests
 
@@ -106,17 +106,17 @@
 
 ### 6.1 Error Handling
 
-- [ ] 6.1.1 Add user-friendly error messages
-- [ ] 6.1.2 Implement retry logic for API calls
-- [ ] 6.1.3 Add offline mode detection
+- [x] 6.1.1 Add user-friendly error messages
+- [x] 6.1.2 Implement retry logic for API calls
+- [x] 6.1.3 Add offline mode detection
 
 ### 6.2 UX Improvements
 
-- [ ] 6.2.1 Add loading skeletons
-- [ ] 6.2.2 Add keyboard shortcuts (Ctrl+Enter to send)
-- [ ] 6.2.3 Add placeholder text for chat input
+- [x] 6.2.1 Add loading skeletons
+- [x] 6.2.2 Add keyboard shortcuts (Ctrl+Enter to send)
+- [x] 6.2.3 Add placeholder text for chat input
 
 ### 6.3 Documentation
 
-- [ ] 6.3.1 Update README with AI features
-- [ ] 6.3.2 Add inline help text in settings
+- [x] 6.3.1 Update README with AI features
+- [x] 6.3.2 Add inline help text in settings

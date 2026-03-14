@@ -264,6 +264,12 @@ const ModelSettingsContent: React.FC<{
           </button>
         ))}
       </div>
+      <p className="mt-2 text-xs text-theme-muted">
+        <svg className="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        选择启发式模式无需配置，软件可完全离线使用。OpenAI 和自定义 API 需要网络连接。
+      </p>
     </div>
 
     {/* Model Selection */}
@@ -311,6 +317,16 @@ const ModelSettingsContent: React.FC<{
           }
           className="w-full px-3 py-2.5 bg-theme-surface border border-theme-default rounded-lg text-sm text-theme-primary placeholder-theme-muted focus:border-blue-500 focus:outline-none"
         />
+        {settings.provider === 'ollama' && (
+          <p className="mt-2 text-xs text-theme-muted flex items-start gap-1">
+            <svg className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>
+              需要先安装并运行 Ollama (ollama.com)。默认端口 11434。
+            </span>
+          </p>
+        )}
       </div>
     )}
 
@@ -352,6 +368,15 @@ const ModelSettingsContent: React.FC<{
             保存
           </button>
         </div>
+        <p className="mt-2 text-xs text-theme-muted flex items-start gap-1">
+          <svg className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <span>
+            API Key 仅保存在本地，不会上传到任何服务器。
+            {settings.provider === 'openai' && ' 获取地址: platform.openai.com/api-keys'}
+          </span>
+        </p>
       </div>
     )}
 

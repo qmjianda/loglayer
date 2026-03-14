@@ -161,3 +161,7 @@ class HeuristicProvider(BaseAIProvider):
     def list_models(self) -> list[str]:
         """No models for heuristic"""
         return ["heuristic"]
+
+    def is_offline(self) -> bool:
+        """Heuristic provider works offline (no network required)"""
+        return True
