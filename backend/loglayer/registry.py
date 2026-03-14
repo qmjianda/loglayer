@@ -166,7 +166,7 @@ class LayerRegistry:
     def get_ui_widgets(self):
         """返回所有可用挂件的元信息"""
         results = []
-        for tid, cls in self.plugin_widgets.items():
+        for tid, (cls, is_builtin) in self.plugin_widgets.items():
             results.append({
                 "type": tid,
                 "display_name": cls.display_name,
