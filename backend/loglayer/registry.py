@@ -176,6 +176,7 @@ class LayerRegistry:
         return results
 
     def create_widget_instance(self, type_id):
-        cls = self.plugin_widgets.get(type_id)
-        if not cls: return None
+        entry = self.plugin_widgets.get(type_id)
+        if not entry: return None
+        cls = entry[0] if isinstance(entry, tuple) else entry
         return cls()
