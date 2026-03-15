@@ -34,8 +34,8 @@ class RowTintLayer(DecorationLayer):
                     pat = re.escape(pat)
                     
                 self.pattern_re = re.compile(pat, flags)
-        except Exception as e:
-            print(f"RowTintLayer Regex Error: {e}")
+        except Exception:
+            pass
 
     def get_row_style(self, content: str, index: int = -1) -> RowStyle:
         """如果行匹配模式，返回背景色样式"""

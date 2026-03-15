@@ -56,8 +56,8 @@ def _discover_layers_from_dir(directory: str, is_builtin: bool = False) -> tuple
                             widget_type = f"BUILTIN_{attr_name.upper()}" if is_builtin else f"WIDGET_{name.upper()}_{attr_name.upper()}"
                             widgets[widget_type] = (attr, is_builtin)
                             
-            except Exception as e:
-                print(f"[Registry] Error loading {filename}: {e}")
+            except Exception:
+                pass
     
     return layers, widgets
 
@@ -107,11 +107,6 @@ class LayerRegistry:
         self.plugin_layers.update(plugin_layers)
         self.plugin_widgets.update(plugin_widgets)
         
-        for tid in plugin_layers:
-            print(f"[Registry] Found layer plugin: {tid}")
-        for wid in plugin_widgets:
-            print(f"[Registry] Found UI widget: {wid}")
-
     def _get_layer_info(self, tid, cls, is_builtin):
         """生成单个图层的元信息"""
         return {
