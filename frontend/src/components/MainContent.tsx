@@ -1,186 +1,595 @@
 import React from 'react';
+import { Group, Panel, Separator } from 'react-resizable-panels';
 import { HelpPanel } from './HelpPanel';
 import { FloatingWidgets } from './FloatingWidgets';
 import { LogViewerPane } from './LogViewerPane';
 import { EmptyState } from './EmptyState';
-import { Allotment } from 'allotment';
+import { Pane, FileData } from '../hooks/useFileManagement';
 
-interface FileData {
-  id: string;
-  name: string;
-  lineCount?: number;
+function flattenPanes(panes: Pane[]): Pane[] {
+    const result: Pane[] = [];
+    function flatten(items: Pane[]) {
+        for (const item of items) {
+            if (item.children) {
+                flatten(item.children);
+            } else {
+                result.push(item);
+            }
+        }
+    }
+    flatten(panes);
+    return result;
+}
+
+function findPaneRecursive(panes: Pane[], id: string): Pane | undefined {
+    for (const pane of panes) {
+        if (pane.id === id) return pane;
+        if (pane.children) {
+            const found = findPaneRecursive(pane.children, id);
+            if (found) return found;
+        }
+    }
+    return undefined;
+}
+
+function updatePaneInTree(
+    panes: Pane[],
+    targetId: string,
+    updateFn: (pane: Pane) => Pane
+): Pane[] {
+    return panes.map(pane => {
+        if (pane.id === targetId) {
+            return updateFn(pane);
+        }
+        if (pane.children) {
+            return {
+                ...pane,
+                children: updatePaneInTree(pane.children, targetId, updateFn)
+            };
+        }
+        return pane;
+    });
+}
+
+function removePaneFromTree(panes: Pane[], targetId: string): Pane[] {
+    const result: Pane[] = [];
+    for (const pane of panes) {
+        if (pane.id === targetId) continue;
+        if (pane.children) {
+            const newChildren = removePaneFromTree(pane.children, targetId);
+            if (newChildren.length === 0) {
+                continue;
+            } else if (newChildren.length === 1 && !newChildren[0].children) {
+                result.push(newChildren[0]);
+            } else {
+                result.push({ ...pane, children: newChildren });
+            }
+        } else {
+            result.push(pane);
+        }
+    }
+    return result;
+}
+
+function handleDragSplit(
+    panes: Pane[],
+    sourcePaneId: string,
+    targetPaneId: string,
+    fileId: string,
+    newPaneId: string,
+    position: string
+): Pane[] {
+    const isHorizontal = position === 'left' || position === 'right';
+    const newDirection = isHorizontal ? 'horizontal' : 'vertical';
+    
+    const newPane: Pane = {
+        id: newPaneId,
+        openFileIds: [fileId],
+        activeFileId: fileId
+    };
+    
+    function processTree(items: Pane[], parentDirection?: string): Pane[] {
+        const result: Pane[] = [];
+        
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            
+            if (item.id === sourcePaneId && item.id === targetPaneId) {
+                const newOpenFileIds = item.openFileIds?.filter(id => id !== fileId) || [];
+                const newActiveId = item.activeFileId === fileId 
+                    ? (newOpenFileIds[0] || null) 
+                    : item.activeFileId;
+                const updatedSource = { ...item, openFileIds: newOpenFileIds, activeFileId: newActiveId };
+                
+                if (newOpenFileIds.length > 0) {
+                    const children = position === 'right' || position === 'bottom'
+                        ? [updatedSource, newPane]
+                        : [newPane, updatedSource];
+                    result.push({
+                        id: `group-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                        openFileIds: [],
+                        activeFileId: null,
+                        direction: newDirection,
+                        children
+                    });
+                } else {
+                    result.push(newPane);
+                }
+            } else if (item.id === sourcePaneId) {
+                const newOpenFileIds = item.openFileIds?.filter(id => id !== fileId) || [];
+                const newActiveId = item.activeFileId === fileId 
+                    ? (newOpenFileIds[0] || null) 
+                    : item.activeFileId;
+                result.push({ ...item, openFileIds: newOpenFileIds, activeFileId: newActiveId });
+            } else if (item.id === targetPaneId) {
+                const targetPane = item;
+                
+                if (parentDirection && parentDirection === newDirection) {
+                    if (position === 'right' || position === 'bottom') {
+                        result.push(targetPane);
+                        result.push(newPane);
+                    } else {
+                        result.push(newPane);
+                        result.push(targetPane);
+                    }
+                } else {
+                    const children = position === 'right' || position === 'bottom'
+                        ? [targetPane, newPane]
+                        : [newPane, targetPane];
+                    result.push({
+                        id: `group-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                        openFileIds: [],
+                        activeFileId: null,
+                        direction: newDirection,
+                        children
+                    });
+                }
+            } else if (item.children && item.direction) {
+                const newChildren = processTree(item.children, item.direction);
+                if (newChildren.length === 1 && !newChildren[0].children) {
+                    result.push(newChildren[0]);
+                } else if (newChildren.length > 0) {
+                    result.push({ ...item, children: newChildren });
+                }
+            } else {
+                result.push(item);
+            }
+        }
+        
+        return result;
+    }
+    
+    return processTree(panes);
+}
+
+function renderPaneTree(
+    panes: Pane[],
+    files: FileData[],
+    activePaneId: string,
+    isFindVisible: boolean,
+    activeView: string,
+    searchQuery: string,
+    searchConfig: { regex: boolean; caseSensitive: boolean },
+    scrollToIndex: number | null,
+    highlightedIndex: number | null,
+    indexingFileIds: Set<string>,
+    pendingCliFiles: number,
+    bridgedUpdateTrigger: number,
+    settings: any,
+    resolvedTheme: any,
+    hasNewContent: boolean,
+    setActivePaneId: (id: string) => void,
+    handleTabClick: (paneId: string, fileId: string) => void,
+    handleTabClose: (paneId: string, fileId: string) => void,
+    handleTabsReorder: (paneId: string, fromIndex: number, toIndex: number) => void,
+    handleCloseTab: (paneId: string, fileId: string) => void,
+    handleCloseOtherTabs: (paneId: string, keepFileId: string) => void,
+    handleCloseAllTabs: (paneId: string) => void,
+    handleSplitTabRight: (paneId: string, fileId: string) => void,
+    handleSplitTabDown: (paneId: string, fileId: string) => void,
+    setHighlightedIndex: (index: number | null) => void,
+    addLayer: (type: any, config?: any) => void,
+    handleToggleBookmark: (lineIndex: number) => void,
+    handleUpdateBookmarkComment: (lineIndex: number, comment: string) => void,
+    setCanvasSelectedText: (text: string) => void,
+    setAiPanelInitialContent: (text: string) => void,
+    setActiveView: (view: any) => void,
+    clearNewContent: () => void,
+    setScrollToIndex: (index: number | null) => void,
+    activeFile: { lineCount?: number } | null,
+    removePane: (paneId: string) => void,
+    setPanes: React.Dispatch<React.SetStateAction<Pane[]>>,
+    handleOpen: () => void
+): React.ReactNode {
+    return panes.map((pane, index) => {
+        const isLastPane = index === panes.length - 1;
+        
+        if (pane.children && pane.direction) {
+            return (
+                <React.Fragment key={pane.id}>
+                    <Group orientation={pane.direction}>
+                        {renderPaneTree(
+                            pane.children,
+                            files,
+                            activePaneId,
+                            isFindVisible,
+                            activeView,
+                            searchQuery,
+                            searchConfig,
+                            scrollToIndex,
+                            highlightedIndex,
+                            indexingFileIds,
+                            pendingCliFiles,
+                            bridgedUpdateTrigger,
+                            settings,
+                            resolvedTheme,
+                            hasNewContent,
+                            setActivePaneId,
+                            handleTabClick,
+                            handleTabClose,
+                            handleTabsReorder,
+                            handleCloseTab,
+                            handleCloseOtherTabs,
+                            handleCloseAllTabs,
+                            handleSplitTabRight,
+                            handleSplitTabDown,
+                            setHighlightedIndex,
+                            addLayer,
+                            handleToggleBookmark,
+                            handleUpdateBookmarkComment,
+                            setCanvasSelectedText,
+                            setAiPanelInitialContent,
+                            setActiveView,
+                            clearNewContent,
+                            setScrollToIndex,
+                            activeFile,
+                            removePane,
+                            setPanes,
+                            handleOpen
+                        )}
+                    </Group>
+                    {!isLastPane && <Separator className="bg-slate-300 dark:bg-slate-600" />}
+                </React.Fragment>
+            );
+        }
+        
+        const paneFileId = pane.activeFileId;
+        const paneFile = files.find(f => f.id === paneFileId);
+        const isPaneActive = activePaneId === pane.id;
+        const allPanes = flattenPanes(panes);
+        
+        return (
+            <React.Fragment key={pane.id}>
+                <Panel id={pane.id} minSize={20}>
+                    <LogViewerPane
+                        pane={pane}
+                        paneFile={paneFile}
+                        files={files}
+                        isPaneActive={isPaneActive}
+                        isFindVisible={isFindVisible}
+                        activeView={activeView}
+                        searchQuery={searchQuery}
+                        searchConfig={searchConfig}
+                        scrollToIndex={isPaneActive ? scrollToIndex : null}
+                        highlightedIndex={isPaneActive ? highlightedIndex : null}
+                        indexingFileIds={indexingFileIds}
+                        pendingCliFiles={pendingCliFiles}
+                        bridgedUpdateTrigger={bridgedUpdateTrigger}
+                        settings={settings}
+                        resolvedTheme={resolvedTheme}
+                        hasNewContent={hasNewContent}
+                        canClose={allPanes.length > 1}
+                        onTabClick={(fileId) => {
+                            if (!isPaneActive) setActivePaneId(pane.id);
+                            handleTabClick(pane.id, fileId);
+                        }}
+                        onTabClose={(_paneId, fileId) => {
+                            handleTabClose(pane.id, fileId);
+                        }}
+                        onTabsReorder={(paneId, fromIndex, toIndex) => handleTabsReorder(paneId, fromIndex, toIndex)}
+                        onCloseTab={handleCloseTab}
+                        onCloseOtherTabs={(keepFileId: string) => handleCloseOtherTabs(pane.id, keepFileId)}
+                        onCloseAllTabs={() => handleCloseAllTabs(pane.id)}
+                        onSplitTabRight={(fileId: string) => handleSplitTabRight(pane.id, fileId)}
+                        onSplitTabDown={(fileId: string) => handleSplitTabDown(pane.id, fileId)}
+                        onLineClick={(idx) => {
+                            if (!isPaneActive) setActivePaneId(pane.id);
+                            setHighlightedIndex(idx);
+                        }}
+                        onAddLayer={addLayer}
+                        onToggleBookmark={handleToggleBookmark}
+                        onUpdateBookmarkComment={handleUpdateBookmarkComment}
+                        onSelectedTextChange={setCanvasSelectedText}
+                        onSendToAI={(text) => { setAiPanelInitialContent(text); setActiveView('ai'); }}
+                        onScrollToNewContent={() => {
+                            clearNewContent();
+                            if (activeFile?.lineCount) {
+                                setScrollToIndex(activeFile.lineCount - 1);
+                            }
+                        }}
+                        onPaneClose={() => {
+                            removePane(pane.id);
+                        }}
+                        onPaneDragEnd={(fileId, position, sourcePaneId) => {
+                            const file = files.find(f => f.id === fileId);
+                            if (position && fileId && sourcePaneId) {
+                                const newPaneId = `pane-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+                                setPanes(prev => {
+                                    return handleDragSplit(prev, sourcePaneId, pane.id, fileId, newPaneId, position);
+                                });
+                                setActivePaneId(newPaneId);
+                            }
+                        }}
+                        onPaneClick={() => setActivePaneId(pane.id)}
+                        onOpen={handleOpen}
+                    />
+                </Panel>
+                {!isLastPane && <Separator className="bg-slate-300 dark:bg-slate-600" />}
+            </React.Fragment>
+        );
+    });
 }
 
 interface MainContentProps {
-  activeView: string;
-  isFindVisible: boolean;
-  isGoToLineVisible: boolean;
-  searchQuery: string;
-  searchConfig: { regex: boolean; caseSensitive: boolean };
-  searchMatchCount: number;
-  currentMatchNumber: number;
-  activeFile: { lineCount?: number } | null;
-  activeFileId: string | null;
-  processedCache: any;
-  setSearchQuery: (query: string) => void;
-  setSearchConfig: (config: any) => void;
-  findNextSearchMatchWithJump: (direction: 'next' | 'prev') => void;
-  handleJumpToLine: (line: number, total: number) => void;
-  setIsFindVisible: (visible: boolean) => void;
-  setIsGoToLineVisible: (visible: boolean) => void;
-  clearSearch: () => void;
-  setProcessedCache: any;
-  panes: Array<{ id: string; fileId: string | null }>;
-  files: FileData[];
-  activePaneId: string;
-  scrollToIndex: number | null;
-  highlightedIndex: number | null;
-  setHighlightedIndex: (index: number | null) => void;
-  indexingFileIds: Set<string>;
-  pendingCliFiles: number;
-  bridgedUpdateTrigger: number;
-  settings: any;
-  resolvedTheme: any;
-  hasNewContent: boolean;
-  setActivePaneId: (id: string) => void;
-  addLayer: (type: any, config?: any) => void;
-  handleToggleBookmark: (lineIndex: number) => void;
-  handleUpdateBookmarkComment: (lineIndex: number, comment: string) => void;
-  setCanvasSelectedText: (text: string) => void;
-  setAiPanelInitialContent: (text: string) => void;
-  setActiveView: (view: any) => void;
-  clearNewContent: () => void;
-  setScrollToIndex: any;
-  removePane: (paneId: string) => void;
-  handleOpen: () => void;
+    activeView: string;
+    isFindVisible: boolean;
+    isGoToLineVisible: boolean;
+    searchQuery: string;
+    searchConfig: { regex: boolean; caseSensitive: boolean };
+    searchMatchCount: number;
+    currentMatchNumber: number;
+    activeFile: { lineCount?: number } | null;
+    activeFileId: string | null;
+    processedCache: any;
+    setSearchQuery: (query: string) => void;
+    setSearchConfig: (config: any) => void;
+    findNextSearchMatchWithJump: (direction: 'next' | 'prev') => void;
+    handleJumpToLine: (line: number, total: number) => void;
+    setIsFindVisible: (visible: boolean) => void;
+    setIsGoToLineVisible: (visible: boolean) => void;
+    clearSearch: () => void;
+    setProcessedCache: any;
+    panes: Pane[];
+    setPanes: React.Dispatch<React.SetStateAction<Pane[]>>;
+    files: FileData[];
+    activePaneId: string;
+    scrollToIndex: number | null;
+    highlightedIndex: number | null;
+    setHighlightedIndex: (index: number | null) => void;
+    indexingFileIds: Set<string>;
+    pendingCliFiles: number;
+    bridgedUpdateTrigger: number;
+    settings: any;
+    resolvedTheme: any;
+    hasNewContent: boolean;
+    setActivePaneId: (id: string) => void;
+    addLayer: (type: any, config?: any) => void;
+    handleToggleBookmark: (lineIndex: number) => void;
+    handleUpdateBookmarkComment: (lineIndex: number, comment: string) => void;
+    setCanvasSelectedText: (text: string) => void;
+    setAiPanelInitialContent: (text: string) => void;
+    setActiveView: (view: any) => void;
+    clearNewContent: () => void;
+    setScrollToIndex: (index: number | null) => void;
+    removePane: (paneId: string) => void;
+    splitPane: (sourcePaneId: string, fileId?: string, position?: 'left' | 'right' | 'top' | 'bottom') => void;
+    handleOpen: () => void;
+    onCloseTab?: (paneId: string, fileId: string) => void;
+    onCloseOtherTabs?: (paneId: string, keepFileId: string) => void;
+    onCloseAllTabs?: (paneId: string) => void;
+    onSplitTabRight?: (paneId: string, fileId: string) => void;
+    onSplitTabDown?: (paneId: string, fileId: string) => void;
 }
 
 export const MainContent: React.FC<MainContentProps> = ({
-  activeView,
-  isFindVisible,
-  isGoToLineVisible,
-  searchQuery,
-  searchConfig,
-  searchMatchCount,
-  currentMatchNumber,
-  activeFile,
-  activeFileId,
-  processedCache,
-  setSearchQuery,
-  setSearchConfig,
-  findNextSearchMatchWithJump,
-  handleJumpToLine,
-  setIsFindVisible,
-  setIsGoToLineVisible,
-  clearSearch,
-  setProcessedCache,
-  panes,
-  files,
-  activePaneId,
-  scrollToIndex,
-  highlightedIndex,
-  setHighlightedIndex,
-  indexingFileIds,
-  pendingCliFiles,
-  bridgedUpdateTrigger,
-  settings,
-  resolvedTheme,
-  hasNewContent,
-  setActivePaneId,
-  addLayer,
-  handleToggleBookmark,
-  handleUpdateBookmarkComment,
-  setCanvasSelectedText,
-  setAiPanelInitialContent,
-  setActiveView,
-  clearNewContent,
-  setScrollToIndex,
-  removePane,
-  handleOpen
+    activeView,
+    isFindVisible,
+    isGoToLineVisible,
+    searchQuery,
+    searchConfig,
+    searchMatchCount,
+    currentMatchNumber,
+    activeFile,
+    activeFileId,
+    processedCache,
+    setSearchQuery,
+    setSearchConfig,
+    findNextSearchMatchWithJump,
+    handleJumpToLine,
+    setIsFindVisible,
+    setIsGoToLineVisible,
+    clearSearch,
+    setProcessedCache,
+    panes,
+    setPanes,
+    files,
+    activePaneId,
+    scrollToIndex,
+    highlightedIndex,
+    setHighlightedIndex,
+    indexingFileIds,
+    pendingCliFiles,
+    bridgedUpdateTrigger,
+    settings,
+    resolvedTheme,
+    hasNewContent,
+    setActivePaneId,
+    addLayer,
+    handleToggleBookmark,
+    handleUpdateBookmarkComment,
+    setCanvasSelectedText,
+    setAiPanelInitialContent,
+    setActiveView,
+    clearNewContent,
+    setScrollToIndex,
+    removePane,
+    splitPane,
+    handleOpen,
+    onCloseTab,
+    onCloseOtherTabs,
+    onCloseAllTabs,
+    onSplitTabRight,
+    onSplitTabDown
 }) => {
-  return (
-    <main
-      role="main"
-      aria-label="Main content"
-      className="flex-1 flex flex-col min-w-0 min-h-0 bg-theme-base relative select-text overflow-hidden"
-    >
-      {activeView === 'help' ? (
-        <HelpPanel />
-      ) : (
-        <>
-          <FloatingWidgets
-            isFindVisible={isFindVisible}
-            isGoToLineVisible={isGoToLineVisible}
-            searchQuery={searchQuery}
-            searchConfig={searchConfig}
-            searchMatchCount={searchMatchCount}
-            currentMatchNumber={currentMatchNumber}
-            totalLines={activeFile?.lineCount || 0}
-            activeFileId={activeFileId}
-            processedCache={processedCache}
-            onQueryChange={setSearchQuery}
-            onConfigChange={setSearchConfig}
-            onNavigate={findNextSearchMatchWithJump}
-            onGoToLine={(lineNum) => {
-              handleJumpToLine(lineNum - 1, activeFile?.lineCount || 0);
-              setIsGoToLineVisible(false);
-            }}
-            onCloseFind={() => setIsFindVisible(false)}
-            onCloseGoToLine={() => setIsGoToLineVisible(false)}
-            clearSearch={clearSearch}
-            setProcessedCache={setProcessedCache}
-          />
+    const handleTabClick = (paneId: string, fileId: string) => {
+        setPanes(prev => {
+            return updatePaneInTree(prev, paneId, (p) => {
+                const openFileIds = p.openFileIds?.includes(fileId)
+                    ? p.openFileIds
+                    : [...(p.openFileIds || []), fileId];
+                return { ...p, openFileIds, activeFileId: fileId };
+            });
+        });
+    };
 
-          <Allotment className="flex-1" separator={false}>
-            {panes.map((pane) => {
-              const paneFileId = pane.fileId;
-              const paneFile = files.find(f => f.id === paneFileId);
-              const isPaneActive = activePaneId === pane.id;
+    const handleTabClose = (paneId: string, fileId: string) => {
+        setPanes(prev => {
+            const pane = findPaneRecursive(prev, paneId);
+            if (!pane || !pane.openFileIds?.includes(fileId)) return prev;
+            
+            const openFileIds = pane.openFileIds.filter(id => id !== fileId);
+            const flattened = flattenPanes(prev);
+            
+            if (openFileIds.length === 0) {
+                if (flattened.length > 1) {
+                    return removePaneFromTree(prev, paneId);
+                }
+                return updatePaneInTree(prev, paneId, (p) => ({ ...p, openFileIds: [], activeFileId: null }));
+            }
+            
+            const newActiveId = pane.activeFileId === fileId 
+                ? openFileIds[openFileIds.length - 1]
+                : pane.activeFileId;
+            
+            return updatePaneInTree(prev, paneId, (p) => ({ ...p, openFileIds, activeFileId: newActiveId }));
+        });
+    };
 
-              return (
-                <Allotment.Pane key={pane.id} minSize={200}>
-                  <LogViewerPane
-                    pane={pane}
-                    paneFile={paneFile}
-                    isPaneActive={isPaneActive}
-                    isFindVisible={isFindVisible}
-                    activeView={activeView}
-                    searchQuery={searchQuery}
-                    searchConfig={searchConfig}
-                    scrollToIndex={isPaneActive ? scrollToIndex : null}
-                    highlightedIndex={isPaneActive ? highlightedIndex : null}
-                    indexingFileIds={indexingFileIds}
-                    pendingCliFiles={pendingCliFiles}
-                    bridgedUpdateTrigger={bridgedUpdateTrigger}
-                    settings={settings}
-                    resolvedTheme={resolvedTheme}
-                    hasNewContent={hasNewContent}
-                    canClose={panes.length > 1}
-                    onLineClick={(idx) => {
-                      if (!isPaneActive) setActivePaneId(pane.id);
-                      setHighlightedIndex(idx);
-                    }}
-                    onAddLayer={addLayer}
-                    onToggleBookmark={handleToggleBookmark}
-                    onUpdateBookmarkComment={handleUpdateBookmarkComment}
-                    onSelectedTextChange={setCanvasSelectedText}
-                    onSendToAI={(text) => { setAiPanelInitialContent(text); setActiveView('ai'); }}
-                    onScrollToNewContent={() => {
-                      clearNewContent();
-                      if (activeFile?.lineCount) {
-                        setScrollToIndex(activeFile.lineCount - 1);
-                      }
-                    }}
-                    onPaneClose={() => removePane(pane.id)}
-                    onPaneClick={() => setActivePaneId(pane.id)}
-                    onOpen={handleOpen}
-                  />
-                </Allotment.Pane>
-              );
-            })}
-          </Allotment>
-        </>
-      )}
-    </main>
-  );
+    const handleTabsReorder = (paneId: string, fromIndex: number, toIndex: number) => {
+        setPanes(prev => updatePaneInTree(prev, paneId, (p) => {
+            const newOpenFileIds = [...(p.openFileIds || [])];
+            const [removed] = newOpenFileIds.splice(fromIndex, 1);
+            newOpenFileIds.splice(toIndex, 0, removed);
+            return { ...p, openFileIds: newOpenFileIds };
+        }));
+    };
+
+    const handleCloseTab = (paneId: string, fileId: string) => {
+        if (onCloseTab) {
+            onCloseTab(paneId, fileId);
+        } else {
+            handleTabClose(paneId, fileId);
+        }
+    };
+
+    const handleCloseOtherTabs = (paneId: string, keepFileId: string) => {
+        if (onCloseOtherTabs) {
+            onCloseOtherTabs(paneId, keepFileId);
+        } else {
+            setPanes(prev => updatePaneInTree(prev, paneId, (p) => ({ ...p, openFileIds: [keepFileId], activeFileId: keepFileId })));
+        }
+    };
+
+    const handleCloseAllTabs = (paneId: string) => {
+        if (onCloseAllTabs) {
+            onCloseAllTabs(paneId);
+        } else {
+            setPanes(prev => updatePaneInTree(prev, paneId, (p) => ({ ...p, openFileIds: [], activeFileId: null })));
+        }
+    };
+
+    const handleSplitTabRight = (paneId: string, fileId: string) => {
+        if (onSplitTabRight) {
+            onSplitTabRight(paneId, fileId);
+        } else {
+            splitPane(paneId, fileId, 'right');
+        }
+    };
+
+    const handleSplitTabDown = (paneId: string, fileId: string) => {
+        if (onSplitTabDown) {
+            onSplitTabDown(paneId, fileId);
+        } else {
+            splitPane(paneId, fileId, 'bottom');
+        }
+    };
+
+    return (
+        <main
+            role="main"
+            aria-label="Main content"
+            className="flex-1 flex flex-col min-w-0 min-h-0 bg-theme-base relative select-text overflow-hidden"
+        >
+            {activeView === 'help' ? (
+                <HelpPanel />
+            ) : (
+                <>
+                    <FloatingWidgets
+                        isFindVisible={isFindVisible}
+                        isGoToLineVisible={isGoToLineVisible}
+                        searchQuery={searchQuery}
+                        searchConfig={searchConfig}
+                        searchMatchCount={searchMatchCount}
+                        currentMatchNumber={currentMatchNumber}
+                        totalLines={activeFile?.lineCount || 0}
+                        activeFileId={activeFileId}
+                        processedCache={processedCache}
+                        onQueryChange={setSearchQuery}
+                        onConfigChange={setSearchConfig}
+                        onNavigate={findNextSearchMatchWithJump}
+                        onGoToLine={(lineNum) => {
+                            handleJumpToLine(lineNum - 1, activeFile?.lineCount || 0);
+                            setIsGoToLineVisible(false);
+                        }}
+                        onCloseFind={() => setIsFindVisible(false)}
+                        onCloseGoToLine={() => setIsGoToLineVisible(false)}
+                        clearSearch={clearSearch}
+                        setProcessedCache={setProcessedCache}
+                    />
+
+                    <Group className="flex-1" id="main-pane-group">
+                        {renderPaneTree(
+                            panes,
+                            files,
+                            activePaneId,
+                            isFindVisible,
+                            activeView,
+                            searchQuery,
+                            searchConfig,
+                            scrollToIndex,
+                            highlightedIndex,
+                            indexingFileIds,
+                            pendingCliFiles,
+                            bridgedUpdateTrigger,
+                            settings,
+                            resolvedTheme,
+                            hasNewContent,
+                            setActivePaneId,
+                            handleTabClick,
+                            handleTabClose,
+                            handleTabsReorder,
+                            handleCloseTab,
+                            handleCloseOtherTabs,
+                            handleCloseAllTabs,
+                            handleSplitTabRight,
+                            handleSplitTabDown,
+                            setHighlightedIndex,
+                            addLayer,
+                            handleToggleBookmark,
+                            handleUpdateBookmarkComment,
+                            setCanvasSelectedText,
+                            setAiPanelInitialContent,
+                            setActiveView,
+                            clearNewContent,
+                            setScrollToIndex,
+                            activeFile,
+                            removePane,
+                            setPanes,
+                            handleOpen
+                        )}
+                    </Group>
+                </>
+            )}
+        </main>
+    );
 };

@@ -6,6 +6,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { LogLayer } from '../types';
+import { Pane, createPane } from '../hooks/useFileManagement';
 
 export interface FileData {
     id: string;
@@ -20,11 +21,6 @@ export interface FileData {
         past: LogLayer[][];
         future: LogLayer[][];
     };
-}
-
-export interface Pane {
-    id: string;
-    fileId: string | null;
 }
 
 export interface ProcessedCache {
@@ -72,7 +68,7 @@ const FileContext = createContext<FileContextValue | null>(null);
 export function FileProvider({ children }: { children: React.ReactNode }) {
     const [files, setFiles] = useState<FileData[]>([]);
     const [activeFileId, setActiveFileId] = useState<string | null>(null);
-    const [panes, setPanes] = useState<Pane[]>([{ id: 'main', fileId: null }]);
+    const [panes, setPanes] = useState<Pane[]>([createPane('main')]);
     const [activePaneId, setActivePaneId] = useState('main');
     const [indexingFileIds, setIndexingFileIds] = useState<Set<string>>(new Set());
     const [pendingCliFiles, setPendingCliFiles] = useState(0);
@@ -89,9 +85,14 @@ export function FileProvider({ children }: { children: React.ReactNode }) {
     
     const handleFileActivate = useCallback((fileId: string) => {
         setActiveFileId(fileId);
-        setPanes(prev => prev.map(p => 
-            p.id === activePaneId ? { ...p, fileId } : p
-        ));
+        setPanes(prev => prev.map(p => {
+            if (p.id !== activePaneId) return p;
+            // Add fileId to openFileIds if not already present
+            const openFileIds = p.openFileIds.includes(fileId)
+                ? p.openFileIds
+                : [...p.openFileIds, fileId];
+            return { ...p, openFileIds, activeFileId: fileId };
+        }));
     }, [activePaneId]);
     
     const handleFileRemove = useCallback((fileId: string) => {

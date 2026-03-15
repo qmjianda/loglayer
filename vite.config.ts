@@ -19,7 +19,8 @@ export default defineConfig(({ mode }) => {
           target: 'ws://127.0.0.1:12345',
           ws: true,
         }
-      }
+      },
+      allowedHosts: ['localhost', 'frp2.ccszxc.xin'],
     },
     plugins: [react(), tailwindcss()],
     define: {

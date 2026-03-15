@@ -779,6 +779,7 @@ const AppContent: React.FC = () => {
           clearSearch={clearSearch}
           setProcessedCache={setProcessedCache}
           panes={panes}
+          setPanes={setPanes}
           files={files}
           activePaneId={activePaneId}
           scrollToIndex={scrollToIndex}
@@ -800,6 +801,7 @@ const AppContent: React.FC = () => {
           clearNewContent={clearNewContent}
           setScrollToIndex={setScrollToIndex}
           removePane={removePane}
+          splitPane={splitPane}
           handleOpen={handleOpen}
         />
       </div>

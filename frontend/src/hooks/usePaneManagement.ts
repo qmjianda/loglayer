@@ -1,11 +1,120 @@
 import React, { useCallback } from 'react';
 import { Pane, FileData } from './useFileManagement';
 
-export const MAX_PANES = 4;
+export const MAX_PANES = 99;
 
 export interface UsePaneManagementReturn {
     splitPane: (sourcePaneId: string, fileId?: string, position?: 'left' | 'right' | 'top' | 'bottom') => void;
     removePane: (paneId: string) => void;
+}
+
+function findPane(panes: Pane[], id: string): Pane | undefined {
+    for (const pane of panes) {
+        if (pane.id === id) return pane;
+        if (pane.children) {
+            const found = findPane(pane.children, id);
+            if (found) return found;
+        }
+    }
+    return undefined;
+}
+
+function flattenPanes(panes: Pane[]): Pane[] {
+    const result: Pane[] = [];
+    function flatten(items: Pane[]) {
+        for (const item of items) {
+            if (item.children) {
+                flatten(item.children);
+            } else {
+                result.push(item);
+            }
+        }
+    }
+    flatten(panes);
+    return result;
+}
+
+function removePaneFromTree(panes: Pane[], targetId: string): Pane[] {
+    const result: Pane[] = [];
+    for (const pane of panes) {
+        if (pane.id === targetId) continue;
+        if (pane.children) {
+            const newChildren = removePaneFromTree(pane.children, targetId);
+            if (newChildren.length === 0) {
+                continue;
+            } else if (newChildren.length === 1 && !newChildren[0].children) {
+                result.push(newChildren[0]);
+            } else {
+                result.push({ ...pane, children: newChildren });
+            }
+        } else {
+            result.push(pane);
+        }
+    }
+    return result;
+}
+
+function splitPaneInTree(
+    panes: Pane[], 
+    sourcePaneId: string, 
+    newPane: Pane, 
+    position: string | undefined,
+    isHorizontal: boolean
+): Pane[] {
+    const newDirection = isHorizontal ? 'horizontal' : 'vertical';
+    
+    function splitInTree(items: Pane[], parentDirection?: string): Pane[] {
+        const result: Pane[] = [];
+        let processed = false;
+        
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            
+            if (item.id === sourcePaneId) {
+                processed = true;
+                const sourcePane = item;
+                
+                if (parentDirection && parentDirection === newDirection) {
+                    if (position === 'right' || position === 'bottom') {
+                        result.push(sourcePane);
+                        result.push(newPane);
+                    } else {
+                        result.push(newPane);
+                        result.push(sourcePane);
+                    }
+                } else {
+                    const children = position === 'right' || position === 'bottom'
+                        ? [sourcePane, newPane]
+                        : [newPane, sourcePane];
+                    result.push({
+                        id: `group-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                        openFileIds: [],
+                        activeFileId: null,
+                        direction: newDirection,
+                        children
+                    });
+                }
+            } else if (item.children && item.direction) {
+                const newChildren = splitInTree(item.children, item.direction);
+                if (newChildren !== item.children) {
+                    processed = true;
+                    if (newChildren.length === 1) {
+                        result.push(newChildren[0]);
+                    } else {
+                        result.push({ ...item, children: newChildren });
+                    }
+                } else {
+                    result.push(item);
+                }
+            } else {
+                result.push(item);
+            }
+        }
+        
+        return processed ? result : items;
+    }
+    
+    return splitInTree(panes);
 }
 
 export function usePaneManagement(
@@ -22,38 +131,27 @@ export function usePaneManagement(
 
     const removePane = useCallback((paneId: string) => {
         setPanes(prev => {
-            if (prev.length <= 1) return prev;
-            const newPanes = prev.filter(p => p.id !== paneId);
-            if (paneId === activePaneId) {
-                const removedIndex = prev.findIndex(p => p.id === paneId);
-                const newActiveIndex = Math.min(removedIndex, newPanes.length - 1);
-                setTimeout(() => setActivePaneId(newPanes[newActiveIndex].id), 0);
-            }
-            return newPanes;
+            const flattened = flattenPanes(prev);
+            if (flattened.length <= 1) return prev;
+            return removePaneFromTree(prev, paneId);
         });
-    }, [activePaneId, setActivePaneId, setPanes]);
+    }, [setPanes]);
 
     const splitPane = useCallback((sourcePaneId: string, fileId?: string, position?: 'left' | 'right' | 'top' | 'bottom') => {
         const newPaneId = generatePaneId();
-        const sourcePane = panes.find(p => p.id === sourcePaneId);
-        const fileToOpen = fileId || sourcePane?.fileId || null;
-        const newPane: Pane = { id: newPaneId, fileId: fileToOpen };
+        const sourcePane = findPane(panes, sourcePaneId);
+        const fileToOpen = fileId || sourcePane?.activeFileId || null;
+        
+        const newPane: Pane = { 
+            id: newPaneId, 
+            openFileIds: fileToOpen ? [fileToOpen] : [],
+            activeFileId: fileToOpen
+        };
+        
+        const isHorizontal = position === 'left' || position === 'right';
         
         setPanes(prev => {
-            const newPanes = [...prev];
-            const sourceIndex = newPanes.findIndex(p => p.id === sourcePaneId);
-            
-            if (sourceIndex === -1) {
-                newPanes.push(newPane);
-            } else if (position === 'right' || position === 'bottom') {
-                newPanes.splice(sourceIndex + 1, 0, newPane);
-            } else if (position === 'left' || position === 'top') {
-                newPanes.splice(sourceIndex, 0, newPane);
-            } else {
-                newPanes.push(newPane);
-            }
-            
-            return newPanes;
+            return splitPaneInTree(prev, sourcePaneId, newPane, position, isHorizontal);
         });
         
         setActivePaneId(newPaneId);

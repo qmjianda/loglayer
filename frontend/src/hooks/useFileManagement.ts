@@ -27,9 +27,24 @@ export interface FileData {
 }
 
 // Pane interface for split view support
+// Can be either a leaf node (has files) or a container node (has split children)
 export interface Pane {
     id: string;
-    fileId: string | null;
+    // Leaf node properties
+    openFileIds: string[];
+    activeFileId: string | null;
+    // Container node properties (for nested splits)
+    direction?: 'horizontal' | 'vertical';
+    children?: Pane[];
+}
+
+// Helper to create a new pane with empty tabs
+export function createPane(id?: string): Pane {
+    return {
+        id: id || `pane-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        openFileIds: [],
+        activeFileId: null
+    };
 }
 
 // Processed cache per file
@@ -100,7 +115,7 @@ export function useFileManagement(): UseFileManagementReturn {
     const [files, setFiles] = useState<FileData[]>([]);
 
     // Pane state (for split view support)
-    const [panes, setPanes] = useState<Pane[]>([{ id: 'pane-1', fileId: null }]);
+    const [panes, setPanes] = useState<Pane[]>([createPane('pane-1')]);
     const [activePaneId, setActivePaneId] = useState<string>('pane-1');
 
     // Loading state - indexingFileIds controls both skeleton and indexing status
@@ -119,7 +134,7 @@ export function useFileManagement(): UseFileManagementReturn {
 
     // Derive active file from panes
     const activePane = panes.find(p => p.id === activePaneId);
-    const activeFileId = activePane?.fileId || null;
+    const activeFileId = activePane?.activeFileId || null;
     const activeFile = useMemo(() => files.find(f => f.id === activeFileId), [files, activeFileId]);
 
     // Trigger update for LogViewer
@@ -127,9 +142,22 @@ export function useFileManagement(): UseFileManagementReturn {
         setBridgedUpdateTrigger(v => v + 1);
     }, []);
 
-    // Set active file for current pane
+    // Set active file for current pane (adds to openFileIds if needed)
     const setActiveFileId = useCallback((fileId: string | null) => {
-        setPanes(prev => prev.map(p => p.id === activePaneId ? { ...p, fileId } : p));
+        setPanes(prev => prev.map(p => {
+            if (p.id !== activePaneId) return p;
+            
+            if (fileId === null) {
+                return { ...p, activeFileId: null };
+            }
+            
+            // Add fileId to openFileIds if not already present
+            const openFileIds = p.openFileIds.includes(fileId)
+                ? p.openFileIds
+                : [...p.openFileIds, fileId];
+            
+            return { ...p, openFileIds, activeFileId: fileId };
+        }));
     }, [activePaneId]);
 
     // Activate file
