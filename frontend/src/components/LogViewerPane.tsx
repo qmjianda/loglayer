@@ -15,7 +15,6 @@ interface LogViewerPaneProps {
   searchConfig: { regex: boolean; caseSensitive: boolean };
   scrollToIndex: number | null;
   highlightedIndex: number | null;
-  loadingFileIds: Set<string>;
   indexingFileIds: Set<string>;
   pendingCliFiles: number;
   bridgedUpdateTrigger: number;
@@ -45,7 +44,6 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
   searchConfig,
   scrollToIndex,
   highlightedIndex,
-  loadingFileIds,
   indexingFileIds,
   pendingCliFiles,
   bridgedUpdateTrigger,
@@ -65,7 +63,7 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
   onOpen
 }) => {
   const paneFileId = pane.fileId;
-  const isLoading = paneFileId && (loadingFileIds.has(paneFileId) || indexingFileIds.has(paneFileId));
+  const isLoading = paneFileId && indexingFileIds.has(paneFileId);
 
   return (
     <div className={`flex-1 flex flex-col min-h-0 overflow-hidden ${isPaneActive ? 'ring-1 ring-blue-500/30' : ''}`} style={{ height: '100%' }}>
@@ -89,6 +87,7 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
               searchConfig={searchConfig}
               scrollToIndex={isPaneActive ? scrollToIndex : null}
               highlightedIndex={isPaneActive ? highlightedIndex : null}
+              isIndexing={isLoading}
               onLineClick={onLineClick}
               onAddLayer={onAddLayer}
               onToggleBookmark={onToggleBookmark}

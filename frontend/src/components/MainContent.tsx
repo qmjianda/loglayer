@@ -36,7 +36,6 @@ interface MainContentProps {
   scrollToIndex: number | null;
   highlightedIndex: number | null;
   setHighlightedIndex: (index: number | null) => void;
-  loadingFileIds: Set<string>;
   indexingFileIds: Set<string>;
   pendingCliFiles: number;
   bridgedUpdateTrigger: number;
@@ -81,7 +80,6 @@ export const MainContent: React.FC<MainContentProps> = ({
   scrollToIndex,
   highlightedIndex,
   setHighlightedIndex,
-  loadingFileIds,
   indexingFileIds,
   pendingCliFiles,
   bridgedUpdateTrigger,
@@ -151,7 +149,6 @@ export const MainContent: React.FC<MainContentProps> = ({
                     searchConfig={searchConfig}
                     scrollToIndex={isPaneActive ? scrollToIndex : null}
                     highlightedIndex={isPaneActive ? highlightedIndex : null}
-                    loadingFileIds={loadingFileIds}
                     indexingFileIds={indexingFileIds}
                     pendingCliFiles={pendingCliFiles}
                     bridgedUpdateTrigger={bridgedUpdateTrigger}

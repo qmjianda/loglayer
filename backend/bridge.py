@@ -468,17 +468,16 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             else Path(session.path).name
         )
 
+        payload = {
+            "name": name,
+            "size": session.size,
+            "lineCount": line_count,
+            "partial": is_partial,
+            "sparse": is_sparse,
+        }
         self.fileLoaded.emit(
             file_id,
-            json.dumps(
-                {
-                    "name": name,
-                    "size": session.size,
-                    "lineCount": line_count,
-                    "partial": is_partial,
-                    "sparse": is_sparse,
-                }
-            ),
+            json.dumps(payload),
         )
 
     def sync_all(self, file_id: str, layers_json: str, search_json: str) -> bool:
@@ -611,8 +610,25 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         if file_id not in self._sessions:
             return
         session = self._sessions[file_id]
+        
+        # Deduplication: check if same pipeline is already running
         if "pipeline" in session.workers:
-            self._retire_worker(session.workers["pipeline"])
+            existing_worker = session.workers["pipeline"]
+            if existing_worker.isRunning():
+                # Compare layer instances
+                existing_layers = existing_worker.layers
+                layers_same = self._compare_layer_instances(existing_layers, layer_instances)
+                
+                # Compare search config
+                search_same = self._compare_search_config(existing_worker.search, session.search_config)
+                
+                if layers_same and search_same:
+                    logger.info(f"[Pipeline] Skipping duplicate pipeline request for file_id={file_id}")
+                    return
+                else:
+                    logger.info(f"[Pipeline] Cancelling existing pipeline (config changed) for file_id={file_id}")
+                    self._retire_worker(existing_worker)
+        
         if "stats" in session.workers:
             self._retire_worker(session.workers["stats"])
         if not layer_instances and not (
@@ -658,6 +674,25 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             stat_worker.start()
         else:
             self.statsFinished.emit(file_id, json.dumps({}))
+
+    def _compare_layer_instances(self, layers1, layers2):
+        if len(layers1) != len(layers2):
+            return False
+        for l1, l2 in zip(layers1, layers2):
+            type1 = getattr(l1, 'type_id', None) or getattr(l1, 'type', None)
+            type2 = getattr(l2, 'type_id', None) or getattr(l2, 'type', None)
+            if l1.id != l2.id or type1 != type2:
+                return False
+            if l1.config != l2.config:
+                return False
+        return True
+
+    def _compare_search_config(self, s1, s2):
+        if s1 is None and s2 is None:
+            return True
+        if s1 is None or s2 is None:
+            return False
+        return s1.get("query") == s2.get("query") and s1.get("regex") == s2.get("regex") and s1.get("caseSensitive") == s2.get("caseSensitive")
 
     def get_layer_registry(self) -> str:
         return json.dumps(self._registry.get_all_types())

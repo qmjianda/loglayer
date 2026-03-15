@@ -1,15 +1,29 @@
-# AGENTS.md - LogLayer AI Guide
+# LogLayer 文档索引
 
-> OpenCode 必读：完整文档 `docs/INDEX.md`
+> AI 助手必读：本文档是项目的唯一入口
 
 ---
 
-## 项目
+## 快速入口
+
+| 场景 | 文档 | 说明 |
+|:-----|:-----|:-----|
+| **新会话开始** | `AGENTS.md` (根目录) | 项目概览、命令、约束 |
+| **技术参考** | `docs/CONTEXT.md` | 技术栈、模块、API |
+| **架构地图** | `docs/PROJECT_MAP.md` | 系统架构、模块拓扑 |
+| **技术决策** | `docs/TECHNICAL_DECISIONS.md` | TD-001~ 决策记录 |
+| **命令速查** | `docs/CHEATSHEET.md` | 常用命令快速参考 |
+| **界面布局** | `docs/UI/README.md` | UI 组件文档 |
+| **图层开发** | `docs/guides/LAYER_DEV_GUIDE.md` | 图层开发指南 |
+| **部署指南** | `docs/guides/DEPLOY.md` | 打包与部署 |
+| **性能优化** | `docs/guides/optimization/` | 索引优化、性能追踪 |
+
+---
+
+## 项目概览
+
 **LogLayer** - 高性能日志分析桌面应用 (Python FastAPI + React + pywebview)
 
----
-
-## UI 布局
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
 │  LogLayer  large_test.log                                         ─ □ ✕   │
@@ -27,15 +41,10 @@
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
-左侧图标栏: 工作区│搜索│统计│AI助手│帮助│设置
-侧边栏面板: 工作区(文件树)│AI助手(聊天)│统计│搜索│帮助
-浮动面板: 设置(6选项卡)│快捷键│命令面板(Ctrl+P)
-
-**详细布局**: `docs/UI/README.md` (MAIN.md|SIDEBAR.md|MODALS.md)
-
 ---
 
-## 目录
+## 目录结构
+
 ```
 loglayer/
 ├── AGENTS.md                    # AI 入口
@@ -64,7 +73,36 @@ loglayer/
 
 ---
 
+## 核心模块
+
+### 后端
+| 文件 | 职责 |
+|:-----|:-----|
+| `backend/bridge.py` | mmap 索引、文件操作 |
+| `backend/main.py` | FastAPI、REST/WS 路由 |
+| `backend/loglayer/core.py` | Layer 基类 |
+| `backend/loglayer/builtin/*.py` | 12 种图层 |
+
+### 前端
+| 文件 | 职责 |
+|:-----|:-----|
+| `frontend/src/App.tsx` | 状态编排 |
+| `frontend/src/components/LogViewer.tsx` | Canvas 虚拟滚动 |
+| `frontend/src/hooks/*.ts` | 业务 Hooks |
+
+---
+
+## 关键模式
+
+- **虚拟滚动**: O(1) 渲染，Canvas
+- **Layer 分离**: `sync_layers()` 数据 / `sync_decorations()` 视觉
+- **平台感知**: `/api/platform`
+- **类型安全**: 禁止 `as any`
+
+---
+
 ## 命令
+
 ```bash
 npm run dev; python backend/main.py  # 开发
 pytest tests/; npx tsc --noEmit      # 测试
@@ -73,39 +111,17 @@ tools/package_offline.py            # 打包
 
 ---
 
-## 关键模式
-| 模式 | 说明 |
-|:-----|:-----|
-| 虚拟滚动 | O(1) 渲染，Canvas |
-| Layer | sync_layers/decorations 分离 |
-| 平台 | /api/platform |
-| 类型 | 禁止 as any |
+## OpenSpec 工作流
 
----
+```bash
+# 查看当前变更
+openspec list
 
-## 代码风格
-Python: 4 空格, snake_case, Pydantic BaseModel
-TypeScript: 2 空格, camelCase, 函数组件 + Hooks
+# 创建新变更
+openspec new <name>
 
----
-
-## 工作流 (OpenSpec)
+# 继续变更
+openspec continue <id>
 ```
-1. openspec new <change>   → 创建变更
-2. openspec continue       → 实施变更
-3. openspec verify         → 验证变更
-4. openspec archive        → 归档变更
-```
-
----
-
-## 文档
-| 场景 | 文档 |
-|:-----|:-----|
-| 技术栈/模块 | docs/CONTEXT.md |
-| 界面布局 | docs/UI/README.md |
-| 技术决策 | docs/TECHNICAL_DECISIONS.md |
-| 图层开发 | docs/guides/LAYER_DEV_GUIDE.md |
-| 完整索引 | docs/INDEX.md |
 
 *2026-03-14*

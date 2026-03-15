@@ -117,6 +117,9 @@ class IndexingWorker(CustomThread):
             offsets = array.array("Q", [0])
             scanned = 0
 
+            preview_bytes = min(self.size, self.FAST_PREVIEW_BYTES)
+            logger.info(f"[Indexing] Starting: file_size={self.size}, preview_bytes={preview_bytes}")
+
             # Phase 1: Quick preview (first N MB) - show content immediately
             preview_bytes = min(self.size, self.FAST_PREVIEW_BYTES)
             for m in re.finditer(b"\n", self.mmap[:preview_bytes]):
@@ -161,6 +164,7 @@ class IndexingWorker(CustomThread):
                     if scanned % 1000000 == 0:
                         progress = 10 + (scanned / max(1, self.size / 80) * 90)
                         self.progress.emit(min(100, progress))
+                        logger.info(f"[Indexing] Progress: {scanned} lines scanned")
 
             # Cleanup tail
             if len(offsets) > 1 and offsets[-1] >= self.size:
@@ -169,13 +173,13 @@ class IndexingWorker(CustomThread):
             total_time = time.time() - start_time
             speed_mbps = self.size / total_time / 1024 / 1024
             logger.info(
-                f"[Indexing] Complete: {len(offsets)} lines in {total_time:.2f}s ({speed_mbps:.1f} MB/s)"
+                f"[Indexing] Complete: scanned={scanned}, len(offsets)={len(offsets)} in {total_time:.2f}s ({speed_mbps:.1f} MB/s)"
             )
             self.finished.emit(
                 {
                     "offsets": offsets,
                     "partial": False,
-                    "lineCount": len(offsets),
+                    "lineCount": scanned,
                     "sparse": False,
                 }
             )

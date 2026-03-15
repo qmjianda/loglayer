@@ -45,7 +45,6 @@ interface FileContextValue {
     setActivePaneId: (id: string) => void;
     
     // Loading state
-    loadingFileIds: Set<string>;
     indexingFileIds: Set<string>;
     pendingCliFiles: number;
     
@@ -75,7 +74,6 @@ export function FileProvider({ children }: { children: React.ReactNode }) {
     const [activeFileId, setActiveFileId] = useState<string | null>(null);
     const [panes, setPanes] = useState<Pane[]>([{ id: 'main', fileId: null }]);
     const [activePaneId, setActivePaneId] = useState('main');
-    const [loadingFileIds] = useState<Set<string>>(new Set());
     const [indexingFileIds, setIndexingFileIds] = useState<Set<string>>(new Set());
     const [pendingCliFiles, setPendingCliFiles] = useState(0);
     const [processedCache, setProcessedCache] = useState<Record<string, ProcessedCache>>({});
@@ -143,7 +141,6 @@ export function FileProvider({ children }: { children: React.ReactNode }) {
         panes,
         activePaneId,
         setActivePaneId,
-        loadingFileIds,
         indexingFileIds,
         pendingCliFiles,
         processedCache,
@@ -158,7 +155,7 @@ export function FileProvider({ children }: { children: React.ReactNode }) {
         getFileById,
     }), [
         files, activeFileId, activeFile, panes, activePaneId,
-        loadingFileIds, indexingFileIds, pendingCliFiles,
+        indexingFileIds, pendingCliFiles,
         processedCache, bridgedUpdateTrigger, triggerUpdate,
         handleFileActivate, handleFileRemove, addNewFiles,
         markFileLoaded, getFileById

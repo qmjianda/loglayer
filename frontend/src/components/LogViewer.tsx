@@ -219,8 +219,12 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        if (entry.contentRect.width > 0) setViewportWidth(entry.contentRect.width);
-        if (entry.contentRect.height > 0) setViewportHeight(entry.contentRect.height);
+        if (entry.contentRect.width > 0) {
+          setViewportWidth(entry.contentRect.width);
+        }
+        if (entry.contentRect.height > 0) {
+          setViewportHeight(entry.contentRect.height);
+        }
       }
     });
 
@@ -689,13 +693,12 @@ export const LogViewer: React.FC<LogViewerProps> = ({
             ctx.font = '12px "JetBrains Mono"';
             ctx.fillStyle = colors.GUTTER_TEXT;
             ctx.fillText(`${totalLines.toLocaleString()} 行待处理`, centerX, centerY + 15);
+          } else if (bridgedLines.size === 0) {
+            // No data loaded at all - show initial loading message
+            ctx.fillText(`加载中... ${totalLines.toLocaleString()} 行`, centerX, centerY - 10);
           } else {
-            const linesRemaining = totalLines - endIndex;
-            if (linesRemaining > 0) {
-              ctx.fillText(`加载中... ${linesRemaining.toLocaleString()} 行`, centerX, centerY - 10);
-            } else {
-              ctx.fillText('Loading lines...', centerX, centerY);
-            }
+            // Data is loaded, don't show loading message
+            // (Lazy loading happens automatically in background)
           }
           return;
         }

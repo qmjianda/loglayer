@@ -61,7 +61,6 @@ export interface UseFileManagementReturn {
     setActivePaneId: (id: string) => void;
 
     // Loading state
-    loadingFileIds: Set<string>;
     indexingFileIds: Set<string>;
     setIndexingFileIds: React.Dispatch<React.SetStateAction<Set<string>>>;
     pendingCliFiles: number;
@@ -104,8 +103,7 @@ export function useFileManagement(): UseFileManagementReturn {
     const [panes, setPanes] = useState<Pane[]>([{ id: 'pane-1', fileId: null }]);
     const [activePaneId, setActivePaneId] = useState<string>('pane-1');
 
-    // Loading state
-    const [loadingFileIds, setLoadingFileIds] = useState<Set<string>>(new Set());
+    // Loading state - indexingFileIds controls both skeleton and indexing status
     const [indexingFileIds, setIndexingFileIds] = useState<Set<string>>(new Set());
     const [pendingCliFiles, setPendingCliFiles] = useState<number>(0);
 
@@ -148,11 +146,11 @@ export function useFileManagement(): UseFileManagementReturn {
         const isLoaded = getBridgedCount(fileId) !== undefined;
 
         // Still trigger openFile if backend is not synchronized
-        if (!isLoaded && !loadingFileIds.has(fileId)) {
-            setLoadingFileIds(prev => new Set(prev).add(fileId));
+        if (!isLoaded && !indexingFileIds.has(fileId)) {
+            setIndexingFileIds(prev => new Set(prev).add(fileId));
             openFile(fileId, file.path);
         }
-    }, [activeFileId, files, setActiveFileId, loadingFileIds]);
+    }, [activeFileId, files, setActiveFileId, indexingFileIds]);
 
     // Remove file
     const handleFileRemove = useCallback((fileId: string) => {
@@ -166,7 +164,7 @@ export function useFileManagement(): UseFileManagementReturn {
             return next;
         });
 
-        setLoadingFileIds(prev => removeFromSet(prev, fileId));
+        setIndexingFileIds(prev => removeFromSet(prev, fileId));
 
         // 3. Update file list and active pane
         setFiles(prev => {
@@ -202,7 +200,7 @@ export function useFileManagement(): UseFileManagementReturn {
         if (autoActivateFirst) {
             const first = newFiles[0];
             setActiveFileId(first.id);
-            setLoadingFileIds(prev => new Set(prev).add(first.id));
+            setIndexingFileIds(prev => new Set(prev).add(first.id));
             openFile(first.id, first.path!);
         }
     }, [setActiveFileId]);
@@ -290,7 +288,7 @@ export function useFileManagement(): UseFileManagementReturn {
 
     // Mark file as loaded (called from bridge callbacks)
     const markFileLoaded = useCallback((fileId: string) => {
-        setLoadingFileIds(prev => removeFromSet(prev, fileId));
+        setIndexingFileIds(prev => removeFromSet(prev, fileId));
     }, []);
 
     return {
@@ -302,7 +300,6 @@ export function useFileManagement(): UseFileManagementReturn {
         setPanes,
         activePaneId,
         setActivePaneId,
-        loadingFileIds,
         indexingFileIds,
         setIndexingFileIds,
         pendingCliFiles,

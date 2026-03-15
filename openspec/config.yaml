@@ -1,20 +1,32 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+# Project context
+# Shown to AI when creating artifacts
+context: |
+  ## LogLayer - High-Performance Log Analysis Desktop App
+  
+  ### Tech Stack
+  - Backend: Python 3.10+, FastAPI, uvicorn, WebSockets, mmap, ripgrep
+  - Frontend: React 19, TypeScript, Vite, Tailwind CSS 4, Canvas
+  - Desktop: pywebview (cross-platform native window)
+  
+  ### Architecture
+  - mmap + multi-threaded indexing for 1GB+ logs
+  - Virtual scrolling: O(1) rendering, 60FPS at millions of lines
+  - Layer system: real-time FILTER/HIGHLIGHT layers
+  
+  ### Code Style
+  - Python: 4-space indent, snake_case, Pydantic BaseModel
+  - TypeScript: 2-space indent, camelCase, functional components + Hooks
+  - No `as any`, no `@ts-ignore`, no empty catch blocks
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+# Per-artifact rules
+rules:
+  proposal:
+    - Keep proposals under 800 words
+    - Always include a "Non-goals" section
+    - Include user-facing impact summary
+  tasks:
+    - Break tasks into chunks of max 2 hours
+    - Verify with lsp_diagnostics after each edit
+    - Run tests before marking complete
