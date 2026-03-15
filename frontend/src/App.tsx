@@ -83,7 +83,6 @@ const AppContent: React.FC = () => {
     setPanes,
     activePaneId,
     setActivePaneId,
-    loadingFileIds,
     indexingFileIds,
     setIndexingFileIds,
     pendingCliFiles,
@@ -356,14 +355,10 @@ const AppContent: React.FC = () => {
   });
 
   const findNextSearchMatchWithJump = useCallback(async (direction: 'next' | 'prev', overrideMatchCount?: number) => {
-    console.log('[DEBUG findNextSearchMatchWithJump] Called:', direction, 'overrideMatchCount:', overrideMatchCount);
     const matchCount = overrideMatchCount ?? processedCache[activeFileId ?? '']?.searchMatchCount ?? 0;
-    console.log('[DEBUG] matchCount from cache:', matchCount, 'activeFileId:', activeFileId);
     const effectiveMatchCount = matchCount > 0 ? matchCount : null;
     const startIndex = highlightedIndex !== null ? highlightedIndex : null;
-    console.log('[DEBUG] startIndex:', startIndex, 'effectiveMatchCount:', effectiveMatchCount);
     const nextIdx = await findNextSearchMatch(direction, startIndex, effectiveMatchCount);
-    console.log('[DEBUG] nextIdx returned:', nextIdx);
     if (nextIdx !== -1) {
       handleJumpToLine(nextIdx, activeFile?.lineCount || 0);
     }
@@ -386,7 +381,6 @@ const AppContent: React.FC = () => {
         // If the file was removed from the list before this signal arrived, ignore it.
         // Special case: CLI files might not be in the list yet.
         if (existingIndex === -1 && !fileId.startsWith('cli-')) {
-          console.log(`[App] Ignoring onFileLoaded for closed file: ${fileId}`);
           return prev;
         }
 
@@ -421,7 +415,6 @@ const AppContent: React.FC = () => {
         }
       });
 
-      // Only clear loading state when NOT a partial load
       if (!info.partial) {
         triggerUpdate();
         setIsProcessing(false);
@@ -429,9 +422,11 @@ const AppContent: React.FC = () => {
         markFileLoaded(fileId);
         setIndexingFileIds(prev => removeFromSet(prev, fileId));
       } else {
-        // Partial load: keep indexing in progress, but allow viewing
         triggerUpdate();
-        setLoadingProgress(10);  // Show some progress
+        setLoadingProgress(10);
+        markFileLoaded(fileId);
+        // Keep file in indexingFileIds during preview - only remove when fully loaded
+        setIsProcessing(true);
       }
     },
 
@@ -789,7 +784,6 @@ const AppContent: React.FC = () => {
           scrollToIndex={scrollToIndex}
           highlightedIndex={highlightedIndex}
           setHighlightedIndex={setHighlightedIndex}
-          loadingFileIds={loadingFileIds}
           indexingFileIds={indexingFileIds}
           pendingCliFiles={pendingCliFiles}
           bridgedUpdateTrigger={bridgedUpdateTrigger}
@@ -814,7 +808,7 @@ const AppContent: React.FC = () => {
         lines={activeFile?.lineCount || 0}
         totalLines={activeFile?.rawCount || 0}
         size={fileSize}
-        isProcessing={isProcessing || (activeFileId ? loadingFileIds.has(activeFileId) : false)}
+        isProcessing={isProcessing || (activeFileId ? indexingFileIds.has(activeFileId) : false)}
         isLayerProcessing={isLayerProcessing}
         operationStatus={operationStatus}
         searchMatchCount={searchMatchCount}
@@ -854,10 +848,10 @@ const AppContent: React.FC = () => {
         isStorageSettingsOpen={isStorageSettingsOpen}
         onCloseStorageSettings={() => setIsStorageSettingsOpen(false)}
         storageDefaultPath={''}
-        onStoragePathChange={(path) => console.log('Storage path:', path)}
+        onStoragePathChange={() => {}}
         isWorkerConfigOpen={isWorkerConfigOpen}
         onCloseWorkerConfig={() => setIsWorkerConfigOpen(false)}
-        onWorkerConfigChange={(maxWorkers) => console.log('Worker config:', maxWorkers)}
+        onWorkerConfigChange={() => {}}
         isPluginManagerOpen={isPluginManagerOpen}
         onClosePluginManager={() => setIsPluginManagerOpen(false)}
       />

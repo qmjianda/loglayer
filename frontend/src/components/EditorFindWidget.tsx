@@ -257,7 +257,6 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
       <div className="flex items-center shrink-0 select-none">
         <button
           onClick={() => {
-            console.log('[EditorFindWidget] Prev button clicked, calling onNavigate');
             onNavigate?.('prev');
           }}
           className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-theme-input rounded transition-colors"
@@ -267,7 +266,6 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
         </button>
         <button
           onClick={() => {
-            console.log('[EditorFindWidget] Next button clicked, calling onNavigate');
             onNavigate?.('next');
           }}
           className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-theme-input rounded transition-colors"

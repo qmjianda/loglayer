@@ -90,7 +90,6 @@ export function useWorkspaceConfig({
         const success = await saveWorkspaceConfig(configPath, config);
         if (success) {
             lastSavedHashRef.current = currentHash;
-            console.log(`[WorkspaceConfig] Saved session: ${files.length} files`);
         }
         return success;
     }, [getConfigPath, files, activeFilePath, getSessionHash]);
@@ -107,8 +106,6 @@ export function useWorkspaceConfig({
 
             // Handle new schema (files list)
             if (config.files && config.files.length > 0) {
-                console.log(`[WorkspaceConfig] Restoring session: ${config.files.length} files`);
-
                 const newFiles: FileData[] = config.files.map((cf, i) => ({
                     id: `bridged-restored-${Date.now()}-${i}`,
                     name: cf.name,
@@ -143,7 +140,6 @@ export function useWorkspaceConfig({
                 // Actually this case assumes files are already open, which contradicts the
                 // requirement to "restore opened files". 
                 // We'll ignore legacy layer-only restoration for empty sessions.
-                console.log('[WorkspaceConfig] Legacy config found, skipping session restore (no files list)');
             }
             return false;
         } finally {
@@ -160,7 +156,6 @@ export function useWorkspaceConfig({
                     // No config found, clear current session
                     setFiles([]);
                     setActiveFileId(null);
-                    console.log('[WorkspaceConfig] No config found for new workspace, cleared session');
                 }
             });
         }

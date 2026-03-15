@@ -10,7 +10,6 @@ export function useLayerRegistry() {
     const refresh = async () => {
         try {
             const json = await getLayerRegistry();
-            console.log("[useLayerRegistry] Received registry JSON:", json);
             const data: LayerRegistryEntry[] = JSON.parse(json);
             const map: Record<string, LayerRegistryEntry> = {};
             data.forEach(entry => {

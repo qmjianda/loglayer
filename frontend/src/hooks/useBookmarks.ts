@@ -37,7 +37,6 @@ export const useBookmarks = (activeFileId: string | null) => {
             const indices = Object.keys(b).map(Number);
             if (indices.length > 0) {
                 const lines = await getLinesByIndices(activeFileId, indices.slice(0, 50));
-                console.debug('[useBookmarks] Preview fetch:', { indices, linesReturned: lines?.length, lines });
                 const newPreviews: Record<number, string> = {};
                 if (Array.isArray(lines)) {
                     lines.forEach(l => {
