@@ -119,7 +119,6 @@ export const TabBar: React.FC<TabBarProps> = ({
                                 onClick={() => onTabClick(file.id)}
                                 onClose={(e) => {
                                     e.stopPropagation();
-                                    console.log(`[TabBar] onTabClose: paneId=${paneId}, file.id=${file.id}, file.name=${file.name}`);
                                     onTabClose(paneId, file.id);
                                 }}
                                 onDragStart={(e) => handleItemDragStart(file.id, e)}
@@ -128,10 +127,9 @@ export const TabBar: React.FC<TabBarProps> = ({
                                 isLast={index === openFiles.length - 1}
                             />
                         }
-                        onClose={() => {
-                            console.log(`[TabBar] onCloseTab: paneId=${paneId}, file.id=${file.id}, file.name=${file.name}`);
-                            onCloseTab?.(paneId, file.id);
-                        }}
+onClose={() => {
+                             onCloseTab?.(paneId, file.id);
+                         }}
                         onCloseOthers={() => onCloseOtherTabs?.(file.id)}
                         onCloseAll={() => onCloseAllTabs?.()}
                         onSplitRight={() => onSplitTabRight?.(file.id)}

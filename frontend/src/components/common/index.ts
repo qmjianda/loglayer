@@ -8,8 +8,5 @@ export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
 export { Input } from './Input';
 export type { InputProps } from './Input';
 
-export { ToastContainer, showToast, dismissToast, toast } from './Toast';
-export type { ToastOptions, ToastType } from './Toast';
-
 export { Icon } from './Icon';
 export type { IconProps, IconName } from './Icon';

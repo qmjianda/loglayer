@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException
-from typing import Optional
 import traceback
 from .config import (
     ChatRequest,

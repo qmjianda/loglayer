@@ -5,7 +5,7 @@ from loglayer.ui import SearchInput, StrInput
 
 class ReplaceLayer(TransformLayer):
     """替换图层：使用正则表达式替换内容"""
-    type_id = "TRANSFORM"
+    type_id = "REPLACE"
     display_name = "替换图层"
     description = "使用正则表达式替换内容"
     icon = "transform"

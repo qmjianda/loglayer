@@ -16,7 +16,6 @@ class RangeLayer(FilterLayer):
 
     def __init__(self, config=None):
         super().__init__(config)
-        self.current_count = 0
         # Ensure values are integers/defaults
         try:
             self.start_line = int(self.config.get("start", 1))
@@ -28,9 +27,7 @@ class RangeLayer(FilterLayer):
         except:
             self.end_line = 100
 
-    def reset(self):
-        self.current_count = 0
-
     def filter_line(self, content: str, index: int = -1) -> bool:
-        self.current_count += 1
-        return self.start_line <= self.current_count <= self.end_line
+        # Use provided index (1-based for user input), fallback to counting
+        line_num = index + 1 if index >= 0 else 1
+        return self.start_line <= line_num <= self.end_line

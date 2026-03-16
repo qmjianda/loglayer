@@ -18,16 +18,13 @@ if sys.platform == "win32":
     except (AttributeError, OSError):
         pass
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Body, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Body
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
 from contextlib import asynccontextmanager
 
 # Import refactored bridge
-from bridge import FileBridge, get_log_files_recursive
+from bridge import FileBridge
 from ai.endpoints import router as ai_router
 
 # Global bridge instance
@@ -78,13 +75,7 @@ app.add_middleware(
 app.include_router(ai_router)
 
 # Import WebSocket manager
-from websocket_manager import manager, ConnectionManager
-
-# Import and include API routes
-from api_routes import create_api_router
-
-app.include_router(create_api_router(bridge))
-
+from websocket_manager import manager
 
 # Setup Bridge Signals to WebSocket
 def broadcast_signal(signal_name, *args):

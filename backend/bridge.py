@@ -6,14 +6,11 @@ import time
 import re
 import array
 import threading
-import traceback
-import platform
 import logging
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Any
+from typing import Dict, List, Optional, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from PyQt6.QtCore import QObject, pyqtSignal, QThread
 from loglayer.storage import StorageRegistry
 from loglayer.registry import LayerRegistry
 from loglayer.core import LayerStage, ProcessedLine, RowStyle
