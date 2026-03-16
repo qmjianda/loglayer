@@ -121,17 +121,7 @@ export function useWorkspaceConfig({
 
                 setFiles(newFiles);
 
-                // Restore active file
-                if (config.activeFilePath) {
-                    const found = newFiles.find(f => f.path === config.activeFilePath);
-                    if (found) {
-                        setTimeout(() => setActiveFileId(found.id), 100);
-                    }
-                } else if (newFiles.length > 0) {
-                    setTimeout(() => setActiveFileId(newFiles[0].id), 100);
-                }
-
-                lastSavedHashRef.current = getSessionHash(newFiles, config.activeFilePath);
+                lastSavedHashRef.current = getSessionHash(newFiles, null);
                 return true;
             }
             // Handle legacy/fallback (global layers) - user for upgrading from v1
