@@ -60,8 +60,7 @@ import { useFileWatch } from './hooks/useFileWatch';
 import { usePaneManagement, MAX_PANES } from './hooks/usePaneManagement';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { PaneHeader } from './components/common/PaneHeader';
-import { Allotment } from 'allotment';
-import 'allotment/dist/style.css';
+import './styles/resizable-panels.css';
 
 
 const AppContent: React.FC = () => {

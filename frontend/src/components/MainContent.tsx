@@ -1,5 +1,5 @@
 import React from 'react';
-import { Group, Panel, Separator } from 'react-resizable-panels';
+import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { HelpPanel } from './HelpPanel';
 import { FloatingWidgets } from './FloatingWidgets';
 import { LogViewerPane } from './LogViewerPane';
@@ -431,6 +431,11 @@ export const MainContent: React.FC<MainContentProps> = ({
     onSplitTabRight,
     onSplitTabDown
 }) => {
+    const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+        id: 'main-pane-group',
+        storage: localStorage
+    });
+
     const handleTabClick = (paneId: string, fileId: string) => {
         setPanes(prev => {
             return updatePaneInTree(prev, paneId, (p) => {
@@ -547,7 +552,12 @@ export const MainContent: React.FC<MainContentProps> = ({
                         setProcessedCache={setProcessedCache}
                     />
 
-                    <Group className="flex-1" id="main-pane-group">
+                    <Group 
+                        className="flex-1" 
+                        id="main-pane-group"
+                        defaultLayout={defaultLayout}
+                        onLayoutChanged={onLayoutChanged}
+                    >
                         {renderPaneTree(
                             panes,
                             files,

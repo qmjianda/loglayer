@@ -1,0 +1,122 @@
+/**
+ * react-resizable-panels 样式
+ * 
+ * 为 react-resizable-panels 组件提供自定义样式
+ * 支持深色/浅色主题
+ */
+
+/* 基础分隔符样式 */
+[data-resize-handle] {
+  position: relative;
+  background: var(--border-subtle, #e2e8f0);
+  transition: background 0.2s ease;
+}
+
+[data-resize-handle]:hover {
+  background: var(--primary, #3b82f6);
+}
+
+[data-resize-handle][data-resize-handle-active] {
+  background: var(--primary, #3b82f6);
+}
+
+/* 水平分隔符 (垂直分割) */
+[data-resize-handle][data-panel-group-direction="horizontal"] {
+  width: 4px;
+  min-width: 4px;
+  cursor: col-resize;
+}
+
+/* 垂直分隔符 (水平分割) */
+[data-resize-handle][data-panel-group-direction="vertical"] {
+  height: 4px;
+  min-height: 4px;
+  cursor: row-resize;
+}
+
+/* 分隔符悬停效果 */
+[data-resize-handle]::after {
+  content: '';
+  position: absolute;
+  background: transparent;
+  transition: background 0.2s ease;
+}
+
+[data-resize-handle][data-panel-group-direction="horizontal"]::after {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 100%;
+}
+
+[data-resize-handle][data-panel-group-direction="vertical"]::after {
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  height: 2px;
+}
+
+[data-resize-handle]:hover::after {
+  background: var(--primary, #3b82f6);
+}
+
+/* 无障碍：聚焦样式 */
+[data-resize-handle]:focus {
+  outline: 2px solid var(--primary, #3b82f6);
+  outline-offset: -2px;
+}
+
+/* 禁用状态 */
+[data-resize-handle][data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 面板组样式 */
+[data-panel-group] {
+  display: flex;
+  overflow: hidden;
+}
+
+[data-panel-group][data-panel-group-direction="horizontal"] {
+  flex-direction: row;
+}
+
+[data-panel-group][data-panel-group-direction="vertical"] {
+  flex-direction: column;
+}
+
+/* 面板样式 */
+[data-panel] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 深色主题适配 */
+@media (prefers-color-scheme: dark) {
+  [data-resize-handle] {
+    background: var(--border-subtle-dark, #334155);
+  }
+  
+  [data-resize-handle]:hover,
+  [data-resize-handle][data-resize-handle-active] {
+    background: var(--primary-dark, #60a5fa);
+  }
+}
+
+/* 拖拽时的光标样式 */
+[data-panel-group][data-resize-handle-active="horizontal"] {
+  cursor: col-resize;
+}
+
+[data-panel-group][data-resize-handle-active="vertical"] {
+  cursor: row-resize;
+}
+
+/* 防止拖拽时文本选择 */
+[data-panel-group][data-resize-handle-active] * {
+  user-select: none;
+}
