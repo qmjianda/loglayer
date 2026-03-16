@@ -697,45 +697,6 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
     def get_layer_registry(self) -> str:
         return json.dumps(self._registry.get_all_types())
 
-    def _calculate_log_level_stats_rg(self, file_path: str) -> dict:
-        """Calculate log level statistics for a file using ripgrep (fast, full-file scan)"""
-        log_levels = ["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "FATAL"]
-        results = {}
-
-        try:
-            for level in log_levels:
-                pattern = f"\\b{level}\\b"
-                cmd = [
-                    self._rg_path,
-                    "-i",  # case insensitive
-                    "-c",  # count only
-                    "-e",
-                    pattern,
-                    file_path,
-                ]
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    creationflags=get_creationflags(),
-                    timeout=30,
-                )
-                if result.returncode == 0:
-                    count = (
-                        int(result.stdout.strip().split(":")[-1])
-                        if result.stdout
-                        else 0
-                    )
-                    results[level] = count
-                else:
-                    results[level] = 0
-        except Exception as e:
-            logger.error(f"[LogLevelStats] Error calculating stats: {e}")
-            for level in log_levels:
-                results[level] = 0
-
-        return results
-
     def reload_plugins(self) -> bool:
         self._registry.discover_plugins()
         return True

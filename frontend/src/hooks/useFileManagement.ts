@@ -38,26 +38,58 @@ export interface Pane {
     children?: Pane[];
 }
 
-// Helper to create a new pane with empty tabs
-export function createPane(id?: string): Pane {
-    return {
-        id: id || `pane-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        openFileIds: [],
-        activeFileId: null
-    };
-}
-
-// Processed cache per file
+// Processed cache for layer stats and search results
 export interface ProcessedCache {
     layerStats: Record<string, { count: number; distribution: number[] }>;
     searchMatchCount: number;
 }
 
-// Global counts cache (replacing window._BRIDGED_COUNTS)
+// In-memory cache for bridged file line counts
 const bridgedCounts: Record<string, number> = {};
-export function getBridgedCount(fileId: string): number | undefined {
+
+function getBridgedCount(fileId: string): number | undefined {
     return bridgedCounts[fileId];
 }
+
+// Helper to create a new pane with empty tabs
+export function createPane(id?: string): Pane {
+    return {
+        id: id || `pane-${Date.now()}`,
+        openFileIds: [],
+        activeFileId: null
+    };
+}
+
+export function findPaneRecursive(panes: Pane[], id: string): Pane | undefined {
+    for (const pane of panes) {
+        if (pane.id === id) return pane;
+        if (pane.children) {
+            const found = findPaneRecursive(pane.children, id);
+            if (found) return found;
+        }
+    }
+    return undefined;
+}
+
+export function updatePaneInTree(
+    panes: Pane[],
+    targetId: string,
+    updateFn: (pane: Pane) => Pane
+): Pane[] {
+    return panes.map(pane => {
+        if (pane.id === targetId) {
+            return updateFn(pane);
+        }
+        if (pane.children) {
+            return {
+                ...pane,
+                children: updatePaneInTree(pane.children, targetId, updateFn)
+            };
+        }
+        return pane;
+    });
+}
+
 export function setBridgedCount(fileId: string, count: number): void {
     bridgedCounts[fileId] = count;
 }
@@ -132,8 +164,8 @@ export function useFileManagement(): UseFileManagementReturn {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const folderInputRef = useRef<HTMLInputElement>(null);
 
-    // Derive active file from panes
-    const activePane = panes.find(p => p.id === activePaneId);
+    // Derive active file from panes (recursive search for nested panes)
+    const activePane = findPaneRecursive(panes, activePaneId);
     const activeFileId = activePane?.activeFileId || null;
     const activeFile = useMemo(() => files.find(f => f.id === activeFileId), [files, activeFileId]);
 
@@ -144,9 +176,7 @@ export function useFileManagement(): UseFileManagementReturn {
 
     // Set active file for current pane (adds to openFileIds if needed)
     const setActiveFileId = useCallback((fileId: string | null) => {
-        setPanes(prev => prev.map(p => {
-            if (p.id !== activePaneId) return p;
-            
+        setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => {
             if (fileId === null) {
                 return { ...p, activeFileId: null };
             }

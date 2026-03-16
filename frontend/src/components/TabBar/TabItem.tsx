@@ -47,7 +47,7 @@ export const TabItem: React.FC<TabItemProps> = ({
         <div
             className={`
                 group flex items-center h-8 px-3 text-xs border-r border-subtle cursor-grab 
-                active:cursor-grabbing select-none transition-colors min-w-0 max-w-[160px]
+                active:cursor-grabbing select-none transition-colors min-w-0
                 ${isActive 
                     ? 'bg-blue-600/20 text-foreground border-b-2 border-b-blue-500' 
                     : 'bg-secondary hover:bg-tertiary text-muted hover:text-foreground'

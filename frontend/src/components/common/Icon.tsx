@@ -161,6 +161,7 @@ import {
 export type IconName = keyof typeof iconMap;
 
 const iconMap = {
+    default: FileText,
     fileText: FileText,
     search: Search,
     filter: Filter,

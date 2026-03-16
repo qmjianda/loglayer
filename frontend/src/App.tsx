@@ -531,6 +531,25 @@ const AppContent: React.FC = () => {
       layers: f.layers
     })), [files, activeFileId]);
 
+  // 根据文件名长度自动调整侧边栏宽度
+  useEffect(() => {
+    if (files.length === 0) return;
+    
+    const maxNameLength = Math.max(...files.map(f => f.name.length));
+    
+    const BASE_WIDTH = 180;
+    const CHAR_WIDTH = 7;
+    const MIN_WIDTH = 200;
+    const MAX_WIDTH = 600;
+    
+    const requiredWidth = BASE_WIDTH + maxNameLength * CHAR_WIDTH;
+    const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, requiredWidth));
+    
+    if (sidebarWidth < newWidth) {
+      setSidebarWidth(newWidth);
+    }
+  }, [files, sidebarWidth, setSidebarWidth]);
+
   // 导航到下一个搜索匹配项，并自动滚动到底部/指定行已被移动到上方
 
   // ===== 远程路径选择器 (Remote Path Picker) =====

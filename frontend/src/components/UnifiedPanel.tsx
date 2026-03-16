@@ -348,7 +348,7 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                             </div>
 
                                             {/* File Name */}
-                                            <span className={`text-xs truncate flex-1 ${isActive ? 'text-white font-medium' : ''}`}>{file.name}</span>
+                                            <span className={`text-xs truncate flex-1 min-w-[80px] ${isActive ? 'text-white font-medium' : ''}`} title={file.name}>{file.name}</span>
 
                                             {/* Action Buttons - Always visible for active file, hover for others */}
                                             {/* Use pointer-events-none when hidden to allow clicks to pass through */}

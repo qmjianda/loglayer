@@ -4,7 +4,7 @@ import { HelpPanel } from './HelpPanel';
 import { FloatingWidgets } from './FloatingWidgets';
 import { LogViewerPane } from './LogViewerPane';
 import { EmptyState } from './EmptyState';
-import { Pane, FileData } from '../hooks/useFileManagement';
+import { Pane, FileData, findPaneRecursive, updatePaneInTree } from '../hooks/useFileManagement';
 
 function flattenPanes(panes: Pane[]): Pane[] {
     const result: Pane[] = [];
@@ -19,36 +19,6 @@ function flattenPanes(panes: Pane[]): Pane[] {
     }
     flatten(panes);
     return result;
-}
-
-function findPaneRecursive(panes: Pane[], id: string): Pane | undefined {
-    for (const pane of panes) {
-        if (pane.id === id) return pane;
-        if (pane.children) {
-            const found = findPaneRecursive(pane.children, id);
-            if (found) return found;
-        }
-    }
-    return undefined;
-}
-
-function updatePaneInTree(
-    panes: Pane[],
-    targetId: string,
-    updateFn: (pane: Pane) => Pane
-): Pane[] {
-    return panes.map(pane => {
-        if (pane.id === targetId) {
-            return updateFn(pane);
-        }
-        if (pane.children) {
-            return {
-                ...pane,
-                children: updatePaneInTree(pane.children, targetId, updateFn)
-            };
-        }
-        return pane;
-    });
 }
 
 function removePaneFromTree(panes: Pane[], targetId: string): Pane[] {
@@ -164,6 +134,7 @@ function handleDragSplit(
 
 function renderPaneTree(
     panes: Pane[],
+    parentOrientation: 'horizontal' | 'vertical',
     files: FileData[],
     activePaneId: string,
     isFindVisible: boolean,
@@ -207,48 +178,51 @@ function renderPaneTree(
         if (pane.children && pane.direction) {
             return (
                 <React.Fragment key={pane.id}>
-                    <Group orientation={pane.direction}>
-                        {renderPaneTree(
-                            pane.children,
-                            files,
-                            activePaneId,
-                            isFindVisible,
-                            activeView,
-                            searchQuery,
-                            searchConfig,
-                            scrollToIndex,
-                            highlightedIndex,
-                            indexingFileIds,
-                            pendingCliFiles,
-                            bridgedUpdateTrigger,
-                            settings,
-                            resolvedTheme,
-                            hasNewContent,
-                            setActivePaneId,
-                            handleTabClick,
-                            handleTabClose,
-                            handleTabsReorder,
-                            handleCloseTab,
-                            handleCloseOtherTabs,
-                            handleCloseAllTabs,
-                            handleSplitTabRight,
-                            handleSplitTabDown,
-                            setHighlightedIndex,
-                            addLayer,
-                            handleToggleBookmark,
-                            handleUpdateBookmarkComment,
-                            setCanvasSelectedText,
-                            setAiPanelInitialContent,
-                            setActiveView,
-                            clearNewContent,
-                            setScrollToIndex,
-                            activeFile,
-                            removePane,
-                            setPanes,
-                            handleOpen
-                        )}
-                    </Group>
-                    {!isLastPane && <Separator className="bg-slate-300 dark:bg-slate-600" />}
+                    <Panel id={pane.id} minSize={20}>
+                        <Group orientation={pane.direction} className="h-full">
+                            {renderPaneTree(
+                                pane.children,
+                                pane.direction,
+                                files,
+                                activePaneId,
+                                isFindVisible,
+                                activeView,
+                                searchQuery,
+                                searchConfig,
+                                scrollToIndex,
+                                highlightedIndex,
+                                indexingFileIds,
+                                pendingCliFiles,
+                                bridgedUpdateTrigger,
+                                settings,
+                                resolvedTheme,
+                                hasNewContent,
+                                setActivePaneId,
+                                handleTabClick,
+                                handleTabClose,
+                                handleTabsReorder,
+                                handleCloseTab,
+                                handleCloseOtherTabs,
+                                handleCloseAllTabs,
+                                handleSplitTabRight,
+                                handleSplitTabDown,
+                                setHighlightedIndex,
+                                addLayer,
+                                handleToggleBookmark,
+                                handleUpdateBookmarkComment,
+                                setCanvasSelectedText,
+                                setAiPanelInitialContent,
+                                setActiveView,
+                                clearNewContent,
+                                setScrollToIndex,
+                                activeFile,
+                                removePane,
+                                setPanes,
+                                handleOpen
+                            )}
+                        </Group>
+                    </Panel>
+                    {!isLastPane && <Separator className={`bg-[var(--border-subtle)] hover:bg-blue-500 ${parentOrientation === 'vertical' ? 'h-1 cursor-row-resize' : 'w-1 cursor-col-resize'}`} />}
                 </React.Fragment>
             );
         }
@@ -311,11 +285,11 @@ function renderPaneTree(
                             removePane(pane.id);
                         }}
                         onPaneDragEnd={(fileId, position, sourcePaneId) => {
-                            const file = files.find(f => f.id === fileId);
                             if (position && fileId && sourcePaneId) {
                                 const newPaneId = `pane-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
                                 setPanes(prev => {
-                                    return handleDragSplit(prev, sourcePaneId, pane.id, fileId, newPaneId, position);
+                                    const newPanes = handleDragSplit(prev, sourcePaneId, pane.id, fileId, newPaneId, position);
+                                    return newPanes;
                                 });
                                 setActivePaneId(newPaneId);
                             }
@@ -324,7 +298,7 @@ function renderPaneTree(
                         onOpen={handleOpen}
                     />
                 </Panel>
-                {!isLastPane && <Separator className="bg-slate-300 dark:bg-slate-600" />}
+                {!isLastPane && <Separator className={`bg-[var(--border-subtle)] hover:bg-blue-500 ${parentOrientation === 'vertical' ? 'h-1 cursor-row-resize' : 'w-1 cursor-col-resize'}`} />}
             </React.Fragment>
         );
     });
@@ -560,6 +534,7 @@ export const MainContent: React.FC<MainContentProps> = ({
                     >
                         {renderPaneTree(
                             panes,
+                            'horizontal',
                             files,
                             activePaneId,
                             isFindVisible,
