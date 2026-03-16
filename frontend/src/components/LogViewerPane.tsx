@@ -133,10 +133,6 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
     }
 
     setSplitPosition(position);
-    if (position) {
-      const fileId = e.dataTransfer.getData('text/plain');
-      console.log(`[Drag] Split position detected: ${position} | fileId: ${fileId || 'from ref'}`);
-    }
   }, []);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
@@ -146,7 +142,6 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
     const srcPaneId = e.dataTransfer.getData('application/x-pane-id');
     if (fileId) draggedFileId.current = fileId;
     if (srcPaneId) draggedPaneId.current = srcPaneId;
-    console.log(`[DragEnter] fileId=${fileId}, srcPaneId=${srcPaneId}, targetPane=${pane.id}`);
   }, [pane.id]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -157,15 +152,12 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
     let fileId = draggedFileId.current || e.dataTransfer.getData('text/plain');
     let srcPaneId = draggedPaneId.current || e.dataTransfer.getData('application/x-pane-id');
     
-    console.log(`[Drop] srcPaneId=${srcPaneId}, targetPaneId=${pane.id}, splitPosition=${splitPosition}, fileId=${fileId}`);
-    
     draggedFileId.current = null;
     draggedPaneId.current = null;
     
     // Allow split even within same pane - MainContent will check if source has only 1 tab
     
     if (fileId && splitPosition) {
-      console.log(`[Drop] EXECUTING SPLIT: fileId=${fileId}, position=${splitPosition}, srcPane=${srcPaneId}`);
       onPaneDragEnd?.(fileId, splitPosition, srcPaneId);
     }
     setSplitPosition(null);
