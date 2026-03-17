@@ -9,8 +9,8 @@ Tests for the enhanced QueryParser with:
 """
 
 import pytest
-from loglayer.builtin.query import QueryParser, QueryLayer
-from loglayer.builtin.label import LabelExtractor, LabelLayer
+from loglayer.layers.builtin.query import QueryParser, QueryLayer
+from loglayer.layers.builtin.label import LabelExtractor, LabelLayer
 
 
 class TestQueryParserEnhancements:

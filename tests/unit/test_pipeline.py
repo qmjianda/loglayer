@@ -2,8 +2,8 @@ import pytest
 import os
 import threading
 from bridge import PipelineWorker
-from loglayer.builtin.filter import FilterLayer
-from loglayer.builtin.level import LevelLayer
+from loglayer.layers.builtin.filter import FilterLayer
+from loglayer.layers.builtin.level import LevelLayer
 from loglayer.core import FilterLayer as BaseLayer, LayerStage
 
 class CustomLogicLayer(BaseLayer):

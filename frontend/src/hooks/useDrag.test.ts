@@ -3,16 +3,12 @@ import { renderHook, act } from '@testing-library/react';
 import { useDrag } from '../hooks/useDrag';
 
 describe('hooks/useDrag', () => {
+  const addEventListenerSpy = vi.spyOn(document, 'addEventListener');
+  const removeEventListenerSpy = vi.spyOn(document, 'removeEventListener');
+
   beforeEach(() => {
-    vi.stubGlobal('document', {
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      body: {
-        style: {
-          cursor: '',
-        },
-      },
-    });
+    vi.clearAllMocks();
+    document.body.style.cursor = '';
   });
 
   afterEach(() => {
