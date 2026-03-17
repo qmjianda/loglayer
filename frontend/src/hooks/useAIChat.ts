@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { getBackendUrl, fetchJson } from '../utils';
+import { fetchJson } from '../utils';
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';

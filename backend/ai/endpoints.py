@@ -5,7 +5,6 @@ from .config import (
     ChatResponse,
     TimestampDetectionResult,
     TimeRangeSuggestion,
-    AIProvider,
     AIConfig,
 )
 from .service import get_ai_service

@@ -3,7 +3,6 @@
  */
 
 import React from 'react';
-import { TOKENS } from '../../styles/tokens';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';

@@ -1,11 +1,7 @@
-import { FileBridgeAPI, LayerType } from './types';
+import { FileBridgeAPI } from './types';
 
 interface ApiRequest {
   [key: string]: string | number | boolean | string[] | number[] | undefined;
-}
-
-interface ApiResponse {
-  [key: string]: unknown;
 }
 
 export type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'reconnecting';

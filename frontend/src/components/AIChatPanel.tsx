@@ -18,9 +18,7 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
     suggestions,
     error,
     sendMessage,
-    sendSelectedContent,
-    clearChat,
-    isConnected
+    clearChat
   } = useAIChat();
 
   const [input, setInput] = useState(initialContent || '');

@@ -1,5 +1,4 @@
 import React from 'react';
-import { SidebarPanel } from './SidebarPanel';
 
 interface SidebarContainerProps {
   sidebarWidth: number;

@@ -299,15 +299,6 @@ export const RemotePathPicker: React.FC<RemotePathPickerProps> = ({
         return items;
     }, [items, inputValue, currentPath]);
 
-    // 根据模式过滤可选项目
-    const selectableItems = useMemo(() => {
-        return filteredItems.filter(item => {
-            if (mode === 'folder') return item.isDir;
-            if (mode === 'file') return !item.isDir;
-            return true;
-        });
-    }, [filteredItems, mode]);
-
     // 格式化文件大小
     const formatSize = (bytes: number): string => {
         if (bytes === 0) return '-';

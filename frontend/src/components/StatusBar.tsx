@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { usePluginWidgets } from '../hooks/usePluginWidgets';
 import { useSettings } from '../hooks/useSettings';
 import { PerformanceIndicator } from './PerformanceIndicator';

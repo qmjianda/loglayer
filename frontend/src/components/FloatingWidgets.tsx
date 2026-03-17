@@ -36,7 +36,6 @@ export const FloatingWidgets: React.FC<FloatingWidgetsProps> = ({
   currentMatchNumber,
   totalLines,
   activeFileId,
-  processedCache,
   onQueryChange,
   onConfigChange,
   onNavigate,

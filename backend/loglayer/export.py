@@ -8,7 +8,6 @@ Log Export Layer - 日志导出功能
 - 支持行号、时间戳、高亮信息
 - 批量导出优化 (限制最大导出量防止内存溢出)
 """
-import os
 import json
 import csv
 import logging
@@ -249,41 +248,3 @@ class LogExporter:
             }
         except (OSError, ValueError, IndexError, UnicodeDecodeError):
             return None
-
-
-# FastAPI 端点集成
-def register_export_endpoints(app):
-    """注册导出相关的 API 端点"""
-    from fastapi import Body
-    from pydantic import BaseModel
-    
-    class ExportRequest(BaseModel):
-        file_id: str
-        output_path: str
-        format: str = 'txt'
-        include_line_numbers: bool = True
-    
-    @app.post("/api/export_logs")
-    def export_logs(data: dict = Body(...)):
-        """导出日志文件"""
-        from bridge import bridge
-        
-        file_id = data.get('file_id')
-        output_path = data.get('output_path')
-        format = data.get('format', 'txt')
-        include_line_numbers = data.get('include_line_numbers', True)
-        
-        if file_id not in bridge._sessions:
-            return {'success': False, 'error': 'File not found'}
-        
-        session = bridge._sessions[file_id]
-        exporter = LogExporter(file_id, session.path)
-        
-        success = exporter.export_visible_lines(
-            bridge, 
-            output_path, 
-            format, 
-            include_line_numbers
-        )
-        
-        return {'success': success}

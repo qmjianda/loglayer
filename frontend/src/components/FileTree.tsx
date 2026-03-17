@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { listDirectory } from '../bridge_client';
-import { LayersPanel } from './LayersPanel';
-import { LogLayer } from '../types';
-import { FILE_ICON_COLORS } from '../theme';
 
 interface FileTreeItem {
     name: string;
@@ -129,7 +126,7 @@ const TreeNode: React.FC<any> = ({
                 </div>
 
                 <span className="mr-2 flex shrink-0">
-                    <FileIcon name={item.name} isDir={item.isDir} isExpanded={isExpanded} />
+                    <FileIcon name={item.name} isDir={item.isDir} />
                 </span>
 
                 <span className={`text-[13px] truncate ${isActive ? 'font-medium' : ''}`}>{item.name}</span>
@@ -161,7 +158,7 @@ const TreeNode: React.FC<any> = ({
     );
 };
 
-const FileIcon: React.FC<{ name: string; isDir: boolean; isExpanded: boolean }> = ({ name, isDir, isExpanded }) => {
+const FileIcon: React.FC<{ name: string; isDir: boolean }> = ({ name, isDir }) => {
     if (isDir) {
         let folderColor = "text-[#858585]";
         let dot: React.ReactNode = null;

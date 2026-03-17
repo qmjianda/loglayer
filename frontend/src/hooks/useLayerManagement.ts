@@ -9,8 +9,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { LogLayer, LayerType, LayerPreset, LayerRegistryEntry } from '../types';
-import { syncAll, getLayerRegistry } from '../bridge_client';
+import { LogLayer, LayerType, LayerPreset } from '../types';
 import { FileData } from './useFileManagement';
 import { useLayerRegistry } from './useLayerRegistry';
 
@@ -58,10 +57,7 @@ export interface UseLayerManagementReturn {
 export function useLayerManagement({
     activeFileId,
     activeFile,
-    files,
     setFiles,
-    searchQuery,
-    searchConfig
 }: UseLayerManagementProps): UseLayerManagementReturn {
     const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
     const [presets, setPresets] = useState<LayerPreset[]>([]);

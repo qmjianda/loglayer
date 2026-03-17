@@ -4,7 +4,6 @@ import { LayersPanel } from './LayersPanel';
 import { FileTree } from './FileTree';
 import { useLayerRegistry } from '../hooks/useLayerRegistry';
 import { useDrag } from '../hooks/useDrag';
-import { getBookmarks, clearBookmarks, getLinesByIndices, physicalToVisualIndex } from '../bridge_client';
 import { Icon } from './common/Icon';
 
 // 文件信息接口
@@ -75,11 +74,10 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     onOpenFileByPath,
     files,
     activeFileId,
-    onOpen,
-    onFileActivate,
-    onFileRemove,
-    layers, // Note: This prop now comes from activeFile layers but we rely on files.layers for tree
-    layerStats,
+onOpen,
+  onFileActivate,
+  onFileRemove,
+  layerStats,
     selectedLayerId,
     onSelectLayer,
     onLayerDrop,
@@ -98,11 +96,10 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     onPresetDelete,
     onPresetSave,
     saveStatus,
-    canUndo,
-    canRedo,
-    onUndo,
-    onRedo,
-    bookmarkRefreshTrigger = 0
+canUndo,
+  canRedo,
+  onUndo,
+  onRedo
 }) => {
     const [collapsedSections, setCollapsedSections] = useState<Record<SectionId, boolean>>({
         openFiles: false,
@@ -148,22 +145,6 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
 
     const toggleSection = (section: SectionId) => {
         setCollapsedSections(prev => ({ ...prev, [section]: !prev[section] }));
-    };
-
-    const toggleFile = (fileId: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        setExpandedFiles(prev => ({
-            ...prev,
-            [fileId]: prev[fileId] === true ? false : true
-        }));
-    };
-
-    const formatSize = (bytes: number) => {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     };
 
     const { registry } = useLayerRegistry();

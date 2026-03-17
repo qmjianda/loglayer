@@ -11,7 +11,7 @@ export interface Command {
   enabled?: boolean;
 }
 
-interface UseAppCommandsParams {
+interface _UseAppCommandsParams {
   handleOpen: () => void;
   handleNativeFolderSelect: () => Promise<unknown>;
   setIsFindVisible: (visible: boolean) => void;
@@ -33,27 +33,28 @@ interface UseAppCommandsParams {
   activeFileName?: string;
 }
 
-export const useAppCommands = ({
-  handleOpen,
-  handleNativeFolderSelect,
-  setIsFindVisible,
-  findNextSearchMatchWithJump,
-  setIsGoToLineVisible,
-  setActiveView,
-  splitPane,
-  removePane,
-  addLayer,
-  setIsSettingsVisible,
-  setIsExportDialogOpen,
-  setIsStorageSettingsOpen,
-  setIsWorkerConfigOpen,
-  setIsPluginManagerOpen,
-  activePaneId,
-  panes,
-  activeFileId,
-  bookmarks,
-  activeFileName
-}) => {
+export const useAppCommands = (params: _UseAppCommandsParams) => {
+  const {
+    handleOpen,
+    handleNativeFolderSelect,
+    setIsFindVisible,
+    findNextSearchMatchWithJump,
+    setIsGoToLineVisible,
+    setActiveView,
+    splitPane,
+    removePane,
+    addLayer,
+    setIsSettingsVisible,
+    setIsExportDialogOpen,
+    setIsStorageSettingsOpen,
+    setIsWorkerConfigOpen,
+    setIsPluginManagerOpen,
+    activePaneId,
+    panes,
+    activeFileId,
+    bookmarks,
+    activeFileName
+  } = params;
   const commands: Command[] = useMemo(() => [
     { id: 'file.open', label: '打开文件', shortcut: 'Ctrl+O', category: '文件', action: handleOpen },
     { id: 'file.openFolder', label: '打开文件夹', shortcut: 'Ctrl+Shift+O', category: '文件', action: handleNativeFolderSelect },

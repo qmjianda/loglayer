@@ -7,15 +7,13 @@ import re
 import array
 import threading
 import logging
-import subprocess
+import platform
 from pathlib import Path
-from typing import Dict, List, Optional, Any
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from loglayer.storage import StorageRegistry
+from typing import Dict, Any
+from concurrent.futures import ThreadPoolExecutor
 from loglayer.registry import LayerRegistry
-from loglayer.core import LayerStage, ProcessedLine, RowStyle
+from loglayer.core import LayerStage, ProcessedLine
 from workers import (
-    CustomThread,
     IndexingWorker,
     PipelineWorker,
     StatsWorker
@@ -173,7 +171,7 @@ def get_directory_contents(folder_path):
     return items
 
 
-from workers import Signal, CustomThread, IndexingWorker, PipelineWorker, StatsWorker
+from workers import Signal, IndexingWorker, PipelineWorker, StatsWorker
 
 
 # ============================================================

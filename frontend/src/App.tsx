@@ -8,37 +8,23 @@
  * - useBridge: 处理前端与 Python 后端的信号监听与数据同步。
  */
 
-import React, { useMemo, useCallback, useEffect, useState, useRef } from 'react';
+import React, { useMemo, useCallback, useEffect, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
-import { LogViewer } from './components/LogViewer';
-import { EditorFindWidget } from './components/EditorFindWidget';
-import { EditorGoToLineWidget } from './components/EditorGoToLineWidget';
-import { CommandPalette, Command } from './components/CommandPalette';
-import { SettingsPanel } from './components/SettingsPanel';
-import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';
-import { UnifiedPanel, FileInfo } from './components/UnifiedPanel';
-import { HelpPanel } from './components/HelpPanel';
-import { StatusBar } from './components/StatusBar';
-import { IndexingOverlay, FileLoadingSkeleton, PendingFilesWall } from './components/LoadingOverlays';
-import { RemotePathPicker } from './components/RemotePathPicker';
-import { AIChatPanel } from './components/AIChatPanel';
-import { StatsPanel, LogLevelStats } from './components/StatsPanel';
-import { PatternAnalysisPanel } from './components/PatternAnalysisPanel';
 import { AppHeader } from './components/AppHeader';
 import { useAppCommands } from './components/AppCommands';
 import { SidebarPanel } from './components/SidebarPanel';
-import { EmptyState } from './components/EmptyState';
 import { AppModals } from './components/AppModals';
-import { LogViewerPane } from './components/LogViewerPane';
-import { FloatingWidgets } from './components/FloatingWidgets';
 import { ProgressBar } from './components/ProgressBar';
 import { FileInputs } from './components/FileInputs';
 import { SidebarContainer } from './components/SidebarContainer';
 import { MainContent } from './components/MainContent';
-import { LayerType, LogLine } from './types';
+import { StatusBar } from './components/StatusBar';
+import { LayerType } from './types';
 import { ProcessedCache } from './hooks/useFileManagement';
-import { openFile, syncAll, hasNativeDialogs, toggleBookmark, getNearestBookmarkIndex, getLinesByIndices, getLogLevelStats } from './bridge_client';
+import { hasNativeDialogs, getLogLevelStats } from './bridge_client';
 import { removeFromSet, basename } from './utils';
+import type { FileInfo } from './components/UnifiedPanel';
+import type { LogLevelStats } from './components/StatsPanel';
 
 // 导入自定义 Hooks
 import {
@@ -59,7 +45,6 @@ import { useResponsive } from './hooks/useResponsive';
 import { useFileWatch } from './hooks/useFileWatch';
 import { usePaneManagement, MAX_PANES } from './hooks/usePaneManagement';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { PaneHeader } from './components/common/PaneHeader';
 import './styles/resizable-panels.css';
 
 
@@ -93,8 +78,7 @@ const AppContent: React.FC = () => {
     setActiveFileId,
     handleFileActivate,
     handleFileRemove,
-    addNewFiles,
-    handleNativeFileSelect,
+    
     handleNativeFolderSelect,
     handleOpenFileByPath,
     fileInputRef,
@@ -141,8 +125,7 @@ const AppContent: React.FC = () => {
     layers,
     selectedLayerId,
     setSelectedLayerId,
-    past,
-    future,
+    
     layersFunctionalHash,
     updateLayers,
     addLayer,
@@ -186,8 +169,7 @@ const AppContent: React.FC = () => {
     searchConfig,
     setSearchConfig,
     currentMatchRank,
-    currentMatchIndex,
-    isSearching,
+    
     setIsSearching,
     currentMatchNumber,
     findNextSearchMatch,
@@ -304,7 +286,7 @@ const AppContent: React.FC = () => {
     clearNewContent
   } = useFileWatch(
     undefined,
-    (newLineCount, totalLines) => {
+    (_newLineCount, totalLines) => {
       // Auto-scroll to bottom when new content arrives
       if (totalLines > 0) {
         setScrollToIndex(totalLines - 1);
@@ -339,7 +321,7 @@ const AppContent: React.FC = () => {
     setScrollToIndex
   });
   // F2/Shift+F2 快捷键跳转到上/下一个书签
-  const [isLayerProcessing, setIsLayerProcessing] = React.useState(false);
+  const [isLayerProcessing] = React.useState(false);
 
   // ===== 工作区持久化 (Workspace Config Persistence) =====
   // 自动将当前打开的文件和图层配置保存到本地磁盘（.loglayer 目录）。
@@ -370,7 +352,7 @@ const AppContent: React.FC = () => {
 
   // ===== 桥接层集成 (Bridge Integration) =====
   // 监听来自 Python 后端的信号（文件加载完成、搜索完成、统计完成等）。
-  const { bridgeApi, activeFileIdRef, setActiveFileId: setBridgeActiveFileId } = useBridge({
+  const { activeFileIdRef, setActiveFileId: setBridgeActiveFileId } = useBridge({
     // 当后端成功解析并建立文件索引后触发
     onFileLoaded: (fileId: string, info: FileLoadedInfo) => {
       // [BUG FIX] Sanitization: Check if the file is still supposed to be open

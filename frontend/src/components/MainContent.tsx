@@ -3,7 +3,6 @@ import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panel
 import { HelpPanel } from './HelpPanel';
 import { FloatingWidgets } from './FloatingWidgets';
 import { LogViewerPane } from './LogViewerPane';
-import { EmptyState } from './EmptyState';
 import { Pane, FileData, findPaneRecursive, updatePaneInTree } from '../hooks/useFileManagement';
 
 function flattenPanes(panes: Pane[]): Pane[] {

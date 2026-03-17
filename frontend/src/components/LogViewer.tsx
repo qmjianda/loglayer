@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { LogLine, LayerType } from '../types';
 import { readProcessedLines } from '../bridge_client';
@@ -77,8 +77,6 @@ function getLineSelectionRange(i: number, norm: ReturnType<typeof normalizeSelec
 export const LogViewer: React.FC<LogViewerProps> = ({
   totalLines,
   fileId,
-  searchQuery,
-  searchConfig,
   scrollToIndex,
   highlightedIndex,
   isSearching = false,
@@ -128,7 +126,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const lastScrollTimeRef = useRef(0);
   const lastScrollTopRef = useRef(0);
 
-  const { LINE_HEIGHT, GUTTER_WIDTH, VIRTUAL_HEIGHT_LIMIT, BUFFER_NORMAL, BUFFER_LARGE, SCROLL_MARGIN, CHAR_WIDTH_DEFAULT, FONT } = LOG_VIEWER;
+  const { LINE_HEIGHT, GUTTER_WIDTH, VIRTUAL_HEIGHT_LIMIT, BUFFER_NORMAL, BUFFER_LARGE, SCROLL_MARGIN, CHAR_WIDTH_DEFAULT } = LOG_VIEWER;
 
   const fontSize = settings?.fontSize ?? 12;
   const lineHeight = settings?.lineHeight ?? LINE_HEIGHT;
@@ -149,7 +147,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const directionBonus = scrollDirectionRef.current === 'down' ? 500 : 0;
   const dynamicBuffer = Math.floor(Math.min(virtualScrollBufferSetting, baseBuffer + velocityBuffer + directionBonus));
   const buffer = dynamicBuffer;
-  const scaleFactor = useScrollScaling ? VIRTUAL_HEIGHT_LIMIT / realTotalHeight : 1;
   const virtualTotalHeight = (useScrollScaling ? VIRTUAL_HEIGHT_LIMIT : realTotalHeight) + SCROLL_MARGIN;
 
   const charWidthRef = useRef(CHAR_WIDTH_DEFAULT);

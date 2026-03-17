@@ -51,7 +51,6 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
   files,
   isPaneActive,
   isFindVisible,
-  activeView,
   searchQuery,
   searchConfig,
   scrollToIndex,
@@ -62,7 +61,6 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
   settings,
   resolvedTheme,
   hasNewContent,
-  canClose,
   onTabClick,
   onTabClose,
   onTabsReorder,
@@ -79,7 +77,6 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
   onSelectedTextChange,
   onSendToAI,
   onScrollToNewContent,
-  onPaneClose,
   onPaneClick,
   onOpen
 }) => {

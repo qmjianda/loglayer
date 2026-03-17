@@ -1,5 +1,5 @@
 import React from 'react';
-import { CommandPalette, Command } from './CommandPalette';
+import { CommandPalette } from './CommandPalette';
 import { RemotePathPicker } from './RemotePathPicker';
 import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel';
 import { SettingsPanel } from './SettingsPanel';
@@ -7,11 +7,6 @@ import { ExportDialog } from './ExportDialog';
 import { StorageSettings } from './StorageSettings';
 import { WorkerConfigPanel } from './WorkerConfigPanel';
 import { PluginManager } from './PluginManager';
-
-interface Notification {
-  type: 'success' | 'warning' | 'error' | 'info';
-  message: string;
-}
 
 interface AppModalsProps {
   isRemotePickerOpen: boolean;

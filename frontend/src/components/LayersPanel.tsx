@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { LogLayer, LayerType } from '../types';
 import { DynamicForm } from './DynamicUI/DynamicForm';
 import { useLayerRegistry } from '../hooks/useLayerRegistry';
@@ -19,7 +19,7 @@ interface LayersPanelProps {
 }
 
 export const LayersPanel: React.FC<LayersPanelProps> = ({
-  layers, stats, selectedId, onSelect, onRemove, onToggle, onUpdate, onDrop, isReadOnly = false, fileId
+  layers, stats, selectedId, onSelect, onRemove, onUpdate, onDrop, isReadOnly = false, fileId
 }) => {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);

@@ -5,7 +5,7 @@
  * Merged from useScrollPrediction and usePerformanceOptimization.
  */
 
-import { useRef, useCallback, useState, useEffect, useMemo } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import { LOG_VIEWER } from '../constants';
 
 interface ScrollState {
@@ -86,7 +86,7 @@ export function useVirtualScroll({
     const animationFrameRef = useRef<number | null>(null);
 
     // === Scroll Prediction Methods ===
-    const updateScrollState = useCallback((scrollTop: number, viewportHeight: number) => {
+    const updateScrollState = useCallback((scrollTop: number, _viewportHeight: number) => {
         const now = performance.now();
         const state = scrollState.current;
 
@@ -106,8 +106,8 @@ export function useVirtualScroll({
 
     const getRecommendedBuffer = useCallback((
         _scrollTop: number,
-        viewportHeight: number,
-        totalLines: number
+        _viewportHeight: number,
+        _totalLines: number
     ): { top: number; bottom: number } => {
         const velocity = scrollState.current.velocity;
         const direction = scrollState.current.direction;
@@ -132,7 +132,7 @@ export function useVirtualScroll({
     const predictNextVisibleRange = useCallback((
         currentStart: number,
         currentEnd: number,
-        viewportHeight: number,
+        _viewportHeight: number,
         totalLines: number
     ): { start: number; end: number } | null => {
         const velocity = scrollState.current.velocity;

@@ -3,7 +3,6 @@
  */
 
 import React, { forwardRef } from 'react';
-import { TOKENS } from '../../styles/tokens';
 
 export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
     variant?: 'default' | 'error' | 'success';

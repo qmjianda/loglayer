@@ -38,11 +38,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
     onClose();
   };
 
-  const handleResetToDefault = () => {
-    resetToDefault();
-    setLocalSettings(null);
-  };
-
   const tabs = [
     { id: 'general', label: '通用', icon: '⚙️' },
     { id: 'appearance', label: '外观', icon: '🎨' },

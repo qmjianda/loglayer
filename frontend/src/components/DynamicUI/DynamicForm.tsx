@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LayerRegistryEntry, LayerUIField } from '../../types';
+import { LayerRegistryEntry } from '../../types';
 import { InputMapper } from './InputMapper';
 import { getBackendUrl } from '../../utils';
 

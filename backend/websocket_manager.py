@@ -4,7 +4,7 @@ WebSocket Manager - Handles real-time communication with frontend.
 
 import asyncio
 from typing import List
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 
 from logging_config import logger
 

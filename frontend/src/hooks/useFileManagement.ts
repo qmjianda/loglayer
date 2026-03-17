@@ -6,9 +6,9 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { LogLayer, LayerType } from '../types';
-import { openFile, closeFile, selectFiles, selectFolder, hasNativeDialogs, listLogsInFolder } from '../bridge_client';
-import { basename, removeFromSet, addToSet } from '../utils';
+import { LogLayer } from '../types';
+import { openFile, closeFile, selectFiles, selectFolder, hasNativeDialogs } from '../bridge_client';
+import { basename, removeFromSet } from '../utils';
 
 // File data interface - exported for use in other modules
 export interface FileData {

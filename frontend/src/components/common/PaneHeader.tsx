@@ -21,7 +21,6 @@ export interface PaneHeaderProps {
 
 export const PaneHeader: React.FC<PaneHeaderProps> = ({
     file,
-    paneId,
     isActive,
     isDragging,
     onClose,

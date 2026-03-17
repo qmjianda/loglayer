@@ -6,7 +6,6 @@
  */
 
 import React, { useEffect, useRef, useCallback } from 'react';
-import { LogLayer } from '../types';
 import { saveWorkspaceConfig, loadWorkspaceConfig, WorkspaceConfig } from '../bridge_client';
 import { FileData } from './useFileManagement';
 

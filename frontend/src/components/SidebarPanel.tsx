@@ -93,8 +93,6 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
   onApplyAiSuggestion,
   onQuickFilter,
   onApplyPatternSuggestion,
-  showNotification,
-  updateLayers,
   activeFile
 }) => {
   return (

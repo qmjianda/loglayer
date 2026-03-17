@@ -120,10 +120,10 @@ function splitPaneInTree(
 export function usePaneManagement(
     panes: Pane[],
     setPanes: React.Dispatch<React.SetStateAction<Pane[]>>,
-    activePaneId: string,
+    _activePaneId: string,
     setActivePaneId: (id: string) => void,
-    files: FileData[],
-    setActiveFileId: (fileId: string | null) => void
+    _files: FileData[],
+    _setActiveFileId: (fileId: string | null) => void
 ): UsePaneManagementReturn {
     const generatePaneId = useCallback(() => {
         return `pane-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;

@@ -23,9 +23,7 @@ export const TabItem: React.FC<TabItemProps> = ({
     onClick,
     onClose,
     onDragStart,
-    onDragEnd,
-    isFirst,
-    isLast
+    onDragEnd
 }) => {
     const handleDragStart = (e: React.DragEvent) => {
         e.dataTransfer.effectAllowed = 'move';
