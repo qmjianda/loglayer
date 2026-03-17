@@ -238,12 +238,20 @@ const AppContent: React.FC = () => {
     },
     onToggleFind: (visible: boolean) => {
       if (activePaneId) {
-        setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => ({ ...p, findVisible: visible })));
+        setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => ({ 
+          ...p, 
+          findVisible: visible,
+          goToLineVisible: visible ? false : p.goToLineVisible
+        })));
       }
     },
     onToggleGoToLine: (visible: boolean) => {
       if (activePaneId) {
-        setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => ({ ...p, goToLineVisible: visible })));
+        setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => ({ 
+          ...p, 
+          goToLineVisible: visible,
+          findVisible: visible ? false : p.findVisible
+        })));
       }
     },
     isFindVisible: activePaneId ? (panes.find(p => p.id === activePaneId)?.findVisible ?? false) : false,

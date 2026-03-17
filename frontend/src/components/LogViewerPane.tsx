@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { LogViewer } from './LogViewer';
 import { FileLoadingSkeleton, PendingFilesWall } from './LoadingOverlays';
 import { EmptyState } from './EmptyState';
@@ -108,9 +108,27 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
   const isDragging = useRef(false);
   const draggedFileId = useRef<string | null>(null);
   const draggedPaneId = useRef<string | null>(null);
+  const paneRef = useRef<HTMLDivElement>(null);
 
   const isFindVisible = pane.findVisible ?? false;
   const isGoToLineVisible = pane.goToLineVisible ?? false;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && (isFindVisible || isGoToLineVisible)) {
+        const target = e.target as HTMLElement;
+        if (paneRef.current?.contains(target)) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (isFindVisible) onToggleFind(false);
+          if (isGoToLineVisible) onToggleGoToLine(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isFindVisible, isGoToLineVisible, onToggleFind, onToggleGoToLine]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -194,6 +212,8 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
 
   return (
     <div 
+      ref={paneRef}
+      tabIndex={-1}
       className={`flex-1 flex flex-col min-h-0 overflow-hidden ${isPaneActive ? 'ring-1 ring-blue-500/30' : ''}`} 
       style={{ height: '100%' }}
       onDragOver={handleDragOver}
