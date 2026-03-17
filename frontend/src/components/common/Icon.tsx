@@ -313,6 +313,12 @@ const iconMap = {
     laugh: Laugh,
 };
 
+const validIconNames = Object.keys(iconMap) as IconName[];
+
+export function toIconName(name: string): IconName {
+    return validIconNames.includes(name as IconName) ? (name as IconName) : 'default';
+}
+
 export interface IconProps extends Omit<LucideProps, 'ref'> {
     name: IconName;
     size?: number;

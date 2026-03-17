@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { LogLayer, LayerType } from '../types';
 import { DynamicForm } from './DynamicUI/DynamicForm';
 import { useLayerRegistry } from '../hooks/useLayerRegistry';
-import { Icon } from './common/Icon';
+import { Icon, toIconName } from './common/Icon';
 
 interface LayersPanelProps {
   layers: LogLayer[];
@@ -39,7 +39,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     }
 
     setDraggedLayerId(id);
-    (window as any).__draggedLayerId = id;
+    window.__draggedLayerId = id;
 
     e.dataTransfer.setData('layerId', id);
     e.dataTransfer.setData('text/plain', id);
@@ -56,7 +56,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     setDragOverId(null);
     setDropPosition(null);
     setDraggedLayerId(null);
-    (window as any).__draggedLayerId = null;
+    window.__draggedLayerId = undefined;
   };
 
   const handleDragOver = (e: React.DragEvent, id: string, type: LayerType) => {
@@ -64,7 +64,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     e.stopPropagation(); // STOP BUBBLING to prevent the parent from resetting state
     e.dataTransfer.dropEffect = 'move';
 
-    const draggedId = (window as any).__draggedLayerId || draggedLayerId;
+    const draggedId = window.__draggedLayerId || draggedLayerId;
     if (draggedId === id) return;
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -86,7 +86,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     e.stopPropagation();
     if (isReadOnly) return;
 
-    const draggedId = e.dataTransfer.getData('layerId') || (window as any).__draggedLayerId || draggedLayerId;
+    const draggedId = e.dataTransfer.getData('layerId') || window.__draggedLayerId || draggedLayerId;
 
     if (draggedId && draggedId !== targetId && dropPosition) {
       onDrop(draggedId, targetId, dropPosition);
@@ -95,7 +95,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     setDragOverId(null);
     setDropPosition(null);
     setDraggedLayerId(null);
-    (window as any).__draggedLayerId = null;
+    window.__draggedLayerId = undefined;
   };
 
   const getLayerIcon = (layer: LogLayer) => {
@@ -121,7 +121,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
       return <Icon name="folder" size={14} className="w-4 h-4 text-gray-400" />;
     }
 
-    const iconName = iconKey as any;
+    const iconName = toIconName(iconKey);
     const color = ICON_COLORS[iconKey] || ICON_COLORS.default;
     
     return <Icon name={iconName} size={14} className={`w-3.5 h-3.5 ${color}`} />;
@@ -345,7 +345,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
       }}
       onDrop={(e) => {
         if (isReadOnly) return;
-        const draggedId = e.dataTransfer.getData('layerId') || (window as any).__draggedLayerId;
+        const draggedId = e.dataTransfer.getData('layerId') || window.__draggedLayerId;
         if (draggedId) {
           onDrop(draggedId, null, 'after');
         }

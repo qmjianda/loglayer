@@ -26,6 +26,10 @@ export interface FileData {
     };
 }
 
+interface FileWithPath extends File {
+    path?: string;
+}
+
 // Pane interface for split view support
 // Can be either a leaf node (has files) or a container node (has split children)
 export interface Pane {
@@ -319,12 +323,12 @@ export function useFileManagement(): UseFileManagementReturn {
     const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const rawFiles = event.target.files;
         if (!rawFiles || rawFiles.length === 0) return;
-        const fileList = Array.from(rawFiles) as any[];
+        const fileList = Array.from(rawFiles) as FileWithPath[];
         event.target.value = '';
 
         const validFiles = fileList
             .filter(f => f.path)
-            .map(f => ({ name: f.name, size: f.size, path: f.path }));
+            .map(f => ({ name: f.name, size: f.size, path: f.path! }));
 
         addNewFiles(validFiles);
     }, [addNewFiles]);
@@ -333,13 +337,14 @@ export function useFileManagement(): UseFileManagementReturn {
     const handleFolderUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const rawFiles = event.target.files;
         if (!rawFiles || rawFiles.length === 0) return;
-        const logFiles = Array.from(rawFiles).filter((file: any) =>
+        const allFiles = Array.from(rawFiles) as FileWithPath[];
+        const logFiles = allFiles.filter(file =>
             file.name.endsWith('.log') || file.name.endsWith('.txt') || file.name.endsWith('.json') || !file.name.includes('.')
-        ) as any[];
+        );
 
         const validFiles = logFiles
             .filter(f => f.path)
-            .map(f => ({ name: f.name, size: f.size, path: f.path }));
+            .map(f => ({ name: f.name, size: f.size, path: f.path! }));
 
         addNewFiles(validFiles);
     }, [addNewFiles]);

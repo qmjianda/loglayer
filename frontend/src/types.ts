@@ -169,6 +169,7 @@ declare global {
   interface Window {
     qt?: { webChannelTransport: { send: (msg: object) => void; on: (cb: (msg: object) => void) => void } };
     fileBridge?: FileBridgeAPI;
+    __draggedLayerId?: string;
   }
 
   interface PerformanceMemory {

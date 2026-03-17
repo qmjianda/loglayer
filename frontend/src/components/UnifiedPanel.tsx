@@ -4,7 +4,7 @@ import { LayersPanel } from './LayersPanel';
 import { FileTree } from './FileTree';
 import { useLayerRegistry } from '../hooks/useLayerRegistry';
 import { useDrag } from '../hooks/useDrag';
-import { Icon } from './common/Icon';
+import { Icon, toIconName } from './common/Icon';
 
 // 文件信息接口
 export interface FileInfo {
@@ -166,9 +166,9 @@ canUndo,
     };
 
     const getIcon = (entry: LayerRegistryEntry) => {
-        const iconKey = entry.icon || 'default';
-        const color = ICON_COLORS[iconKey] || ICON_COLORS.default;
-        return <Icon name={iconKey as any} size={14} className={`w-3.5 h-3.5 ${color}`} />;
+        const iconKey = toIconName(entry.icon || 'default');
+        const color = ICON_COLORS[entry.icon] || ICON_COLORS.default;
+        return <Icon name={iconKey} size={14} className={`w-3.5 h-3.5 ${color}`} />;
     };
 
     // Drag handlers - Defined at top level to follow Rules of Hooks
