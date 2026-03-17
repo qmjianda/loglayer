@@ -1,4 +1,14 @@
 
+/**
+ * Shared Types - Frontend/Backend Communication
+ * 
+ * This file defines TypeScript types that mirror the Pydantic models
+ * in backend/loglayer/schemas.py for type safety across the API boundary.
+ * 
+ * When updating types, ensure both files are kept in sync.
+ */
+
+// Mirror: backend/loglayer/schemas.py::LayerTypeEnum
 export enum LayerType {
   FILTER = 'FILTER',
   HIGHLIGHT = 'HIGHLIGHT',
@@ -12,6 +22,7 @@ export enum LayerType {
   PYTHON = 'PYTHON'
 }
 
+// Mirror: backend/loglayer/schemas.py::LayerUIField
 export interface LayerUIField {
   name: string;
   type: 'str' | 'int' | 'bool' | 'dropdown' | 'color' | 'multiselect' | 'search' | 'range';
@@ -31,6 +42,7 @@ export interface LayerUIField {
   showWholeWord?: boolean;
 }
 
+// Mirror: backend/loglayer/schemas.py::LayerRegistryEntry
 export interface LayerRegistryEntry {
   type: string;
   display_name: string;
@@ -38,8 +50,11 @@ export interface LayerRegistryEntry {
   icon: string;
   ui_schema: LayerUIField[];
   is_builtin: boolean;
+  category?: string;  // FILTER, TRANSFORM, HIGHLIGHT, DECORATION, WIDGET
+  stage?: string;     // LOGIC, RENDERING
 }
 
+// Mirror: backend/loglayer/schemas.py::LayerConfig
 export interface LayerConfig {
   query?: string;
   regex?: boolean;
@@ -52,6 +67,7 @@ export interface LayerConfig {
   [key: string]: any; // Allow custom fields for Python layers
 }
 
+// Mirror: backend/loglayer/schemas.py::LogLayer
 export interface LogLayer {
   id: string;
   name: string;
@@ -63,6 +79,7 @@ export interface LogLayer {
   config: LayerConfig;
 }
 
+// Mirror: backend/loglayer/schemas.py::LayerPreset
 export interface LayerPreset {
   id: string;
   name: string;
@@ -79,6 +96,7 @@ export interface RowStyle {
   color?: string;
 }
 
+// Mirror: backend/loglayer/schemas.py::LogLine
 export interface LogLine {
   index: number;
   content: string;

@@ -13,6 +13,7 @@ from typing import Dict, Any
 from concurrent.futures import ThreadPoolExecutor
 from loglayer.registry import LayerRegistry
 from loglayer.core import LayerStage, ProcessedLine
+from loglayer.schemas import FileLoadedPayload, WorkerConfig
 from workers import (
     IndexingWorker,
     PipelineWorker,
@@ -285,12 +286,13 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         self._registry = LayerRegistry(plugin_dir)
         self._registry.discover_plugins()
 
-    def get_worker_config(self) -> dict:
+    def get_worker_config(self) -> str:
         """Returns current worker pool configuration."""
-        return {
-            "max_workers": self._executor_max_workers,
-            "cpu_count": os.cpu_count() or 4,
-        }
+        config = WorkerConfig(
+            max_workers=self._executor_max_workers,
+            cpu_count=os.cpu_count() or 4,
+        )
+        return config.model_dump_json()
 
     def set_worker_count(self, max_workers: int) -> bool:
         """Dynamically adjust ThreadPoolExecutor size.
@@ -321,7 +323,6 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             return False
 
     def get_platform_info(self) -> str:
-        """Returns the current operating system name."""
         return platform.system()
 
     def _retire_worker(self, worker):
@@ -388,16 +389,12 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             if session.size == 0:
                 session.line_offsets = array.array("Q")
                 self._sessions[file_id] = session
-                self.fileLoaded.emit(
-                    file_id,
-                    json.dumps(
-                        {
-                            "name": provider.get_name(resolved_path),
-                            "size": 0,
-                            "lineCount": 0,
-                        }
-                    ),
+                payload = FileLoadedPayload(
+                    name=provider.get_name(resolved_path),
+                    size=0,
+                    lineCount=0,
                 )
+                self.fileLoaded.emit(file_id, payload.model_dump_json())
                 return True
 
             session.mmap = provider.get_mmap(resolved_path)
@@ -463,16 +460,16 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             else Path(session.path).name
         )
 
-        payload = {
-            "name": name,
-            "size": session.size,
-            "lineCount": line_count,
-            "partial": is_partial,
-            "sparse": is_sparse,
-        }
+        payload = FileLoadedPayload(
+            name=name,
+            size=session.size,
+            lineCount=line_count,
+            partial=is_partial,
+            sparse=is_sparse,
+        )
         self.fileLoaded.emit(
             file_id,
-            json.dumps(payload),
+            payload.model_dump_json(),
         )
 
     def sync_all(self, file_id: str, layers_json: str, search_json: str) -> bool:

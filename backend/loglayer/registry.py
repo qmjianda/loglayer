@@ -7,6 +7,7 @@ from loglayer.core import (
     LayerCategory, LayerStage, RenderingLayer, UIWidget
 )
 from loglayer.storage import StorageRegistry
+from loglayer.schemas import LayerRegistryEntry, LayerUIField
 
 
 
@@ -109,35 +110,37 @@ class LayerRegistry:
         
     def _get_layer_info(self, tid, cls, is_builtin):
         """生成单个图层的元信息"""
-        return {
-            "type": tid,
-            "display_name": cls.display_name,
-            "description": cls.description,
-            "icon": getattr(cls, "icon", "default"),
-            "category": getattr(cls, "category", LayerCategory.FILTER),
-            "stage": getattr(cls, "stage", LayerStage.LOGIC),
-            "ui_schema": cls.get_ui_schema(),
-            "is_builtin": is_builtin
-        }
+        return LayerRegistryEntry(
+            type=tid,
+            display_name=cls.display_name,
+            description=cls.description,
+            icon=getattr(cls, "icon", "default"),
+            ui_schema=cls.get_ui_schema(),
+            is_builtin=is_builtin,
+            category=getattr(cls, "category", LayerCategory.FILTER),
+            stage=getattr(cls, "stage", LayerStage.LOGIC),
+        )
 
     def get_all_types(self):
         """返回所有可用图层类型"""
         results = []
         for tid, (cls, is_builtin) in self.builtin_layers.items():
-            results.append(self._get_layer_info(tid, cls, is_builtin))
+            entry = self._get_layer_info(tid, cls, is_builtin)
+            results.append(entry.model_dump())
         for tid, (cls, is_builtin) in self.plugin_layers.items():
-            results.append(self._get_layer_info(tid, cls, is_builtin))
+            entry = self._get_layer_info(tid, cls, is_builtin)
+            results.append(entry.model_dump())
         return results
 
     def get_types_by_category(self):
         """按类别分组返回图层类型"""
         all_types = self.get_all_types()
         return {
-            "filter": [t for t in all_types if t["category"] == LayerCategory.FILTER],
-            "transform": [t for t in all_types if t["category"] == LayerCategory.TRANSFORM],
-            "highlight": [t for t in all_types if t["category"] == LayerCategory.HIGHLIGHT],
-            "decoration": [t for t in all_types if t["category"] == LayerCategory.DECORATION],
-            "widget": [t for t in all_types if t["category"] == LayerCategory.WIDGET],
+            "filter": [t for t in all_types if t.get("category") == LayerCategory.FILTER],
+            "transform": [t for t in all_types if t.get("category") == LayerCategory.TRANSFORM],
+            "highlight": [t for t in all_types if t.get("category") == LayerCategory.HIGHLIGHT],
+            "decoration": [t for t in all_types if t.get("category") == LayerCategory.DECORATION],
+            "widget": [t for t in all_types if t.get("category") == LayerCategory.WIDGET],
         }
 
     def create_layer_instance(self, type_id, config):

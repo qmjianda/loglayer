@@ -83,7 +83,8 @@ class TestBuiltinLayers:
     
     def test_filter_layer_class(self):
         registry = LayerRegistry()
-        cls = registry.builtin_layers["FILTER"]
+        entry = registry.builtin_layers["FILTER"]
+        cls = entry[0] if isinstance(entry, tuple) else entry
         layer = cls({"query": "error", "regex": True, "caseSensitive": True})
         args = layer.get_rg_args()
         assert "-e" in args
@@ -91,7 +92,8 @@ class TestBuiltinLayers:
     
     def test_level_layer_class(self):
         registry = LayerRegistry()
-        cls = registry.builtin_layers["LEVEL"]
+        entry = registry.builtin_layers["LEVEL"]
+        cls = entry[0] if isinstance(entry, tuple) else entry
         layer = cls({"levels": ["ERROR", "WARN"]})
         args = layer.get_rg_args()
         assert "-i" in args
@@ -99,7 +101,8 @@ class TestBuiltinLayers:
     
     def test_query_layer_class(self):
         registry = LayerRegistry()
-        cls = registry.builtin_layers["QUERY"]
+        entry = registry.builtin_layers["QUERY"]
+        cls = entry[0] if isinstance(entry, tuple) else entry
         layer = cls()
         layer.query = "level:ERROR"
         assert layer.filter_line("2026-01-01 ERROR something failed") is True
@@ -107,7 +110,8 @@ class TestBuiltinLayers:
     
     def test_highlight_layer_class(self):
         registry = LayerRegistry()
-        cls = registry.builtin_layers["HIGHLIGHT"]
+        entry = registry.builtin_layers["HIGHLIGHT"]
+        cls = entry[0] if isinstance(entry, tuple) else entry
         layer = cls({"query": "error", "color": "#ff0000"})
         highlights = layer.highlight_line("error occurred")
         assert len(highlights) > 0
