@@ -84,16 +84,6 @@ class LayerRegistry:
         builtin_layers, builtin_widgets = _discover_layers_from_dir(str(builtin_dir), is_builtin=True)
         self.builtin_layers.update(builtin_layers)
         self.plugin_widgets.update(builtin_widgets)
-        
-        # 自动发现用户图层 (layers/user/)
-        self._discover_user_layers()
-
-    def _discover_user_layers(self):
-        """扫描用户图层目录"""
-        user_dir = Path(__file__).parent / "layers" / "user"
-        user_layers, user_widgets = _discover_layers_from_dir(str(user_dir), is_builtin=False)
-        self.plugin_layers.update(user_layers)
-        self.plugin_widgets.update(user_widgets)
 
     def discover_plugins(self):
         """扫描插件目录，加载图层和 UI 挂件"""

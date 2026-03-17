@@ -1,7 +1,6 @@
 import React from 'react';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { HelpPanel } from './HelpPanel';
-import { FloatingWidgets } from './FloatingWidgets';
 import { LogViewerPane } from './LogViewerPane';
 import { Pane, FileData, findPaneRecursive, updatePaneInTree } from '../hooks/useFileManagement';
 
@@ -136,10 +135,12 @@ function renderPaneTree(
     parentOrientation: 'horizontal' | 'vertical',
     files: FileData[],
     activePaneId: string,
-    isFindVisible: boolean,
     activeView: string,
     searchQuery: string,
     searchConfig: { regex: boolean; caseSensitive: boolean },
+    searchMatchCount: number,
+    currentMatchNumber: number,
+    processedCache: any,
     scrollToIndex: number | null,
     highlightedIndex: number | null,
     indexingFileIds: Set<string>,
@@ -169,7 +170,15 @@ function renderPaneTree(
     activeFile: { lineCount?: number } | null,
     removePane: (paneId: string) => void,
     setPanes: React.Dispatch<React.SetStateAction<Pane[]>>,
-    handleOpen: () => void
+    handleOpen: () => void,
+    onQueryChange: (query: string) => void,
+    onConfigChange: (config: any) => void,
+    onNavigate: (direction: 'next' | 'prev') => void,
+    onGoToLine: (lineNum: number) => void,
+    onToggleFind: (paneId: string, visible: boolean) => void,
+    onToggleGoToLine: (paneId: string, visible: boolean) => void,
+    clearSearch: () => void,
+    setProcessedCache: any
 ): React.ReactNode {
     return panes.map((pane, index) => {
         const isLastPane = index === panes.length - 1;
@@ -184,10 +193,12 @@ function renderPaneTree(
                                 pane.direction,
                                 files,
                                 activePaneId,
-                                isFindVisible,
                                 activeView,
                                 searchQuery,
                                 searchConfig,
+                                searchMatchCount,
+                                currentMatchNumber,
+                                processedCache,
                                 scrollToIndex,
                                 highlightedIndex,
                                 indexingFileIds,
@@ -217,7 +228,15 @@ function renderPaneTree(
                                 activeFile,
                                 removePane,
                                 setPanes,
-                                handleOpen
+                                handleOpen,
+                                onQueryChange,
+                                onConfigChange,
+                                onNavigate,
+                                onGoToLine,
+                                onToggleFind,
+                                onToggleGoToLine,
+                                clearSearch,
+                                setProcessedCache
                             )}
                         </Group>
                     </Panel>
@@ -230,6 +249,7 @@ function renderPaneTree(
         const paneFile = files.find(f => f.id === paneFileId);
         const isPaneActive = activePaneId === pane.id;
         const allPanes = flattenPanes(panes);
+        const paneSearchMatchCount = pane.activeFileId ? (processedCache[pane.activeFileId]?.searchMatchCount || 0) : 0;
         
         return (
             <React.Fragment key={pane.id}>
@@ -239,10 +259,12 @@ function renderPaneTree(
                         paneFile={paneFile}
                         files={files}
                         isPaneActive={isPaneActive}
-                        isFindVisible={isFindVisible}
                         activeView={activeView}
                         searchQuery={searchQuery}
                         searchConfig={searchConfig}
+                        searchMatchCount={paneSearchMatchCount}
+                        currentMatchNumber={currentMatchNumber}
+                        processedCache={processedCache}
                         scrollToIndex={isPaneActive ? scrollToIndex : null}
                         highlightedIndex={isPaneActive ? highlightedIndex : null}
                         indexingFileIds={indexingFileIds}
@@ -295,6 +317,17 @@ function renderPaneTree(
                         }}
                         onPaneClick={() => setActivePaneId(pane.id)}
                         onOpen={handleOpen}
+                        onQueryChange={onQueryChange}
+                        onConfigChange={onConfigChange}
+                        onNavigate={onNavigate}
+                        onGoToLine={(lineNum) => {
+                            onGoToLine(lineNum);
+                            onToggleGoToLine(pane.id, false);
+                        }}
+                        onToggleFind={(visible) => onToggleFind(pane.id, visible)}
+                        onToggleGoToLine={(visible) => onToggleGoToLine(pane.id, visible)}
+                        clearSearch={clearSearch}
+                        setProcessedCache={setProcessedCache}
                     />
                 </Panel>
                 {!isLastPane && <Separator className={`bg-[var(--border-subtle)] hover:bg-blue-500 ${parentOrientation === 'vertical' ? 'h-1 cursor-row-resize' : 'w-1 cursor-col-resize'}`} />}
@@ -305,8 +338,6 @@ function renderPaneTree(
 
 interface MainContentProps {
     activeView: string;
-    isFindVisible: boolean;
-    isGoToLineVisible: boolean;
     searchQuery: string;
     searchConfig: { regex: boolean; caseSensitive: boolean };
     searchMatchCount: number;
@@ -318,8 +349,6 @@ interface MainContentProps {
     setSearchConfig: (config: any) => void;
     findNextSearchMatchWithJump: (direction: 'next' | 'prev') => void;
     handleJumpToLine: (line: number, total: number) => void;
-    setIsFindVisible: (visible: boolean) => void;
-    setIsGoToLineVisible: (visible: boolean) => void;
     clearSearch: () => void;
     setProcessedCache: any;
     panes: Pane[];
@@ -347,6 +376,8 @@ interface MainContentProps {
     removePane: (paneId: string) => void;
     splitPane: (sourcePaneId: string, fileId?: string, position?: 'left' | 'right' | 'top' | 'bottom') => void;
     handleOpen: () => void;
+    onToggleFind: (paneId: string, visible: boolean) => void;
+    onToggleGoToLine: (paneId: string, visible: boolean) => void;
     onCloseTab?: (paneId: string, fileId: string) => void;
     onCloseOtherTabs?: (paneId: string, keepFileId: string) => void;
     onCloseAllTabs?: (paneId: string) => void;
@@ -356,8 +387,6 @@ interface MainContentProps {
 
 export const MainContent: React.FC<MainContentProps> = ({
     activeView,
-    isFindVisible,
-    isGoToLineVisible,
     searchQuery,
     searchConfig,
     searchMatchCount,
@@ -369,8 +398,6 @@ export const MainContent: React.FC<MainContentProps> = ({
     setSearchConfig,
     findNextSearchMatchWithJump,
     handleJumpToLine,
-    setIsFindVisible,
-    setIsGoToLineVisible,
     clearSearch,
     setProcessedCache,
     panes,
@@ -398,6 +425,8 @@ export const MainContent: React.FC<MainContentProps> = ({
     removePane,
     splitPane,
     handleOpen,
+    onToggleFind,
+    onToggleGoToLine,
     onCloseTab,
     onCloseOtherTabs,
     onCloseAllTabs,
@@ -501,78 +530,63 @@ export const MainContent: React.FC<MainContentProps> = ({
             {activeView === 'help' ? (
                 <HelpPanel />
             ) : (
-                <>
-                    <FloatingWidgets
-                        isFindVisible={isFindVisible}
-                        isGoToLineVisible={isGoToLineVisible}
-                        searchQuery={searchQuery}
-                        searchConfig={searchConfig}
-                        searchMatchCount={searchMatchCount}
-                        currentMatchNumber={currentMatchNumber}
-                        totalLines={activeFile?.lineCount || 0}
-                        activeFileId={activeFileId}
-                        processedCache={processedCache}
-                        onQueryChange={setSearchQuery}
-                        onConfigChange={setSearchConfig}
-                        onNavigate={findNextSearchMatchWithJump}
-                        onGoToLine={(lineNum) => {
-                            handleJumpToLine(lineNum - 1, activeFile?.lineCount || 0);
-                            setIsGoToLineVisible(false);
-                        }}
-                        onCloseFind={() => setIsFindVisible(false)}
-                        onCloseGoToLine={() => setIsGoToLineVisible(false)}
-                        clearSearch={clearSearch}
-                        setProcessedCache={setProcessedCache}
-                    />
-
-                    <Group 
-                        className="flex-1" 
-                        id="main-pane-group"
-                        defaultLayout={defaultLayout}
-                        onLayoutChanged={onLayoutChanged}
-                    >
-                        {renderPaneTree(
-                            panes,
-                            'horizontal',
-                            files,
-                            activePaneId,
-                            isFindVisible,
-                            activeView,
-                            searchQuery,
-                            searchConfig,
-                            scrollToIndex,
-                            highlightedIndex,
-                            indexingFileIds,
-                            pendingCliFiles,
-                            bridgedUpdateTrigger,
-                            settings,
-                            resolvedTheme,
-                            hasNewContent,
-                            setActivePaneId,
-                            handleTabClick,
-                            handleTabClose,
-                            handleTabsReorder,
-                            handleCloseTab,
-                            handleCloseOtherTabs,
-                            handleCloseAllTabs,
-                            handleSplitTabRight,
-                            handleSplitTabDown,
-                            setHighlightedIndex,
-                            addLayer,
-                            handleToggleBookmark,
-                            handleUpdateBookmarkComment,
-                            setCanvasSelectedText,
-                            setAiPanelInitialContent,
-                            setActiveView,
-                            clearNewContent,
-                            setScrollToIndex,
-                            activeFile,
-                            removePane,
-                            setPanes,
-                            handleOpen
-                        )}
-                    </Group>
-                </>
+                <Group 
+                    className="flex-1" 
+                    id="main-pane-group"
+                    defaultLayout={defaultLayout}
+                    onLayoutChanged={onLayoutChanged}
+                >
+                    {renderPaneTree(
+                        panes,
+                        'horizontal',
+                        files,
+                        activePaneId,
+                        activeView,
+                        searchQuery,
+                        searchConfig,
+                        searchMatchCount,
+                        currentMatchNumber,
+                        processedCache,
+                        scrollToIndex,
+                        highlightedIndex,
+                        indexingFileIds,
+                        pendingCliFiles,
+                        bridgedUpdateTrigger,
+                        settings,
+                        resolvedTheme,
+                        hasNewContent,
+                        setActivePaneId,
+                        handleTabClick,
+                        handleTabClose,
+                        handleTabsReorder,
+                        handleCloseTab,
+                        handleCloseOtherTabs,
+                        handleCloseAllTabs,
+                        handleSplitTabRight,
+                        handleSplitTabDown,
+                        setHighlightedIndex,
+                        addLayer,
+                        handleToggleBookmark,
+                        handleUpdateBookmarkComment,
+                        setCanvasSelectedText,
+                        setAiPanelInitialContent,
+                        setActiveView,
+                        clearNewContent,
+                        setScrollToIndex,
+                        activeFile,
+                        removePane,
+                        setPanes,
+                        handleOpen,
+                        setSearchQuery,
+                        setSearchConfig,
+                        findNextSearchMatchWithJump,
+                        (lineNum) => handleJumpToLine(lineNum - 1, activeFile?.lineCount || 0),
+                        onToggleFind,
+                        onToggleGoToLine,
+                        clearSearch,
+                        setProcessedCache
+                    )}
+                </Group>
             )}
         </main>
     );

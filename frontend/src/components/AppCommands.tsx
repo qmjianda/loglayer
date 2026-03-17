@@ -14,9 +14,9 @@ export interface Command {
 interface _UseAppCommandsParams {
   handleOpen: () => void;
   handleNativeFolderSelect: () => Promise<unknown>;
-  setIsFindVisible: (visible: boolean) => void;
+  onToggleFind: (visible: boolean) => void;
   findNextSearchMatchWithJump: (direction: 'next' | 'prev') => Promise<void>;
-  setIsGoToLineVisible: (visible: boolean) => void;
+  onToggleGoToLine: (visible: boolean) => void;
   setActiveView: (view: 'main' | 'ai' | 'stats' | 'help') => void;
   splitPane: (paneId: string, fileId?: string, direction?: 'right' | 'bottom') => void;
   removePane: (paneId: string) => void;
@@ -37,9 +37,9 @@ export const useAppCommands = (params: _UseAppCommandsParams) => {
   const {
     handleOpen,
     handleNativeFolderSelect,
-    setIsFindVisible,
+    onToggleFind,
     findNextSearchMatchWithJump,
-    setIsGoToLineVisible,
+    onToggleGoToLine,
     setActiveView,
     splitPane,
     removePane,
@@ -58,10 +58,10 @@ export const useAppCommands = (params: _UseAppCommandsParams) => {
   const commands: Command[] = useMemo(() => [
     { id: 'file.open', label: '打开文件', shortcut: 'Ctrl+O', category: '文件', action: handleOpen },
     { id: 'file.openFolder', label: '打开文件夹', shortcut: 'Ctrl+Shift+O', category: '文件', action: handleNativeFolderSelect },
-    { id: 'search.focus', label: '聚焦搜索', shortcut: 'Ctrl+F', category: '搜索', action: () => setIsFindVisible(true) },
+    { id: 'search.focus', label: '聚焦搜索', shortcut: 'Ctrl+F', category: '搜索', action: () => onToggleFind(true) },
     { id: 'search.next', label: '下一个匹配', shortcut: 'F3', category: '搜索', action: () => findNextSearchMatchWithJump('next') },
     { id: 'search.prev', label: '上一个匹配', shortcut: 'Shift+F3', category: '搜索', action: () => findNextSearchMatchWithJump('prev') },
-    { id: 'goto.line', label: '跳转到行', shortcut: 'Ctrl+G', category: '导航', action: () => setIsGoToLineVisible(true) },
+    { id: 'goto.line', label: '跳转到行', shortcut: 'Ctrl+G', category: '导航', action: () => onToggleGoToLine(true) },
     { id: 'view.main', label: '主视图', category: '视图', action: () => setActiveView('main') },
     { id: 'view.ai', label: 'AI 助手', category: '视图', action: () => setActiveView('ai') },
     { id: 'view.stats', label: '统计面板', category: '视图', action: () => setActiveView('stats') },
@@ -128,8 +128,8 @@ export const useAppCommands = (params: _UseAppCommandsParams) => {
     { id: 'worker.open', label: 'Worker 配置', category: '工具', action: () => setIsWorkerConfigOpen(true) },
     { id: 'plugin.open', label: '插件管理', category: '工具', action: () => setIsPluginManagerOpen(true) },
   ], [
-    handleOpen, handleNativeFolderSelect, setIsFindVisible, 
-    findNextSearchMatchWithJump, setIsGoToLineVisible, 
+    handleOpen, handleNativeFolderSelect, onToggleFind, 
+    findNextSearchMatchWithJump, onToggleGoToLine, 
     setActiveView, splitPane, removePane, addLayer, 
     setIsSettingsVisible, setIsExportDialogOpen, setIsStorageSettingsOpen,
     setIsWorkerConfigOpen, setIsPluginManagerOpen,

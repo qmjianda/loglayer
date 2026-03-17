@@ -20,7 +20,7 @@ import { SidebarContainer } from './components/SidebarContainer';
 import { MainContent } from './components/MainContent';
 import { StatusBar } from './components/StatusBar';
 import { LayerType } from './types';
-import { ProcessedCache } from './hooks/useFileManagement';
+import { ProcessedCache, updatePaneInTree } from './hooks/useFileManagement';
 import { hasNativeDialogs } from './bridge_client';
 import { removeFromSet, basename } from './utils';
 import type { FileInfo } from './components/UnifiedPanel';
@@ -217,15 +217,13 @@ const AppContent: React.FC = () => {
 
   // ===== UI 状态控制 (UI State) =====
   // 处理各种面板显隐、滚动定位、进度条、工作区根目录等。
-  // Note: 书签导航将在 uiState 返回后定义，使用 useEffect 注册
   const uiState = useUIState({
     undo,
     redo,
-    setSearchQuery: (q: string) => search.setSearchQuery(q), // Connect to search logic
-    searchQuery: search.searchQuery, // Connect to search logic
+    setSearchQuery: (q: string) => search.setSearchQuery(q),
+    searchQuery: search.searchQuery,
     canvasSelectedText,
     onToggleSidebar: () => {
-      // 切换侧边栏显示/隐藏 - 使用 setTimeout 避免循环依赖
       setTimeout(() => {
         const currentWidth = sidebarWidth;
         setSidebarWidth(currentWidth > 0 ? 0 : 288);
@@ -233,7 +231,23 @@ const AppContent: React.FC = () => {
     },
     onOpenFile: () => { handleOpen(); },
     onOpenFolder: () => { handleNativeFolderSelect(); },
-    onShowSearchHistory: () => setIsFindVisible(true)
+    onShowSearchHistory: () => {
+      if (activePaneId) {
+        setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => ({ ...p, findVisible: true })));
+      }
+    },
+    onToggleFind: (visible: boolean) => {
+      if (activePaneId) {
+        setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => ({ ...p, findVisible: visible })));
+      }
+    },
+    onToggleGoToLine: (visible: boolean) => {
+      if (activePaneId) {
+        setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => ({ ...p, goToLineVisible: visible })));
+      }
+    },
+    isFindVisible: activePaneId ? (panes.find(p => p.id === activePaneId)?.findVisible ?? false) : false,
+    isGoToLineVisible: activePaneId ? (panes.find(p => p.id === activePaneId)?.goToLineVisible ?? false) : false
   });
 
   const {
@@ -241,10 +255,6 @@ const AppContent: React.FC = () => {
     setActiveView,
     sidebarWidth,
     setSidebarWidth,
-    isFindVisible,
-    setIsFindVisible,
-    isGoToLineVisible,
-    setIsGoToLineVisible,
     scrollToIndex,
     setScrollToIndex,
     highlightedIndex,
@@ -586,9 +596,17 @@ const AppContent: React.FC = () => {
   const commands = useAppCommands({
     handleOpen,
     handleNativeFolderSelect,
-    setIsFindVisible,
+    onToggleFind: (visible: boolean) => {
+      if (activePaneId) {
+        setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => ({ ...p, findVisible: visible })));
+      }
+    },
     findNextSearchMatchWithJump,
-    setIsGoToLineVisible,
+    onToggleGoToLine: (visible: boolean) => {
+      if (activePaneId) {
+        setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => ({ ...p, goToLineVisible: visible })));
+      }
+    },
     setActiveView,
     splitPane,
     removePane,
@@ -744,8 +762,6 @@ const AppContent: React.FC = () => {
 
         <MainContent
           activeView={activeView}
-          isFindVisible={isFindVisible}
-          isGoToLineVisible={isGoToLineVisible}
           searchQuery={searchQuery}
           searchConfig={searchConfig}
           searchMatchCount={searchMatchCount}
@@ -757,8 +773,6 @@ const AppContent: React.FC = () => {
           setSearchConfig={setSearchConfig}
           findNextSearchMatchWithJump={findNextSearchMatchWithJump}
           handleJumpToLine={handleJumpToLine}
-          setIsFindVisible={setIsFindVisible}
-          setIsGoToLineVisible={setIsGoToLineVisible}
           clearSearch={clearSearch}
           setProcessedCache={setProcessedCache}
           panes={panes}
@@ -786,6 +800,12 @@ const AppContent: React.FC = () => {
           removePane={removePane}
           splitPane={splitPane}
           handleOpen={handleOpen}
+          onToggleFind={(paneId, visible) => {
+            setPanes(prev => updatePaneInTree(prev, paneId, (p) => ({ ...p, findVisible: visible })));
+          }}
+          onToggleGoToLine={(paneId, visible) => {
+            setPanes(prev => updatePaneInTree(prev, paneId, (p) => ({ ...p, goToLineVisible: visible })));
+          }}
         />
       </div>
 

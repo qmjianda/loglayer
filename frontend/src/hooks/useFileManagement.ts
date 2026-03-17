@@ -40,6 +40,9 @@ export interface Pane {
     // Container node properties (for nested splits)
     direction?: 'horizontal' | 'vertical';
     children?: Pane[];
+    // Per-pane floating widget state
+    findVisible?: boolean;
+    goToLineVisible?: boolean;
 }
 
 // Processed cache for layer stats and search results
@@ -60,7 +63,9 @@ export function createPane(id?: string): Pane {
     return {
         id: id || `pane-${Date.now()}`,
         openFileIds: [],
-        activeFileId: null
+        activeFileId: null,
+        findVisible: false,
+        goToLineVisible: false
     };
 }
 

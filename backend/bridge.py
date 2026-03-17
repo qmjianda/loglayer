@@ -276,7 +276,6 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
     def __init__(self):
         super().__init__()
         self._sessions = {}
-        self._registry = LayerRegistry()
         self._rg_path = self._get_rg_path()
         # Dynamic worker pool sizing
         self._executor_max_workers = 4

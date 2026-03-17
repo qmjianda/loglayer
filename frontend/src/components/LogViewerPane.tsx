@@ -3,6 +3,7 @@ import { LogViewer } from './LogViewer';
 import { FileLoadingSkeleton, PendingFilesWall } from './LoadingOverlays';
 import { EmptyState } from './EmptyState';
 import { TabBar } from './TabBar';
+import { FloatingWidgets } from './FloatingWidgets';
 import { LayerType } from '../types';
 import { Pane, FileData } from '../hooks/useFileManagement';
 
@@ -11,10 +12,12 @@ interface LogViewerPaneProps {
   paneFile: FileData | undefined;
   files: FileData[];
   isPaneActive: boolean;
-  isFindVisible: boolean;
   activeView: string;
   searchQuery: string;
   searchConfig: { regex: boolean; caseSensitive: boolean };
+  searchMatchCount: number;
+  currentMatchNumber: number;
+  processedCache: any;
   scrollToIndex: number | null;
   highlightedIndex: number | null;
   indexingFileIds: Set<string>;
@@ -43,6 +46,14 @@ interface LogViewerPaneProps {
   onPaneClose: () => void;
   onPaneClick: () => void;
   onOpen: () => void;
+  onQueryChange: (query: string) => void;
+  onConfigChange: (config: any) => void;
+  onNavigate: (direction: 'next' | 'prev') => void;
+  onGoToLine: (lineNum: number) => void;
+  onToggleFind: (visible: boolean) => void;
+  onToggleGoToLine: (visible: boolean) => void;
+  clearSearch: () => void;
+  setProcessedCache: any;
 }
 
 export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
@@ -50,9 +61,11 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
   paneFile,
   files,
   isPaneActive,
-  isFindVisible,
   searchQuery,
   searchConfig,
+  searchMatchCount,
+  currentMatchNumber,
+  processedCache,
   scrollToIndex,
   highlightedIndex,
   indexingFileIds,
@@ -78,7 +91,15 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
   onSendToAI,
   onScrollToNewContent,
   onPaneClick,
-  onOpen
+  onOpen,
+  onQueryChange,
+  onConfigChange,
+  onNavigate,
+  onGoToLine,
+  onToggleFind,
+  onToggleGoToLine,
+  clearSearch,
+  setProcessedCache
 }) => {
   const paneFileId = pane.activeFileId;
   const isLoading = paneFileId && indexingFileIds.has(paneFileId);
@@ -87,6 +108,9 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
   const isDragging = useRef(false);
   const draggedFileId = useRef<string | null>(null);
   const draggedPaneId = useRef<string | null>(null);
+
+  const isFindVisible = pane.findVisible ?? false;
+  const isGoToLineVisible = pane.goToLineVisible ?? false;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -197,6 +221,25 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
         className="flex-1 flex flex-col relative min-h-0 overflow-hidden" 
         style={{ minHeight: 0 }}
       >
+        <FloatingWidgets
+          isFindVisible={isFindVisible}
+          isGoToLineVisible={isGoToLineVisible}
+          searchQuery={searchQuery}
+          searchConfig={searchConfig}
+          searchMatchCount={searchMatchCount}
+          currentMatchNumber={currentMatchNumber}
+          totalLines={paneFile?.lineCount || 0}
+          activeFileId={pane.activeFileId}
+          processedCache={processedCache}
+          onQueryChange={onQueryChange}
+          onConfigChange={onConfigChange}
+          onNavigate={onNavigate}
+          onGoToLine={onGoToLine}
+          onCloseFind={() => onToggleFind(false)}
+          onCloseGoToLine={() => onToggleGoToLine(false)}
+          clearSearch={clearSearch}
+          setProcessedCache={setProcessedCache}
+        />
         {splitPosition && (
           <div className={`absolute pointer-events-none z-10 ${
             splitPosition === 'left' ? 'left-0 top-0 bottom-0 w-1/4 bg-blue-500/20 border-l-4 border-l-blue-500' :

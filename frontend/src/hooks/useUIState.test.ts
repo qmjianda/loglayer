@@ -30,8 +30,6 @@ describe('hooks/useUIState', () => {
 
     expect(result.current.activeView).toBe('main');
     expect(result.current.sidebarWidth).toBe(288);
-    expect(result.current.isFindVisible).toBe(false);
-    expect(result.current.isGoToLineVisible).toBe(false);
     expect(result.current.isProcessing).toBe(false);
     expect(result.current.loadingProgress).toBe(0);
   });
@@ -45,10 +43,10 @@ describe('hooks/useUIState', () => {
     }));
 
     act(() => {
-      result.current.setActiveView('search');
+      result.current.setActiveView('ai');
     });
 
-    expect(result.current.activeView).toBe('search');
+    expect(result.current.activeView).toBe('ai');
   });
 
   it('should set sidebar width', () => {
@@ -64,42 +62,6 @@ describe('hooks/useUIState', () => {
     });
 
     expect(result.current.sidebarWidth).toBe(400);
-  });
-
-  it('should toggle find visibility', () => {
-    const { result } = renderHook(() => useUIState({
-      undo: mockUndo,
-      redo: mockRedo,
-      setSearchQuery: mockSetSearchQuery,
-      searchQuery: '',
-    }));
-
-    act(() => {
-      result.current.setIsFindVisible(true);
-    });
-
-    expect(result.current.isFindVisible).toBe(true);
-
-    act(() => {
-      result.current.setIsFindVisible(false);
-    });
-
-    expect(result.current.isFindVisible).toBe(false);
-  });
-
-  it('should toggle go to line visibility', () => {
-    const { result } = renderHook(() => useUIState({
-      undo: mockUndo,
-      redo: mockRedo,
-      setSearchQuery: mockSetSearchQuery,
-      searchQuery: '',
-    }));
-
-    act(() => {
-      result.current.setIsGoToLineVisible(true);
-    });
-
-    expect(result.current.isGoToLineVisible).toBe(true);
   });
 
   it('should set scroll to index', () => {

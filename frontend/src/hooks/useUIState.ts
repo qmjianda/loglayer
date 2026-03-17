@@ -15,38 +15,30 @@ export interface UseUIStateProps {
     setSearchQuery: (query: string) => void;
     searchQuery: string;
     canvasSelectedText?: string;
-    // 书签导航回调
     onNavigateToNextBookmark?: () => void;
     onNavigateToPrevBookmark?: () => void;
-    // 快捷键回调
     onToggleSidebar?: () => void;
     onOpenFile?: () => void;
     onOpenFolder?: () => void;
     onShowSearchHistory?: () => void;
+    onToggleFind?: (visible: boolean) => void;
+    onToggleGoToLine?: (visible: boolean) => void;
+    isFindVisible?: boolean;
+    isGoToLineVisible?: boolean;
 }
 
 export interface UseUIStateReturn {
-    // View state
     activeView: ActiveView;
     setActiveView: (view: ActiveView) => void;
 
-    // Sidebar
     sidebarWidth: number;
     setSidebarWidth: (width: number) => void;
 
-    // Find/GoTo widgets
-    isFindVisible: boolean;
-    setIsFindVisible: (visible: boolean) => void;
-    isGoToLineVisible: boolean;
-    setIsGoToLineVisible: (visible: boolean) => void;
-
-    // Scroll/highlight
     scrollToIndex: number | null;
     setScrollToIndex: (index: number | null) => void;
     highlightedIndex: number | null;
     setHighlightedIndex: (index: number | null) => void;
 
-    // Processing status
     isProcessing: boolean;
     setIsProcessing: (processing: boolean) => void;
     loadingProgress: number;
@@ -54,17 +46,13 @@ export interface UseUIStateReturn {
     operationStatus: { op: string; progress: number; error?: string } | null;
     setOperationStatus: (status: { op: string; progress: number; error?: string } | null) => void;
 
-    // Workspace
     workspaceRoot: { path: string; name: string } | null;
     setWorkspaceRoot: (root: { path: string; name: string } | null) => void;
 
-    // Jump to line helper
     handleJumpToLine: (index: number, totalLines: number) => void;
 
-    // Log viewer interaction handler
     handleLogViewerInteraction: () => void;
 
-    // File watch
     isWatching: boolean;
     setIsWatching: (watching: boolean) => void;
     hasNewContent: boolean;
@@ -82,31 +70,25 @@ export function useUIState({
     onToggleSidebar,
     onOpenFile,
     onOpenFolder,
-    onShowSearchHistory
+    onShowSearchHistory,
+    onToggleFind,
+    onToggleGoToLine,
+    isFindVisible = false,
+    isGoToLineVisible = false
 }: UseUIStateProps): UseUIStateReturn {
-    // View state
     const [activeView, setActiveView] = useState<ActiveView>('main');
 
-    // Sidebar
     const [sidebarWidth, setSidebarWidth] = useState(288);
 
-    // Find/GoTo widgets
-    const [isFindVisible, setIsFindVisible] = useState(false);
-    const [isGoToLineVisible, setIsGoToLineVisible] = useState(false);
-
-    // Scroll/highlight
     const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
     const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
 
-    // Processing status
     const [isProcessing, setIsProcessing] = useState(false);
     const [loadingProgress, setLoadingProgress] = useState(0);
     const [operationStatus, setOperationStatus] = useState<{ op: string; progress: number; error?: string } | null>(null);
 
-    // Workspace
     const [workspaceRoot, setWorkspaceRoot] = useState<{ path: string; name: string } | null>(null);
 
-    // File watch
     const [isWatching, setIsWatching] = useState(false);
     const [hasNewContent, setHasNewContent] = useState(false);
 
@@ -154,7 +136,7 @@ export function useUIState({
                 return;
             }
 
-            if (isCmdOrCtrl && isZ) {
+if (isCmdOrCtrl && isZ) {
                 e.preventDefault();
                 if (isShift) redo();
                 else undo();
@@ -170,10 +152,10 @@ export function useUIState({
                         setSearchQuery(firstLine);
                     }
                 }
-                setIsFindVisible(true);
+                onToggleFind?.(true);
             } else if (isCmdOrCtrl && isG) {
                 e.preventDefault();
-                setIsGoToLineVisible(true);
+                onToggleGoToLine?.(true);
             } else if (e.key === 'F2') {
                 e.preventDefault();
                 if (isShift) {
@@ -182,14 +164,14 @@ export function useUIState({
                     onNavigateToNextBookmark?.();
                 }
             } else if (e.key === 'Escape') {
-                if (isFindVisible) setIsFindVisible(false);
-                if (isGoToLineVisible) setIsGoToLineVisible(false);
+                if (isFindVisible) onToggleFind?.(false);
+                if (isGoToLineVisible) onToggleGoToLine?.(false);
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undo, redo, isFindVisible, isGoToLineVisible, setSearchQuery, canvasSelectedText, onNavigateToNextBookmark, onNavigateToPrevBookmark, onToggleSidebar, onOpenFile, onOpenFolder, onShowSearchHistory]);
+    }, [undo, redo, isFindVisible, isGoToLineVisible, setSearchQuery, canvasSelectedText, onNavigateToNextBookmark, onNavigateToPrevBookmark, onToggleSidebar, onOpenFile, onOpenFolder, onShowSearchHistory, onToggleFind, onToggleGoToLine]);
 
     // Jump to line
     const handleJumpToLine = useCallback((index: number, totalLines: number) => {
@@ -216,15 +198,11 @@ export function useUIState({
         }
     }, [highlightedIndex, isFindVisible, searchQuery, setSearchQuery]);
 
-    return {
+return {
         activeView,
         setActiveView,
         sidebarWidth,
         setSidebarWidth,
-        isFindVisible,
-        setIsFindVisible,
-        isGoToLineVisible,
-        setIsGoToLineVisible,
         scrollToIndex,
         setScrollToIndex,
         highlightedIndex,
