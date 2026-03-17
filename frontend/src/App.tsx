@@ -21,10 +21,9 @@ import { MainContent } from './components/MainContent';
 import { StatusBar } from './components/StatusBar';
 import { LayerType } from './types';
 import { ProcessedCache } from './hooks/useFileManagement';
-import { hasNativeDialogs, getLogLevelStats } from './bridge_client';
+import { hasNativeDialogs } from './bridge_client';
 import { removeFromSet, basename } from './utils';
 import type { FileInfo } from './components/UnifiedPanel';
-import type { LogLevelStats } from './components/StatsPanel';
 
 // 导入自定义 Hooks
 import {
@@ -33,7 +32,9 @@ import {
   useWorkspaceConfig,
   useRemotePathPicker,
   setBridgedCount,
-  FileLoadedInfo
+  FileLoadedInfo,
+  useAppModals,
+  useLogLevelStats
 } from './hooks';
 import { useFileManagement } from './hooks/useFileManagement';
 import { useLayerManagement } from './hooks/useLayerManagement';
@@ -178,47 +179,29 @@ const AppContent: React.FC = () => {
 
   // searchConfig is managed in useSearch hook
   const [canvasSelectedText, setCanvasSelectedText] = useState('');
-  const [isCommandPaletteVisible, setIsCommandPaletteVisible] = useState(false);
-  const [isSettingsVisible, setIsSettingsVisible] = useState(false);
-  const [isShortcutsVisible, setIsShortcutsVisible] = useState(false);
-  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
-  const [isStorageSettingsOpen, setIsStorageSettingsOpen] = useState(false);
-  const [isWorkerConfigOpen, setIsWorkerConfigOpen] = useState(false);
-  const [isPluginManagerOpen, setIsPluginManagerOpen] = useState(false);
   const [aiPanelInitialContent, setAiPanelInitialContent] = useState('');
-  const [logLevelStats, setLogLevelStats] = useState<LogLevelStats>({ ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 });
-  const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'warning' | 'error' } | null>(null);
   
-  const showNotification = useCallback((message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  }, []);
+  const modals = useAppModals();
+  const {
+    isCommandPaletteVisible,
+    setIsCommandPaletteVisible,
+    isSettingsVisible,
+    setIsSettingsVisible,
+    isShortcutsVisible,
+    setIsShortcutsVisible,
+    isExportDialogOpen,
+    setIsExportDialogOpen,
+    isStorageSettingsOpen,
+    setIsStorageSettingsOpen,
+    isWorkerConfigOpen,
+    setIsWorkerConfigOpen,
+    isPluginManagerOpen,
+    setIsPluginManagerOpen,
+    notification,
+    showNotification
+  } = modals;
 
-  // Fetch log level stats when active file changes
-  useEffect(() => {
-    if (!activeFileId) {
-      setLogLevelStats({ ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 });
-      return;
-    }
-
-    const fetchStats = async () => {
-      try {
-        const stats = await getLogLevelStats(activeFileId);
-        setLogLevelStats({
-          ERROR: stats.ERROR || 0,
-          WARN: stats.WARN || 0,
-          INFO: stats.INFO || 0,
-          DEBUG: stats.DEBUG || 0,
-          TRACE: stats.TRACE || 0,
-          FATAL: stats.FATAL || 0
-        });
-      } catch (e) {
-        console.error('[App] Failed to fetch log level stats:', e);
-      }
-    };
-
-    fetchStats();
-  }, [activeFileId]);
+  const { logLevelStats } = useLogLevelStats(activeFileId);
 
   // Apply search settings from useSettings
   useEffect(() => {
@@ -845,7 +828,7 @@ const AppContent: React.FC = () => {
         onExport={async (options) => {
           const { exportVisibleLines } = await import('./bridge_client');
           await exportVisibleLines(options);
-          setNotification({ message: '导出成功', type: 'success' });
+          showNotification('导出成功', 'success');
         }}
         isStorageSettingsOpen={isStorageSettingsOpen}
         onCloseStorageSettings={() => setIsStorageSettingsOpen(false)}
