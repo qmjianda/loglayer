@@ -17,7 +17,7 @@ interface _UseAppCommandsParams {
   onToggleFind: (visible: boolean) => void;
   findNextSearchMatchWithJump: (direction: 'next' | 'prev') => Promise<void>;
   onToggleGoToLine: (visible: boolean) => void;
-  setActiveView: (view: 'main' | 'ai' | 'stats' | 'help') => void;
+  setActiveView: (view: 'main' | 'help') => void;
   splitPane: (paneId: string, fileId?: string, direction?: 'right' | 'bottom') => void;
   removePane: (paneId: string) => void;
   addLayer: (type: LayerType, config?: unknown) => void;
@@ -63,8 +63,6 @@ export const useAppCommands = (params: _UseAppCommandsParams) => {
     { id: 'search.prev', label: '上一个匹配', shortcut: 'Shift+F3', category: '搜索', action: () => findNextSearchMatchWithJump('prev') },
     { id: 'goto.line', label: '跳转到行', shortcut: 'Ctrl+G', category: '导航', action: () => onToggleGoToLine(true) },
     { id: 'view.main', label: '主视图', category: '视图', action: () => setActiveView('main') },
-    { id: 'view.ai', label: 'AI 助手', category: '视图', action: () => setActiveView('ai') },
-    { id: 'view.stats', label: '统计面板', category: '视图', action: () => setActiveView('stats') },
     { id: 'view.help', label: '帮助视图', category: '视图', action: () => setActiveView('help') },
     { 
       id: 'pane.splitRight', 

@@ -43,10 +43,10 @@ describe('hooks/useUIState', () => {
     }));
 
     act(() => {
-      result.current.setActiveView('ai');
+      result.current.setActiveView('help');
     });
 
-    expect(result.current.activeView).toBe('ai');
+    expect(result.current.activeView).toBe('help');
   });
 
   it('should set sidebar width', () => {

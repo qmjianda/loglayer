@@ -1,12 +1,10 @@
 import React from 'react';
 import { UnifiedPanel } from './UnifiedPanel';
-import { AIChatPanel } from './AIChatPanel';
-import { StatsPanel } from './StatsPanel';
-import { PatternAnalysisPanel } from './PatternAnalysisPanel';
+import { HelpPanel } from './HelpPanel';
 import { LayerType } from '../types';
 import { FileInfo } from './UnifiedPanel';
 
-type ViewType = 'main' | 'ai' | 'stats' | 'help';
+type ViewType = 'main' | 'help';
 
 interface SidebarPanelProps {
   activeView: ViewType;
@@ -22,8 +20,6 @@ interface SidebarPanelProps {
   canRedo: boolean;
   bookmarks: unknown;
   bookmarkPreviews: unknown;
-  logLevelStats: { ERROR: number; WARN: number; INFO: number; DEBUG: number; TRACE: number; FATAL?: number };
-  fileId: string | null;
   onOpen: () => void;
   onOpenFileByPath: (path: string, name: string) => void;
   onFileActivate: (fileId: string) => void;
@@ -43,14 +39,6 @@ interface SidebarPanelProps {
   onToggleBookmark: (lineIndex: number) => void;
   onClearBookmarks: () => void;
   onJumpToBookmark: (idx: number) => void;
-  onAiPanelClose: () => void;
-  onAiPanelInitialContent: string;
-  onApplyAiSuggestion: (type: string, value: string) => void;
-  onQuickFilter: (levels: string[]) => void;
-  onApplyPatternSuggestion: (suggestion: unknown) => void;
-  showNotification: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
-  updateLayers: (updater: (layers: unknown[]) => unknown) => void;
-  activeFile: { lineCount?: number } | null;
 }
 
 export const SidebarPanel: React.FC<SidebarPanelProps> = ({
@@ -67,8 +55,6 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
   canRedo,
   bookmarks,
   bookmarkPreviews,
-  logLevelStats,
-  fileId,
   onOpen,
   onOpenFileByPath,
   onFileActivate,
@@ -87,13 +73,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
   onRedo,
   onToggleBookmark,
   onClearBookmarks,
-  onJumpToBookmark,
-  onAiPanelClose,
-  onAiPanelInitialContent,
-  onApplyAiSuggestion,
-  onQuickFilter,
-  onApplyPatternSuggestion,
-  activeFile
+  onJumpToBookmark
 }) => {
   return (
     <>
@@ -135,27 +115,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
         />
       )}
 
-      {activeView === 'ai' && (
-        <AIChatPanel 
-          initialContent={onAiPanelInitialContent}
-          onClose={onAiPanelClose}
-          onApplySuggestion={onApplyAiSuggestion}
-        />
-      )}
-
-      {activeView === 'stats' && (
-        <div className="flex-1 overflow-auto">
-          <StatsPanel 
-            stats={logLevelStats}
-            total={activeFile?.lineCount || 0}
-            onQuickFilter={onQuickFilter}
-          />
-          <PatternAnalysisPanel 
-            fileId={fileId}
-            onApplySuggestion={onApplyPatternSuggestion}
-          />
-        </div>
-      )}
+      {activeView === 'help' && <HelpPanel />}
     </>
   );
 };

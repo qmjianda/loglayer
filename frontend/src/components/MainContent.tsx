@@ -163,7 +163,6 @@ function renderPaneTree(
     handleToggleBookmark: (lineIndex: number) => void,
     handleUpdateBookmarkComment: (lineIndex: number, comment: string) => void,
     setCanvasSelectedText: (text: string) => void,
-    setAiPanelInitialContent: (text: string) => void,
     setActiveView: (view: any) => void,
     clearNewContent: () => void,
     setScrollToIndex: (index: number | null) => void,
@@ -221,7 +220,6 @@ function renderPaneTree(
                                 handleToggleBookmark,
                                 handleUpdateBookmarkComment,
                                 setCanvasSelectedText,
-                                setAiPanelInitialContent,
                                 setActiveView,
                                 clearNewContent,
                                 setScrollToIndex,
@@ -295,7 +293,6 @@ function renderPaneTree(
                         onToggleBookmark={handleToggleBookmark}
                         onUpdateBookmarkComment={handleUpdateBookmarkComment}
                         onSelectedTextChange={setCanvasSelectedText}
-                        onSendToAI={(text) => { setAiPanelInitialContent(text); setActiveView('ai'); }}
                         onScrollToNewContent={() => {
                             clearNewContent();
                             if (activeFile?.lineCount) {
@@ -369,7 +366,6 @@ interface MainContentProps {
     handleToggleBookmark: (lineIndex: number) => void;
     handleUpdateBookmarkComment: (lineIndex: number, comment: string) => void;
     setCanvasSelectedText: (text: string) => void;
-    setAiPanelInitialContent: (text: string) => void;
     setActiveView: (view: any) => void;
     clearNewContent: () => void;
     setScrollToIndex: (index: number | null) => void;
@@ -418,7 +414,6 @@ export const MainContent: React.FC<MainContentProps> = ({
     handleToggleBookmark,
     handleUpdateBookmarkComment,
     setCanvasSelectedText,
-    setAiPanelInitialContent,
     setActiveView,
     clearNewContent,
     setScrollToIndex,
@@ -569,7 +564,6 @@ export const MainContent: React.FC<MainContentProps> = ({
                         handleToggleBookmark,
                         handleUpdateBookmarkComment,
                         setCanvasSelectedText,
-                        setAiPanelInitialContent,
                         setActiveView,
                         clearNewContent,
                         setScrollToIndex,

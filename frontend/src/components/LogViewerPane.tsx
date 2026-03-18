@@ -41,7 +41,6 @@ interface LogViewerPaneProps {
   onToggleBookmark: (lineIndex: number) => void;
   onUpdateBookmarkComment: (lineIndex: number, comment: string) => void;
   onSelectedTextChange: (text: string) => void;
-  onSendToAI: (text: string) => void;
   onScrollToNewContent: () => void;
   onPaneClose: () => void;
   onPaneClick: () => void;
@@ -88,7 +87,6 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
   onToggleBookmark,
   onUpdateBookmarkComment,
   onSelectedTextChange,
-  onSendToAI,
   onScrollToNewContent,
   onPaneClick,
   onOpen,
@@ -298,7 +296,6 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
               onToggleBookmark={onToggleBookmark}
               onUpdateBookmarkComment={onUpdateBookmarkComment}
               onSelectedTextChange={onSelectedTextChange}
-              onSendToAI={onSendToAI}
               updateTrigger={bridgedUpdateTrigger}
               settings={settings}
               resolvedTheme={resolvedTheme}

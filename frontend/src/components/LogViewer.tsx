@@ -27,7 +27,6 @@ interface LogViewerProps {
   onToggleBookmark?: (lineIndex: number) => void;
   onUpdateBookmarkComment?: (lineIndex: number, comment: string) => void;
   onSelectedTextChange?: (text: string) => void;
-  onSendToAI?: (text: string) => void;
   updateTrigger?: number;
   layerStats?: Record<string, { count: number, distribution: number[] }>;
   bookmarks?: Record<number, string>;
@@ -88,7 +87,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   onToggleBookmark,
   onUpdateBookmarkComment,
   onSelectedTextChange,
-  onSendToAI,
   updateTrigger,
   layerStats = {},
   bookmarks = {},
@@ -1008,10 +1006,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
                   <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="2" /></svg>
                   <span className="flex-1">复制选中内容</span>
                   <span className="text-gray-500 text-[11px] ml-4">Ctrl+C</span>
-                </button>
-                <button className="w-full text-left px-3 py-[6px] flex items-center gap-2 text-gray-200 hover:bg-white/10 transition-colors duration-100" onClick={() => { onSendToAI?.(contextMenu.text); setContextMenu(null); }}>
-                  <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-                  <span className="flex-1">发送给 AI</span>
                 </button>
                 <button className="w-full text-left px-3 py-[6px] flex items-center gap-2 text-gray-200 hover:bg-white/10 transition-colors duration-100" onClick={() => { onAddLayer?.(LayerType.HIGHLIGHT, { query: contextMenu.text, color: '#facc15' }); setContextMenu(null); }}>
                   <svg className="w-3.5 h-3.5 text-yellow-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42" /></svg>

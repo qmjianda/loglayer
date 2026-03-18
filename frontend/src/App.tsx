@@ -19,7 +19,6 @@ import { FileInputs } from './components/FileInputs';
 import { SidebarContainer } from './components/SidebarContainer';
 import { MainContent } from './components/MainContent';
 import { StatusBar } from './components/StatusBar';
-import { LayerType } from './types';
 import { ProcessedCache, updatePaneInTree } from './hooks/useFileManagement';
 import { hasNativeDialogs } from './bridge_client';
 import { removeFromSet, basename } from './utils';
@@ -33,8 +32,7 @@ import {
   useRemotePathPicker,
   setBridgedCount,
   FileLoadedInfo,
-  useAppModals,
-  useLogLevelStats
+  useAppModals
 } from './hooks';
 import { useFileManagement } from './hooks/useFileManagement';
 import { useLayerManagement } from './hooks/useLayerManagement';
@@ -179,7 +177,6 @@ const AppContent: React.FC = () => {
 
   // searchConfig is managed in useSearch hook
   const [canvasSelectedText, setCanvasSelectedText] = useState('');
-  const [aiPanelInitialContent, setAiPanelInitialContent] = useState('');
   
   const modals = useAppModals();
   const {
@@ -200,8 +197,6 @@ const AppContent: React.FC = () => {
     notification,
     showNotification
   } = modals;
-
-  const { logLevelStats } = useLogLevelStats(activeFileId);
 
   // Apply search settings from useSettings
   useEffect(() => {
@@ -703,8 +698,6 @@ const AppContent: React.FC = () => {
             canRedo={canRedo}
             bookmarks={bookmarks}
             bookmarkPreviews={bookmarkPreviews}
-            logLevelStats={logLevelStats}
-            fileId={activeFileId}
             onOpen={handleOpen}
             onOpenFileByPath={handleOpenFileByPath}
             onFileActivate={handleFileActivateWithLoad}
@@ -728,43 +721,6 @@ const AppContent: React.FC = () => {
             onToggleBookmark={handleToggleBookmark}
             onClearBookmarks={handleClearBookmarks}
             onJumpToBookmark={(idx) => handleJumpToBookmark(idx, (visualIdx) => handleJumpToLine(visualIdx, activeFile?.lineCount || 0))}
-            onAiPanelClose={() => { setActiveView('main'); setAiPanelInitialContent(''); }}
-            onAiPanelInitialContent={aiPanelInitialContent}
-            onApplyAiSuggestion={(type, value) => {
-              if (type === 'filter') {
-                addLayer(LayerType.FILTER, { query: value });
-              } else if (type === 'highlight') {
-                addLayer(LayerType.HIGHLIGHT, { query: value, color: '#facc15' });
-              }
-            }}
-            onQuickFilter={(levels) => {
-              const existingLevelLayer = layers.find(l => l.type === LayerType.LEVEL);
-              if (existingLevelLayer) {
-                updateLayers([{ ...existingLevelLayer, config: { ...existingLevelLayer.config, levels } }]);
-              } else {
-                addLayer(LayerType.LEVEL, { levels, preset: 'custom' });
-              }
-            }}
-            onApplyPatternSuggestion={(suggestion: any) => {
-              if (suggestion.type === 'time') {
-                addLayer(LayerType.TIME_RANGE, {});
-              } else if (suggestion.type === 'level') {
-                addLayer(LayerType.LEVEL, { preset: 'custom' });
-              } else if (suggestion.type === 'json_tree') {
-                showNotification('JSON 日志已启用 - 右键点击日志行查看树形视图', 'info');
-              } else if (suggestion.type === 'bookmark') {
-                showNotification('建议：使用书签标记堆栈跟踪位置', 'info');
-              }
-            }}
-            showNotification={showNotification}
-            updateLayers={(updater: (layers: unknown[]) => unknown) => {
-                if (typeof updater === 'function') {
-                    updateLayers((prev) => updater(prev) as typeof prev);
-                } else {
-                    updateLayers(updater as never);
-                }
-            }}
-            activeFile={activeFile}
           />
         </SidebarContainer>
 
@@ -801,7 +757,6 @@ const AppContent: React.FC = () => {
           handleToggleBookmark={handleToggleBookmark}
           handleUpdateBookmarkComment={handleUpdateBookmarkComment}
           setCanvasSelectedText={setCanvasSelectedText}
-          setAiPanelInitialContent={setAiPanelInitialContent}
           setActiveView={setActiveView}
           clearNewContent={clearNewContent}
           setScrollToIndex={setScrollToIndex}

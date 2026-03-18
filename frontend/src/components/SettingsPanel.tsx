@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useSettings, AppSettings } from '../hooks/useSettings';
-import { AISettingsPanel } from './DynamicUI/AISettings';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -44,7 +43,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
     { id: 'search', label: '搜索', icon: '🔍' },
     { id: 'viewer', label: '查看器', icon: '📄' },
     { id: 'layers', label: '图层', icon: '📑' },
-    { id: 'ai', label: 'AI', icon: '🤖' },
     { id: 'advanced', label: '高级', icon: '🔧' },
   ];
 
@@ -263,11 +261,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                   />
                 </Section>
               </div>
-            )}
-
-            {/* AI 设置 */}
-            {activeTab === 'ai' && (
-              <AISettingsPanel />
             )}
 
             {/* 高级设置 */}

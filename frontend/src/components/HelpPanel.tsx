@@ -2,149 +2,140 @@ import React from 'react';
 
 export const HelpPanel: React.FC = () => {
   return (
-    <div className="p-8 flex flex-col h-full overflow-y-auto custom-scrollbar bg-dark-2 text-gray-300 select-text">
-      <div className="max-w-4xl mx-auto">
-        <header className="mb-10 border-b border-white/10 pb-6">
-          <h2 className="text-2xl font-black text-blue-400 mb-2 flex items-center tracking-tight">
-            <svg className="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-            LogLayer 使用手册
+    <div className="p-6 flex flex-col h-full overflow-y-auto custom-scrollbar bg-theme-surface text-theme-primary select-text">
+      <div className="max-w-3xl mx-auto space-y-8">
+        <header className="border-b border-theme-subtle pb-6">
+          <h2 className="text-2xl font-bold text-theme-primary mb-2 flex items-center gap-3">
+            <svg className="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            LogLayer 帮助中心
           </h2>
-          <p className="text-sm text-gray-500 leading-relaxed">
-            欢迎使用 LogLayer —— 专为高性能日志分析设计的现代化工具。本手册将帮助您快速上手核心功能。
+          <p className="text-sm text-theme-muted">
+            高性能日志分析工具 · 支持 GB 级文件 · 60FPS 流畅体验
           </p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-          {/* Quick Start Card */}
-          <div className="bg-dark-1 p-5 rounded-lg border border-white/5 hover:border-blue-500/30 transition-colors">
-            <h3 className="text-sm font-bold text-white mb-3 flex items-center">
-              <span className="w-6 h-6 rounded-md bg-blue-500/20 text-blue-400 flex items-center justify-center mr-2 text-xs">1</span>
-              打开文件与工作区
-            </h3>
-            <ul className="text-xs text-gray-400 space-y-2 leading-relaxed">
-              <li>• <b>打开文件</b>：点击侧边栏的 "Open File" 或直接将日志文件拖入窗口。</li>
-              <li>• <b>打开文件夹</b>：点击 "Open Folder" 可将文件夹作为工作区打开，支持批量搜索与文件切换。</li>
-              <li>• <b>工作区记忆</b>：自动恢复之前打开的文件和配置的图层。</li>
-            </ul>
-          </div>
-
-          {/* Layers Card */}
-          <div className="bg-dark-1 p-5 rounded-lg border border-white/5 hover:border-purple-500/30 transition-colors">
-            <h3 className="text-sm font-bold text-white mb-3 flex items-center">
-              <span className="w-6 h-6 rounded-md bg-purple-500/20 text-purple-400 flex items-center justify-center mr-2 text-xs">2</span>
-              图层系统 (Layers)
-            </h3>
-            <ul className="text-xs text-gray-400 space-y-2 leading-relaxed">
-              <li>• <b>非破坏性分析</b>：通过叠加图层来分析日志，原始文件永远不会被修改。</li>
-              <li>• <b>FILTER</b>：过滤图层，只显示匹配行。</li>
-              <li>• <b>HIGHLIGHT</b>：高亮图层，用颜色标记关注的关键词。</li>
-            </ul>
-          </div>
-
-          {/* Bookmarks Card */}
-          <div className="bg-dark-1 p-5 rounded-lg border border-white/5 hover:border-yellow-500/30 transition-colors">
-            <h3 className="text-sm font-bold text-white mb-3 flex items-center">
-              <span className="w-6 h-6 rounded-md bg-yellow-500/20 text-yellow-400 flex items-center justify-center mr-2 text-xs">3</span>
-              书签与标注 (Bookmarks)
-            </h3>
-            <ul className="text-xs text-gray-400 space-y-2 leading-relaxed">
-              <li>• <b>快速标记</b>：点击行号左侧区域可快速添加/删除书签。</li>
-              <li>• <b>备注说明</b>：在侧边栏书签面板中，您可以为关键行添加自定义备注。</li>
-              <li>• <b>极速跳转</b>：使用 F2 / Shift+F2 在书签间快速穿梭。</li>
-            </ul>
-          </div>
-
-          {/* Performance Card */}
-          <div className="bg-dark-1 p-5 rounded-lg border border-white/5 hover:border-green-500/30 transition-colors">
-            <h3 className="text-sm font-bold text-white mb-3 flex items-center">
-              <span className="w-6 h-6 rounded-md bg-green-500/20 text-green-400 flex items-center justify-center mr-2 text-xs">4</span>
-              性能与核心
-            </h3>
-            <ul className="text-xs text-gray-400 space-y-2 leading-relaxed">
-              <li>• <b>GB 级秒开</b>：基于 mmap 的高效索引技术。</li>
-              <li>• <b>虚拟化渲染</b>：无论文件多大，内存占用始终保持稳定。</li>
-              <li>• <b>Native 桥接</b>：深度集成的 Rust/Python 后端处理引擎。</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="space-y-12 pb-20">
-          {/* Search Feature */}
-          <section className="bg-blue-900/10 border border-blue-500/20 p-6 rounded-lg">
-            <h3 className="text-sm font-black text-blue-400 mb-4 flex items-center uppercase tracking-widest">
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-              全局搜索与导航
-            </h3>
-            <div className="space-y-4 text-xs text-gray-400">
-              <p>LogLayer 提供了两种搜索模式：</p>
-              <ul className="list-disc pl-5 space-y-2">
-                <li><strong className="text-gray-200">文件内查找 (Ctrl+F)：</strong> 快速跳转到当前视图中的匹配项，支持正则表达式。</li>
-                <li><strong className="text-gray-200">全局搜索 (侧边栏)：</strong> 使用 ripgrep 引擎在整个文件中进行极速搜索，即使是 GB 级文件也能瞬间完成。点击结果可直接跳转。</li>
-              </ul>
-              <div className="bg-black/40 p-3 rounded font-mono text-[11px] border border-white/5 mt-2">
-                提示：在搜索框中输入 "error" 并开启 "Regex" 模式，可匹配更多复杂模式。
+        <section>
+          <h3 className="text-sm font-semibold text-theme-secondary mb-4 uppercase tracking-wide">快速开始</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-lg bg-theme-elevated border border-theme-subtle">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-6 h-6 rounded bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold">1</span>
+                <span className="font-medium">打开文件</span>
               </div>
+              <p className="text-xs text-theme-muted">
+                拖放日志文件到窗口，或使用 <kbd className="px-1.5 py-0.5 bg-theme-surface rounded text-[10px] font-mono">Ctrl+O</kbd> 打开文件选择器
+              </p>
             </div>
-          </section>
-
-          {/* Config Persistence */}
-          <section className="bg-dark-1 p-6 rounded-lg border border-white/5 shadow-xl">
-            <h3 className="text-xs font-black uppercase text-green-500 mb-4 tracking-widest flex items-center">
-              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-              配置自动保存
-            </h3>
-            <div className="flex items-start space-x-6">
-              <div className="flex-1 text-xs leading-relaxed space-y-3">
-                <p>
-                  您的工作区配置（包括打开的文件列表、每个文件的图层设置）会自动保存到工作区目录下的
-                  <span className="text-green-400 font-mono mx-1">.loglayer/config.json</span> 文件中。
-                </p>
-                <p className="text-gray-500">
-                  下次打开同一文件夹时，一切都会恢复如初，无需重复配置。您可以放心地关闭软件或切换项目。
-                </p>
+            <div className="p-4 rounded-lg bg-theme-elevated border border-theme-subtle">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-6 h-6 rounded bg-purple-500/20 text-purple-400 flex items-center justify-center text-xs font-bold">2</span>
+                <span className="font-medium">创建图层</span>
               </div>
+              <p className="text-xs text-theme-muted">
+                使用 FILTER 过滤关键行，HIGHLIGHT 高亮关键词，实时分析日志
+              </p>
             </div>
-          </section>
-
-          {/* Shortcuts */}
-          <section className="space-y-6">
-            <h3 className="text-sm font-black uppercase text-gray-500 tracking-widest">常用快捷键</h3>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-black/30 p-3 rounded border border-white/5 flex justify-between items-center">
-                <span className="text-xs text-gray-400">查找匹配</span>
-                <span className="text-xs font-mono bg-white/10 px-2 py-1 rounded text-gray-200">Ctrl + F</span>
+            <div className="p-4 rounded-lg bg-theme-elevated border border-theme-subtle">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-6 h-6 rounded bg-yellow-500/20 text-yellow-400 flex items-center justify-center text-xs font-bold">3</span>
+                <span className="font-medium">书签标注</span>
               </div>
-              <div className="bg-black/30 p-3 rounded border border-white/5 flex justify-between items-center">
-                <span className="text-xs text-gray-400">跳转行号</span>
-                <span className="text-xs font-mono bg-white/10 px-2 py-1 rounded text-gray-200">Ctrl + G</span>
-              </div>
-              <div className="bg-black/30 p-3 rounded border border-white/5 flex justify-between items-center">
-                <span className="text-xs text-gray-400">下一个书签</span>
-                <span className="text-xs font-mono bg-white/10 px-2 py-1 rounded text-gray-200">F2</span>
-              </div>
-              <div className="bg-black/30 p-3 rounded border border-white/5 flex justify-between items-center">
-                <span className="text-xs text-gray-400">上一个书签</span>
-                <span className="text-xs font-mono bg-white/10 px-2 py-1 rounded text-gray-200">Shift + F2</span>
-              </div>
-              <div className="bg-black/30 p-3 rounded border border-white/5 flex justify-between items-center">
-                <span className="text-xs text-gray-400">撤销 / 重做</span>
-                <span className="text-xs font-mono bg-white/10 px-2 py-1 rounded text-gray-200">Ctrl + Z / Y</span>
-              </div>
-              <div className="bg-black/30 p-3 rounded border border-white/5 flex justify-between items-center">
-                <span className="text-xs text-gray-400">侧边栏切换</span>
-                <span className="text-xs font-mono bg-white/10 px-2 py-1 rounded text-gray-200">Ctrl + B</span>
-              </div>
+              <p className="text-xs text-theme-muted">
+                点击行号添加书签，按 <kbd className="px-1.5 py-0.5 bg-theme-surface rounded text-[10px] font-mono">F2</kbd> 快速跳转
+              </p>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <footer className="text-center pt-10 opacity-30">
-            <div className="text-[10px] font-mono tracking-widest uppercase">
-              LogLayer v5.1 • 高效日志分析体验
+        <section>
+          <h3 className="text-sm font-semibold text-theme-secondary mb-4 uppercase tracking-wide">图层系统</h3>
+          <div className="space-y-3">
+            <div className="p-4 rounded-lg bg-theme-elevated border border-theme-subtle">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                </div>
+                <div>
+                  <span className="font-medium">FILTER</span>
+                  <span className="text-xs text-theme-muted ml-2">过滤图层</span>
+                </div>
+              </div>
+              <p className="text-xs text-theme-muted">只显示匹配的行，支持正则表达式。多图层叠加时按顺序依次过滤。</p>
             </div>
-          </footer>
-        </div>
+            <div className="p-4 rounded-lg bg-theme-elevated border border-theme-subtle">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <div>
+                  <span className="font-medium">HIGHLIGHT</span>
+                  <span className="text-xs text-theme-muted ml-2">高亮图层</span>
+                </div>
+              </div>
+              <p className="text-xs text-theme-muted">用指定颜色标记匹配的行，不影响其他行显示。适合标记关键信息。</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h3 className="text-sm font-semibold text-theme-secondary mb-4 uppercase tracking-wide">快捷键</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <ShortcutItem label="打开文件" shortcut="Ctrl+O" />
+            <ShortcutItem label="打开文件夹" shortcut="Ctrl+Shift+O" />
+            <ShortcutItem label="查找" shortcut="Ctrl+F" />
+            <ShortcutItem label="跳转到行" shortcut="Ctrl+G" />
+            <ShortcutItem label="下一个匹配" shortcut="F3" />
+            <ShortcutItem label="上一个匹配" shortcut="Shift+F3" />
+            <ShortcutItem label="下一个书签" shortcut="F2" />
+            <ShortcutItem label="上一个书签" shortcut="Shift+F2" />
+            <ShortcutItem label="新建图层" shortcut="Ctrl+Shift+L" />
+            <ShortcutItem label="打开设置" shortcut="Ctrl+," />
+            <ShortcutItem label="向右分屏" shortcut="Ctrl+\" />
+            <ShortcutItem label="关闭分屏" shortcut="Ctrl+W" />
+            <ShortcutItem label="实时监视" shortcut="Ctrl+Shift+T" />
+            <ShortcutItem label="命令面板" shortcut="Ctrl+P" />
+          </div>
+        </section>
+
+        <section>
+          <h3 className="text-sm font-semibold text-theme-secondary mb-4 uppercase tracking-wide">搜索技巧</h3>
+          <div className="p-4 rounded-lg bg-theme-elevated border border-theme-subtle space-y-3">
+            <div className="flex items-start gap-3">
+              <span className="text-xs font-mono text-blue-400 bg-blue-500/10 px-2 py-1 rounded shrink-0">正则</span>
+              <p className="text-xs text-theme-muted">启用 Regex 模式，使用 <code className="px-1 bg-theme-surface rounded">ERROR|WARN</code> 匹配多个关键词</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-xs font-mono text-purple-400 bg-purple-500/10 px-2 py-1 rounded shrink-0">大小写</span>
+              <p className="text-xs text-theme-muted">默认不区分大小写，点击 Case 可切换为精确匹配</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-xs font-mono text-green-400 bg-green-500/10 px-2 py-1 rounded shrink-0">全局</span>
+              <p className="text-xs text-theme-muted">搜索使用 ripgrep 引擎，GB 级文件也能瞬间完成</p>
+            </div>
+          </div>
+        </section>
+
+        <footer className="pt-6 border-t border-theme-subtle text-center">
+          <p className="text-xs text-theme-muted">
+            LogLayer v5.1 · 高效日志分析体验
+          </p>
+        </footer>
       </div>
     </div>
   );
 };
+
+const ShortcutItem: React.FC<{ label: string; shortcut: string }> = ({ label, shortcut }) => (
+  <div className="flex items-center justify-between p-2 rounded bg-theme-elevated border border-theme-subtle">
+    <span className="text-xs text-theme-muted">{label}</span>
+    <kbd className="px-2 py-1 text-[10px] font-mono bg-theme-surface rounded text-theme-secondary border border-theme-subtle">
+      {shortcut}
+    </kbd>
+  </div>
+);
