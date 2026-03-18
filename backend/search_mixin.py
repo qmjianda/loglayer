@@ -35,7 +35,14 @@ class SearchPipeline:
     def get_nearest_search_rank(
         self, file_id: str, current_index: int, direction: str
     ) -> int:
-        """Find the rank of the nearest search match based on the current visible index."""
+        """Find the rank of the nearest search match based on the current visible index.
+        
+        For 'next': returns match > current_index (excluding cursor position)
+        For 'prev': returns match < current_index (excluding cursor position)
+        
+        This matches VSCode behavior: when cursor is ON a match, Find Next jumps
+        to the NEXT match (not staying on current).
+        """
         if file_id not in self._sessions:
             return -1
         session = self._sessions[file_id]
@@ -43,26 +50,21 @@ class SearchPipeline:
         if matches is None or len(matches) == 0:
             return -1
 
-        # search_matches contains indices in the visible list
-        rank = bisect.bisect_right(matches, current_index)
-
         if direction == "next":
+            # bisect_right finds first match > current_index (excludes current)
+            rank = bisect.bisect_right(matches, current_index)
             if rank < len(matches):
                 return rank
             else:
-                return 0  # Loop to start
-        else:  # prev
-            target_rank = rank - 1
-            if target_rank >= 0:
-                if matches[target_rank] == current_index:
-                    target_rank -= 1
-
-                if target_rank >= 0:
-                    return target_rank
-                else:
-                    return len(matches) - 1
+                return 0  # Wrap to first
+        else:
+            # bisect_left finds first match >= current_index
+            # rank - 1 gives us last match < current_index
+            rank = bisect.bisect_left(matches, current_index)
+            if rank > 0:
+                return rank - 1
             else:
-                return len(matches) - 1
+                return len(matches) - 1  # Wrap to last
 
     def get_search_matches_range(
         self, file_id: str, start_rank: int, count: int
