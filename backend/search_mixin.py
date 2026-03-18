@@ -32,6 +32,23 @@ class SearchPipeline:
         pos = bisect.bisect_left(matches, index)
         return pos < len(matches) and matches[pos] == index
 
+    def get_search_rank_for_index(self, file_id: str, index: int) -> int:
+        """Get the rank of a search match at the given index.
+        
+        Returns the rank (0-based position) if the index is a match, -1 otherwise.
+        """
+        if file_id not in self._sessions:
+            return -1
+        session = self._sessions[file_id]
+        matches = session.search_matches
+        if matches is None or len(matches) == 0:
+            return -1
+        # Use bisect_left to find position
+        pos = bisect.bisect_left(matches, index)
+        if pos < len(matches) and matches[pos] == index:
+            return pos
+        return -1
+
     def get_nearest_search_rank(
         self, file_id: str, current_index: int, direction: str
     ) -> int:

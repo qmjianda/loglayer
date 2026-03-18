@@ -151,6 +151,7 @@ export interface FileBridgeAPI {
   get_nearest_search_rank(fileId: string, currentIndex: number, direction: string): Promise<number>;
   get_search_matches_range(fileId: string, startRank: number, count: number): Promise<string>;
   is_search_match(fileId: string, index: number): Promise<boolean>;
+  get_search_rank_for_index(fileId: string, index: number): Promise<number>;
 
   // Registry operations
   get_layer_registry(): Promise<string>;

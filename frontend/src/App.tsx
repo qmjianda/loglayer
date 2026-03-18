@@ -8,7 +8,7 @@
  * - useBridge: 处理前端与 Python 后端的信号监听与数据同步。
  */
 
-import React, { useMemo, useCallback, useEffect, useState } from 'react';
+import React, { useMemo, useCallback, useEffect, useState, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { AppHeader } from './components/AppHeader';
 import { useAppCommands } from './components/AppCommands';
@@ -160,6 +160,7 @@ const AppContent: React.FC = () => {
     layersFunctionalHash,
     lineCount: activeFile?.lineCount || 0,
     searchMatchCount,
+    highlightedIndex: null,
     setProcessedCache
   });
 
@@ -169,7 +170,9 @@ const AppContent: React.FC = () => {
     searchConfig,
     setSearchConfig,
     currentMatchRank,
-    
+    setCurrentMatchRank,
+    currentMatchIndex,
+    setCurrentMatchIndex,
     setIsSearching,
     currentMatchNumber,
     findNextSearchMatch,
@@ -273,6 +276,44 @@ const AppContent: React.FC = () => {
     setWorkspaceRoot,
     handleJumpToLine
   } = uiState;
+
+  const highlightedIndexRef = useRef(highlightedIndex);
+  highlightedIndexRef.current = highlightedIndex;
+
+  useEffect(() => {
+    if (!searchQuery || !activeFileId || searchMatchCount === 0) return;
+    
+    const currentHighlighted = highlightedIndexRef.current;
+    if (currentHighlighted === null || currentHighlighted < 0) return;
+    
+    const checkAndNavigate = async () => {
+      const { getSearchRankForIndex, getNearestSearchRank, getSearchMatchIndex } = await import('./bridge_client');
+      
+      const currentRank = await getSearchRankForIndex(activeFileId, currentHighlighted);
+      
+      console.log('[AutoJump] searchMatchCount:', searchMatchCount, 'highlightedIndex:', currentHighlighted, 'currentRank:', currentRank);
+      
+      if (currentRank >= 0) {
+        console.log('[AutoJump] Current line is match, staying at rank:', currentRank);
+        search.setCurrentMatchRank(currentRank);
+        search.setCurrentMatchIndex(currentHighlighted);
+      } else {
+        console.log('[AutoJump] Current line is not match, finding nearest...');
+        const nearestRank = await getNearestSearchRank(activeFileId, currentHighlighted, 'next');
+        if (nearestRank >= 0) {
+          const nearestIndex = await getSearchMatchIndex(activeFileId, nearestRank);
+          if (nearestIndex >= 0) {
+            console.log('[AutoJump] Jumping to nearest rank:', nearestRank, 'index:', nearestIndex);
+            search.setCurrentMatchRank(nearestRank);
+            search.setCurrentMatchIndex(nearestIndex);
+            handleJumpToLine(nearestIndex, activeFile?.lineCount || 0);
+          }
+        }
+      }
+    };
+    
+    checkAndNavigate();
+  }, [searchMatchCount, searchQuery, activeFileId, search.setCurrentMatchRank, search.setCurrentMatchIndex, handleJumpToLine, activeFile?.lineCount]);
 
   // ===== 文件监视 (File Watch) =====
   const {
@@ -427,16 +468,6 @@ const AppContent: React.FC = () => {
         setIsProcessing(false);
         setIsSearching(false);
         setIndexingFileIds(prev => removeFromSet(prev, fileId));
-
-        // [BUG FIX 3] Nearest jumping after search finishes
-        // If we are in searching mode and no rank is selected yet, jump to the nearest!
-        if (searchQuery && matchCount > 0 && currentMatchRank === -1) {
-          // Use a tiny timeout to let React finish the current state update cycle (setProcessedCache)
-          // so the subsequent findNextSearchMatchWithJump sees the correct matchCount.
-          setTimeout(() => {
-            findNextSearchMatchWithJump('next', matchCount);
-          }, 0);
-        }
       }
     },
 

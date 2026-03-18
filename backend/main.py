@@ -178,6 +178,19 @@ def get_search_match_index(file_id: str, rank: int):
     return bridge.get_search_match_index(file_id, rank)
 
 
+@app.get("/api/is_search_match")
+def is_search_match(file_id: str, index: int):
+    return bridge.is_search_match(file_id, index)
+
+
+@app.get("/api/get_search_rank_for_index")
+def get_search_rank_for_index(file_id: str, index: int):
+    """Get the rank (0-based position) of a search match at the given index.
+    Returns -1 if the index is not a match.
+    """
+    return bridge.get_search_rank_for_index(file_id, index)
+
+
 @app.get("/api/get_nearest_search_rank")
 def get_nearest_search_rank(file_id: str, current_index: int, direction: str):
     return bridge.get_nearest_search_rank(file_id, current_index, direction)
