@@ -226,6 +226,10 @@ class LogSession:
         self.rendering_cache = LRUCache(max_size=5000)
         self.workers = {}
         
+        # 统计结果缓存 - 避免重复计算
+        self.stats_cache: Dict[str, Any] = {}
+        self.stats_config_hash: str = ""  # 用于判断配置是否变化
+        
         # 独立于图层系统的书签存储 (line_index -> comment)
         self.bookmarks = {}
 

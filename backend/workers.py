@@ -463,7 +463,7 @@ class StatsWorker(CustomThread):
                 tasks.append((None, "search", self.search_config, []))
 
             with ThreadPoolExecutor(
-                max_workers=min(8, os.cpu_count() or 4)
+                max_workers=min(2, os.cpu_count() or 4)
             ) as executor:
                 future_to_lid = {}
                 for layer, l_id, q_conf, filters in tasks:
