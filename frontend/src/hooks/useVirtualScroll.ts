@@ -22,6 +22,10 @@ export interface PerformanceMetrics {
     cacheTotal: number;
     isLowFps: boolean;
     isHighMemory: boolean;
+    diskReadMB?: number;
+    diskWriteMB?: number;
+    diskReadRateMBps?: number;
+    diskWriteRateMBps?: number;
 }
 
 export interface UseVirtualScrollOptions {

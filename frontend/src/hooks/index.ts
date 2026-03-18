@@ -21,3 +21,4 @@ export * from './usePaneManagement';
 export * from './usePluginWidgets';
 export * from './useLayerRegistry';
 export * from './useAppModals';
+export * from './useSystemMetrics';

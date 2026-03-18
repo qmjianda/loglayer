@@ -367,6 +367,39 @@ def get_log_level_stats(file_id: str):
     return bridge.get_log_level_stats(file_id)
 
 
+@app.get("/api/system_metrics")
+def get_system_metrics():
+    """获取系统性能指标（磁盘I/O、CPU等）"""
+    try:
+        import psutil
+        
+        disk_io = psutil.disk_io_counters()
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        memory = psutil.virtual_memory()
+        
+        result = {
+            "cpu_percent": cpu_percent,
+            "memory_percent": memory.percent,
+            "memory_used_mb": memory.used // (1024 * 1024),
+            "memory_total_mb": memory.total // (1024 * 1024),
+        }
+        
+        if disk_io:
+            result.update({
+                "disk_read_bytes": disk_io.read_bytes,
+                "disk_write_bytes": disk_io.write_bytes,
+                "disk_read_count": disk_io.read_count,
+                "disk_write_count": disk_io.write_count,
+                "disk_read_time_ms": disk_io.read_time if hasattr(disk_io, 'read_time') else 0,
+                "disk_write_time_ms": disk_io.write_time if hasattr(disk_io, 'write_time') else 0,
+            })
+        
+        return result
+    except Exception as e:
+        logger.error(f"[SystemMetrics] Error: {e}")
+        return {"error": str(e)}
+
+
 @app.get("/api/analyze_log_pattern")
 def analyze_log_pattern(file_id: str, sample_size: int = 100):
     """分析日志文件的模式（时间戳格式、日志级别、格式类型等）"""

@@ -603,3 +603,27 @@ export async function setWorkerConfig(maxWorkers: number): Promise<boolean> {
         return false;
     }
 }
+
+export interface SystemMetrics {
+    cpu_percent: number;
+    memory_percent: number;
+    memory_used_mb: number;
+    memory_total_mb: number;
+    disk_read_bytes?: number;
+    disk_write_bytes?: number;
+    disk_read_count?: number;
+    disk_write_count?: number;
+    disk_read_time_ms?: number;
+    disk_write_time_ms?: number;
+    error?: string;
+}
+
+export async function getSystemMetrics(): Promise<SystemMetrics> {
+    if (!fileBridge) return { cpu_percent: 0, memory_percent: 0, memory_used_mb: 0, memory_total_mb: 0, error: 'Bridge not initialized' };
+    try {
+        return await fileBridge.get('system_metrics');
+    } catch (e) {
+        console.error('[Bridge] getSystemMetrics error:', e);
+        return { cpu_percent: 0, memory_percent: 0, memory_used_mb: 0, memory_total_mb: 0, error: String(e) };
+    }
+}

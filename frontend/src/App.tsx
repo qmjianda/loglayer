@@ -44,14 +44,15 @@ import { useResponsive } from './hooks/useResponsive';
 import { useFileWatch } from './hooks/useFileWatch';
 import { usePaneManagement, MAX_PANES } from './hooks/usePaneManagement';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useSystemMetrics } from './hooks/useSystemMetrics';
 import './styles/resizable-panels.css';
 
 
 const AppContent: React.FC = () => {
-  // ===== 设置管理 (Settings Management) =====
   const { settings, resolvedTheme } = useSettings();
 
-  // ===== 响应式布局 (Responsive Layout) =====
+  const systemMetrics = useSystemMetrics(settings.debugMode, 1000);
+
   const responsive = useResponsive();
 
   // ===== 文件管理 (File Management) =====
@@ -782,6 +783,18 @@ const AppContent: React.FC = () => {
         searchMatchCount={searchMatchCount}
         currentLine={(highlightedIndex !== null) ? highlightedIndex + 1 : undefined}
         pendingCliFiles={pendingCliFiles}
+        performanceMetrics={{
+          fps: 60,
+          memoryMB: systemMetrics.memoryUsedMB,
+          cacheUsed: 0,
+          cacheTotal: 0,
+          isLowFps: false,
+          isHighMemory: systemMetrics.memory > 80,
+          diskReadMB: systemMetrics.diskIO.readMB,
+          diskWriteMB: systemMetrics.diskIO.writeMB,
+          diskReadRateMBps: systemMetrics.diskIO.readRateMBps,
+          diskWriteRateMBps: systemMetrics.diskIO.writeRateMBps,
+        }}
         isWatching={isWatching}
         hasNewContent={hasNewContent}
         paneCount={panes.length}
