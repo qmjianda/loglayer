@@ -1,6 +1,5 @@
 import React from 'react';
 import { UnifiedPanel } from './UnifiedPanel';
-import { HelpPanel } from './HelpPanel';
 import { LayerType } from '../types';
 import { FileInfo } from './UnifiedPanel';
 
@@ -114,8 +113,6 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
           onJumpToBookmark={onJumpToBookmark}
         />
       )}
-
-      {activeView === 'help' && <HelpPanel />}
     </>
   );
 };
