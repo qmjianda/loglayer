@@ -39,6 +39,31 @@ function removePaneFromTree(panes: Pane[], targetId: string): Pane[] {
     return result;
 }
 
+function cleanupEmptyPanes(panes: Pane[]): Pane[] {
+    const flattened = flattenPanes(panes);
+    if (flattened.length <= 1) return panes;
+    
+    function clean(items: Pane[]): Pane[] {
+        const result: Pane[] = [];
+        for (const item of items) {
+            if (item.children) {
+                const newChildren = clean(item.children);
+                if (newChildren.length === 0) continue;
+                if (newChildren.length === 1 && !newChildren[0].children) {
+                    result.push(newChildren[0]);
+                } else {
+                    result.push({ ...item, children: newChildren });
+                }
+            } else if (item.openFileIds && item.openFileIds.length > 0) {
+                result.push(item);
+            }
+        }
+        return result;
+    }
+    
+    return clean(panes);
+}
+
 function handleDragSplit(
     panes: Pane[],
     sourcePaneId: string,
@@ -307,7 +332,7 @@ function renderPaneTree(
                                 const newPaneId = `pane-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
                                 setPanes(prev => {
                                     const newPanes = handleDragSplit(prev, sourcePaneId, pane.id, fileId, newPaneId, position);
-                                    return newPanes;
+                                    return cleanupEmptyPanes(newPanes);
                                 });
                                 setActivePaneId(newPaneId);
                             }
