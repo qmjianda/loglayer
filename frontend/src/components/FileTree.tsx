@@ -129,7 +129,7 @@ const TreeNode: React.FC<any> = ({
                     <FileIcon name={item.name} isDir={item.isDir} />
                 </span>
 
-                <span className={`text-[13px] truncate ${isActive ? 'font-medium' : ''}`}>{item.name}</span>
+                <span className={`text-[13px] truncate flex-1 min-w-0 ${isActive ? 'font-medium' : ''}`}>{item.name}</span>
 
                 {openedFile && (
                     <div className="ml-2 w-1.5 h-1.5 rounded-full bg-green-500/50 shadow-[0_0_5px_rgba(34,197,94,0.3)] shrink-0" title="已打开" />

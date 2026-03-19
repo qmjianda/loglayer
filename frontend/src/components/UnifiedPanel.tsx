@@ -328,8 +328,8 @@ canUndo,
                                                 <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                             </div>
 
-                                            {/* File Name */}
-                                            <span className={`text-xs truncate flex-1 min-w-[80px] ${isActive ? 'text-white font-medium' : ''}`} title={file.name}>{file.name}</span>
+                                            {/* File Name - min-w-0 allows truncation in flex container */}
+                                            <span className={`text-xs truncate flex-1 min-w-0 ${isActive ? 'text-white font-medium' : ''}`} title={file.name}>{file.name}</span>
 
                                             {/* Action Buttons - Always visible for active file, hover for others */}
                                             {/* Use pointer-events-none when hidden to allow clicks to pass through */}
