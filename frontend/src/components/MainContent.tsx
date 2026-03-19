@@ -481,7 +481,12 @@ export const MainContent: React.FC<MainContentProps> = ({
             
             if (openFileIds.length === 0) {
                 if (flattened.length > 1) {
-                    return removePaneFromTree(prev, paneId);
+                    const newPanes = removePaneFromTree(prev, paneId);
+                    const newFlattened = flattenPanes(newPanes);
+                    if (paneId === activePaneId && newFlattened.length > 0) {
+                        setActivePaneId(newFlattened[0].id);
+                    }
+                    return newPanes;
                 }
                 return updatePaneInTree(prev, paneId, (p) => ({ ...p, openFileIds: [], activeFileId: null }));
             }
