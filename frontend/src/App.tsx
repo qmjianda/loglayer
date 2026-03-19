@@ -160,7 +160,6 @@ const AppContent: React.FC = () => {
     layersFunctionalHash,
     lineCount: activeFile?.lineCount || 0,
     searchMatchCount,
-    highlightedIndex: null,
     setProcessedCache
   });
 
@@ -172,7 +171,6 @@ const AppContent: React.FC = () => {
     currentMatchRank,
     setCurrentMatchRank,
     currentMatchIndex,
-    setCurrentMatchIndex,
     setIsSearching,
     currentMatchNumber,
     findNextSearchMatch,
@@ -295,8 +293,7 @@ const AppContent: React.FC = () => {
       
       if (currentRank >= 0) {
         console.log('[AutoJump] Current line is match, staying at rank:', currentRank);
-        search.setCurrentMatchRank(currentRank);
-        search.setCurrentMatchIndex(currentHighlighted);
+        setCurrentMatchRank(currentRank);
       } else {
         console.log('[AutoJump] Current line is not match, finding nearest...');
         const nearestRank = await getNearestSearchRank(activeFileId, currentHighlighted, 'next');
@@ -304,8 +301,7 @@ const AppContent: React.FC = () => {
           const nearestIndex = await getSearchMatchIndex(activeFileId, nearestRank);
           if (nearestIndex >= 0) {
             console.log('[AutoJump] Jumping to nearest rank:', nearestRank, 'index:', nearestIndex);
-            search.setCurrentMatchRank(nearestRank);
-            search.setCurrentMatchIndex(nearestIndex);
+            setCurrentMatchRank(nearestRank);
             handleJumpToLine(nearestIndex, activeFile?.lineCount || 0);
           }
         }
@@ -313,7 +309,7 @@ const AppContent: React.FC = () => {
     };
     
     checkAndNavigate();
-  }, [searchMatchCount, searchQuery, activeFileId, search.setCurrentMatchRank, search.setCurrentMatchIndex, handleJumpToLine, activeFile?.lineCount]);
+  }, [searchMatchCount, searchQuery, activeFileId, setCurrentMatchRank, handleJumpToLine, activeFile?.lineCount]);
 
   // ===== 文件监视 (File Watch) =====
   const {
