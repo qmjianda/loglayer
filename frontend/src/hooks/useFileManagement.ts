@@ -190,6 +190,29 @@ export function useFileManagement(): UseFileManagementReturn {
             
             if (!pane) {
                 if (fileId === null || prev.length === 0) return prev;
+                const flattened = prev.length > 0 ? (function flatten(items: Pane[]): Pane[] {
+                    const result: Pane[] = [];
+                    for (const item of items) {
+                        if (item.children) {
+                            result.push(...flatten(item.children));
+                        } else {
+                            result.push(item);
+                        }
+                    }
+                    return result;
+                })(prev) : [];
+                const targetPane = flattened[0];
+                if (targetPane) {
+                    return updatePaneInTree(prev, targetPane.id, (p) => {
+                        if (fileId === null) {
+                            return { ...p, activeFileId: null };
+                        }
+                        const openFileIds = p.openFileIds.includes(fileId)
+                            ? p.openFileIds
+                            : [...p.openFileIds, fileId];
+                        return { ...p, openFileIds, activeFileId: fileId };
+                    });
+                }
                 const newPane = createPane(`pane-${Date.now()}`);
                 return [{ ...newPane, openFileIds: [fileId], activeFileId: fileId }];
             }
