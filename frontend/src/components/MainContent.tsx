@@ -110,10 +110,12 @@ function handleDragSplit(
                 }
             } else if (item.id === sourcePaneId) {
                 const newOpenFileIds = item.openFileIds?.filter(id => id !== fileId) || [];
-                const newActiveId = item.activeFileId === fileId 
-                    ? (newOpenFileIds[0] || null) 
-                    : item.activeFileId;
-                result.push({ ...item, openFileIds: newOpenFileIds, activeFileId: newActiveId });
+                if (newOpenFileIds.length > 0) {
+                    const newActiveId = item.activeFileId === fileId 
+                        ? (newOpenFileIds[0] || null) 
+                        : item.activeFileId;
+                    result.push({ ...item, openFileIds: newOpenFileIds, activeFileId: newActiveId });
+                }
             } else if (item.id === targetPaneId) {
                 const targetPane = item;
                 
