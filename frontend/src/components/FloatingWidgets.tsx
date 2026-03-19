@@ -15,6 +15,7 @@ interface FloatingWidgetsProps {
   searchMatchCount: number;
   currentMatchNumber: number;
   totalLines: number;
+  currentLine?: number;
   activeFileId: string | null;
   processedCache: any;
   onQueryChange: (query: string) => void;
@@ -35,6 +36,7 @@ export const FloatingWidgets: React.FC<FloatingWidgetsProps> = ({
   searchMatchCount,
   currentMatchNumber,
   totalLines,
+  currentLine,
   activeFileId,
   onQueryChange,
   onConfigChange,
@@ -78,6 +80,7 @@ export const FloatingWidgets: React.FC<FloatingWidgetsProps> = ({
       {isGoToLineVisible && (
         <EditorGoToLineWidget
           totalLines={totalLines}
+          currentLine={currentLine}
           onGo={onGoToLine}
           onClose={onCloseGoToLine}
         />

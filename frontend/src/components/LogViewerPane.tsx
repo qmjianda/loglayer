@@ -247,6 +247,7 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
           searchMatchCount={searchMatchCount}
           currentMatchNumber={currentMatchNumber}
           totalLines={paneFile?.lineCount || 0}
+          currentLine={highlightedIndex !== null ? highlightedIndex + 1 : undefined}
           activeFileId={pane.activeFileId}
           processedCache={processedCache}
           onQueryChange={onQueryChange}

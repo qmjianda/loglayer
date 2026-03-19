@@ -109,6 +109,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const [showGoToLine, setShowGoToLine] = useState(false);
   const [showPerformancePanel, setShowPerformancePanel] = useState(false);
   const [performanceStats, setPerformanceStats] = useState({ fps: 60, visibleLines: 0, memory: 0 });
+  const [jumpPulseIndex, setJumpPulseIndex] = useState<number | null>(null);
 
   const [selection, setSelection] = useState<{
     startLine: number, startChar: number,
@@ -308,9 +309,25 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       const targetPhysicalScroll = useScrollScaling && maxLogicalScroll > 0
         ? (targetLogicalScroll / maxLogicalScroll) * maxPhysicalScroll
         : targetLogicalScroll;
-      containerRef.current.scrollTo({ top: targetPhysicalScroll, behavior: 'auto' });
+      
+      const currentScrollTop = containerRef.current.scrollTop;
+      const distance = Math.abs(targetPhysicalScroll - currentScrollTop);
+      const maxSmoothDistance = viewportHeight * 5;
+      
+      if (distance > maxSmoothDistance) {
+        containerRef.current.scrollTo({ top: targetPhysicalScroll, behavior: 'auto' });
+      } else {
+        containerRef.current.scrollTo({ top: targetPhysicalScroll, behavior: 'smooth' });
+      }
+      
+      setJumpPulseIndex(scrollToIndex);
+      const pulseTimer = setTimeout(() => {
+        setJumpPulseIndex(null);
+      }, 2000);
+      
+      return () => clearTimeout(pulseTimer);
     }
-  }, [scrollToIndex, totalLines, viewportHeight, useScrollScaling, maxLogicalScroll, maxPhysicalScroll]);
+  }, [scrollToIndex, totalLines, viewportHeight, useScrollScaling, maxLogicalScroll, maxPhysicalScroll, lineHeight]);
 
   const getPosFromEvent = useCallback((e: MouseEvent | React.MouseEvent) => {
     if (!containerRef.current) return null;
@@ -718,6 +735,15 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         // 1. Backgrounds
         const rowStyle = logLine?.rowStyle;
         const hasData = line !== undefined;
+        
+        if (jumpPulseIndex === i) {
+          ctx.fillStyle = 'rgba(59, 130, 246, 0.25)';
+          ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
+          ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(0, y, effectiveViewportWidth, lineHeight);
+        }
+        
         if (highlightedIndex === i) {
           // Current line highlight — use theme color
           ctx.fillStyle = colors.HIGHLIGHT_LINE;
@@ -887,7 +913,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     } catch (err) {
       console.error('Canvas draw error:', err);
     }
-  }, [viewportWidth, viewportHeight, startIndex, endIndex, bridgedLines, selection, highlightedIndex, hoveredLineIndex, isSelecting, totalLines, layerStats, bookmarks, useScrollScaling, maxPhysicalScroll, maxLogicalScroll, lineHeight, showLineNumbers, wordWrap, showWhitespace, fontSize, searchHighlightAll, settings]);
+  }, [viewportWidth, viewportHeight, startIndex, endIndex, bridgedLines, selection, highlightedIndex, hoveredLineIndex, isSelecting, totalLines, layerStats, bookmarks, useScrollScaling, maxPhysicalScroll, maxLogicalScroll, lineHeight, showLineNumbers, wordWrap, showWhitespace, fontSize, searchHighlightAll, settings, jumpPulseIndex]);
 
   const frameCountRef = useRef(0);
   const lastFpsUpdateRef = useRef(performance.now());

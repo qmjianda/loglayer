@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 
 interface EditorGoToLineWidgetProps {
   totalLines: number;
+  currentLine?: number;
   onGo: (line: number) => void;
   onClose: () => void;
 }
 
 export const EditorGoToLineWidget: React.FC<EditorGoToLineWidgetProps> = ({
   totalLines,
+  currentLine,
   onGo,
   onClose,
 }) => {
@@ -23,6 +25,7 @@ export const EditorGoToLineWidget: React.FC<EditorGoToLineWidgetProps> = ({
       const lineNum = parseInt(value, 10);
       if (!isNaN(lineNum) && lineNum > 0 && lineNum <= totalLines) {
         onGo(lineNum);
+        onClose();
       }
     } else if (e.key === 'Escape') {
       onClose();
@@ -52,7 +55,9 @@ export const EditorGoToLineWidget: React.FC<EditorGoToLineWidgetProps> = ({
           </div>
         )}
         <div className="mt-2 flex justify-between items-center px-1">
-          <span className="text-[10px] text-gray-500 uppercase tracking-tighter font-bold">跳转到行</span>
+          <span className="text-[10px] text-gray-500">
+            {currentLine !== undefined ? `当前: ${currentLine}` : '跳转到行'}
+          </span>
           <div className="flex space-x-2">
             <span className="text-[9px] text-gray-600 bg-black/20 px-1 rounded flex items-center">
               ENTER 跳转
