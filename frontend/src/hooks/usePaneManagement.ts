@@ -133,9 +133,14 @@ export function usePaneManagement(
         setPanes(prev => {
             const flattened = flattenPanes(prev);
             if (flattened.length <= 1) return prev;
-            return removePaneFromTree(prev, paneId);
+            const newPanes = removePaneFromTree(prev, paneId);
+            const newFlattened = flattenPanes(newPanes);
+            if (newFlattened.length > 0 && paneId === _activePaneId) {
+                setActivePaneId(newFlattened[0].id);
+            }
+            return newPanes;
         });
-    }, [setPanes]);
+    }, [setPanes, _activePaneId, setActivePaneId]);
 
     const splitPane = useCallback((sourcePaneId: string, fileId?: string, position?: 'left' | 'right' | 'top' | 'bottom') => {
         const newPaneId = generatePaneId();
