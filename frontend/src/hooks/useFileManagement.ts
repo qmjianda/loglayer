@@ -185,18 +185,27 @@ export function useFileManagement(): UseFileManagementReturn {
 
     // Set active file for current pane (adds to openFileIds if needed)
     const setActiveFileId = useCallback((fileId: string | null) => {
-        setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => {
-            if (fileId === null) {
-                return { ...p, activeFileId: null };
+        setPanes(prev => {
+            const pane = activePaneId ? findPaneRecursive(prev, activePaneId) : null;
+            
+            if (!pane) {
+                if (fileId === null || prev.length === 0) return prev;
+                const newPane = createPane(`pane-${Date.now()}`);
+                return [{ ...newPane, openFileIds: [fileId], activeFileId: fileId }];
             }
             
-            // Add fileId to openFileIds if not already present
-            const openFileIds = p.openFileIds.includes(fileId)
-                ? p.openFileIds
-                : [...p.openFileIds, fileId];
-            
-            return { ...p, openFileIds, activeFileId: fileId };
-        }));
+            return updatePaneInTree(prev, activePaneId, (p) => {
+                if (fileId === null) {
+                    return { ...p, activeFileId: null };
+                }
+                
+                const openFileIds = p.openFileIds.includes(fileId)
+                    ? p.openFileIds
+                    : [...p.openFileIds, fileId];
+                
+                return { ...p, openFileIds, activeFileId: fileId };
+            });
+        });
     }, [activePaneId]);
 
     // Activate file
