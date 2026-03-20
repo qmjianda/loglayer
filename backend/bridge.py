@@ -14,6 +14,13 @@ from concurrent.futures import ThreadPoolExecutor
 from loglayer.registry import LayerRegistry
 from loglayer.core import LayerStage, ProcessedLine
 from loglayer.schemas import FileLoadedPayload, WorkerConfig
+from loglayer.constants import (
+    SAMPLE_SIZE_LEVEL_DETECTION,
+    SAMPLE_SIZE_PATTERN_ANALYSIS,
+    SAMPLE_SIZE_LAYER_SUGGESTION,
+    CHUNK_TRUNCATE_LIMIT,
+    LRU_CACHE_DEFAULT_SIZE,
+)
 from workers import (
     IndexingWorker,
     PipelineWorker,
@@ -73,8 +80,7 @@ def resolve_file_path(file_path: str) -> str:
 
 
 class LRUCache:
-    """Simple LRU Cache implementation"""
-    def __init__(self, max_size: int = 1000):
+    def __init__(self, max_size: int = LRU_CACHE_DEFAULT_SIZE):
         self.max_size = max_size
         self._cache = {}
         self._access_order = []
@@ -566,8 +572,8 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
                             else session.size
                         )
                     chunk = session.mmap[start_off:end_off]
-                    if len(chunk) > 10000:
-                        chunk = chunk[:10000] + b"... [truncated]"
+                    if len(chunk) > CHUNK_TRUNCATE_LIMIT:
+                        chunk = chunk[:CHUNK_TRUNCATE_LIMIT] + b"... [truncated]"
                     content = (
                         chunk.decode("utf-8", errors="replace")
                         .replace("\r", "")
@@ -845,8 +851,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
             "FATAL": 0,
         }
 
-        # Sample lines for level detection (first 1000 lines for performance)
-        sample_size = min(1000, len(session.line_offsets))
+        sample_size = min(SAMPLE_SIZE_LEVEL_DETECTION, len(session.line_offsets))
         for i in range(sample_size):
             try:
                 start_off = session.line_offsets[i]
@@ -872,8 +877,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
             "sampled": sample_size,
         }
 
-    def analyze_log_pattern(self, file_id: str, sample_size: int = 100) -> dict:
-        """分析日志文件的模式"""
+    def analyze_log_pattern(self, file_id: str, sample_size: int = SAMPLE_SIZE_PATTERN_ANALYSIS) -> dict:
         if file_id not in self._sessions:
             return {"error": "File not found"}
 
@@ -926,9 +930,8 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
 
         detector = get_detector()
 
-        # Sample lines for analysis
         lines = []
-        sample_count = min(100, len(session.line_offsets))
+        sample_count = min(SAMPLE_SIZE_LAYER_SUGGESTION, len(session.line_offsets))
         for i in range(sample_count):
             try:
                 start_off = session.line_offsets[i]

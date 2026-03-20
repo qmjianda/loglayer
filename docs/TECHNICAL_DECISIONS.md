@@ -554,4 +554,92 @@ const hlY = startY - lineHeight / 2;
 
 ---
 
+## TD-014: 类型同步策略
+
+**日期**: 2026-03-20
+**状态**: 已通过
+**类别**: 架构
+
+### 背景
+前后端类型需要保持同步，手动同步容易遗漏导致 API 契约不一致。
+
+### 方案
+- **方案 A**: 自动生成 (pydantic-to-typescript)
+- **方案 B**: 手动同步 + CI 验证
+
+### 决策
+选择 **方案 B**。
+
+### 理由
+1. 当前类型数量可控 (~30)
+2. 自动生成增加构建复杂度
+3. CI 验证足以捕获不一致
+
+### 后果
+- **正面**: 类型一致有保障
+- **负面**: 需要手动维护 TYPE_SYNC.md
+
+---
+
+## TD-015: API 响应标准
+
+**日期**: 2026-03-20
+**状态**: 已通过
+**类别**: API 设计
+
+### 背景
+API 响应格式不一致，错误处理分散。
+
+### 方案
+- **方案 A**: 保持现状
+- **方案 B**: 统一响应格式 `{success, data?, error?}`
+
+### 决策
+选择 **方案 B**。
+
+### 实施
+```typescript
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: { code: string; message: string; details?: unknown };
+}
+```
+
+### 后果
+- **正面**: 统一错误处理
+- **负面**: 需要逐步迁移
+
+---
+
+## TD-016: Storage Manager 架构
+
+**日期**: 2026-03-20
+**状态**: 已通过
+**类别**: 状态管理
+
+### 背景
+localStorage 访问分散在 9 个文件中，缺乏类型安全。
+
+### 方案
+- **方案 A**: 保持现状
+- **方案 B**: 创建 StorageManager 统一管理
+
+### 决策
+选择 **方案 B**。
+
+### 实施
+```typescript
+const StorageManager = {
+  get<K extends StorageKey>(key: K): StorageDefaults[K];
+  set<K extends StorageKey>(key: K, value: StorageDefaults[K]): void;
+}
+```
+
+### 后果
+- **正面**: 类型安全、易于迁移
+- **负面**: 需要逐步迁移现有代码
+
+---
+
 *最后更新: 2026-03-14*

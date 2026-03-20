@@ -126,6 +126,7 @@ TypeScript: 2 空格, camelCase, 函数组件 + Hooks
 | 技术决策 | docs/TECHNICAL_DECISIONS.md |
 | 图层开发 | docs/guides/LAYER_DEV_GUIDE.md |
 | 类型同步 | docs/TYPE_SYNC.md |
+| 模块设计 | docs/modules/*.md |
 | 完整索引 | docs/INDEX.md |
 
 *2026-03-14*

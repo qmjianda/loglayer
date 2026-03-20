@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getBackendUrl } from '../utils';
+import { INTERVALS } from '../constants';
 
 export interface FileInfo {
   path: string;
@@ -73,8 +74,7 @@ export function useFileWatch(
     // Check immediately
     checkForChanges();
     
-    // Poll every 2 seconds
-    intervalRef.current = window.setInterval(checkForChanges, 2000);
+    intervalRef.current = window.setInterval(checkForChanges, INTERVALS.FILE_WATCH_POLL_MS);
   }, [checkForChanges]);
 
   const stopWatching = useCallback(() => {
