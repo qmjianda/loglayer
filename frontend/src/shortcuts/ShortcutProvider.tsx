@@ -172,7 +172,7 @@ export const ShortcutProvider: React.FC<ShortcutProviderProps> = ({ children }) 
   const registryMap = useMemo(() => {
     const map = new Map<string, ShortcutDefinition>();
     for (const [key, def] of Object.entries(SHORTCUT_REGISTRY)) {
-      map.set(def.id, def as ShortcutDefinition);
+      map.set(key, def as ShortcutDefinition);
     }
     return map;
   }, []);
@@ -225,23 +225,14 @@ export const ShortcutProvider: React.FC<ShortcutProviderProps> = ({ children }) 
    */
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // DEBUG: Log all keydown events
-      console.log('[ShortcutProvider] keydown:', event.key, 'ctrl:', event.ctrlKey, 'shift:', event.shiftKey, 'alt:', event.altKey, 'meta:', event.metaKey);
-      console.log('[ShortcutProvider] registered handlers:', handlersRef.current.size, Array.from(handlersRef.current.keys()));
-
-      // Collect all matching shortcuts
       const matches: ShortcutEntry[] = [];
 
       for (const entry of handlersRef.current.values()) {
-        // Skip disabled shortcuts
         if (entry.enabled === false) continue;
 
-        // Check each key combination
         for (const keyCombo of entry.keys) {
           const normalized = normalizeKeyCombo(keyCombo, platform);
-          const matchesCombo = eventMatchesCombo(event, normalized);
-          console.log('[ShortcutProvider] checking', entry.id, keyCombo, 'normalized:', normalized, 'matches:', matchesCombo);
-          if (matchesCombo) {
+          if (eventMatchesCombo(event, normalized)) {
             matches.push(entry);
             break;
           }
