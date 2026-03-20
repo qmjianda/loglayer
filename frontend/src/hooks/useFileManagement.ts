@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { LogLayer } from '../types';
+import { LogLayer, ProcessedCache } from '../types';
 import { openFile, closeFile, selectFiles, selectFolder, hasNativeDialogs } from '../bridge_client';
 import { basename, removeFromSet } from '../utils';
 
@@ -43,12 +43,6 @@ export interface Pane {
     // Per-pane floating widget state
     findVisible?: boolean;
     goToLineVisible?: boolean;
-}
-
-// Processed cache for layer stats and search results
-export interface ProcessedCache {
-    layerStats: Record<string, { count: number; distribution: number[] }>;
-    searchMatchCount: number;
 }
 
 // In-memory cache for bridged file line counts

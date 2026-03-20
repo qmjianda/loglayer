@@ -3,6 +3,7 @@ import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panel
 import { HelpPanel } from './HelpPanel';
 import { LogViewerPane } from './LogViewerPane';
 import { Pane, FileData, findPaneRecursive, updatePaneInTree } from '../hooks/useFileManagement';
+import { ProcessedCache, SearchConfigInput, AppSettings, ResolvedTheme, LayerType, LayerConfig } from '../types';
 
 function flattenPanes(panes: Pane[]): Pane[] {
     const result: Pane[] = [];
@@ -167,14 +168,14 @@ function renderPaneTree(
     searchConfig: { regex: boolean; caseSensitive: boolean },
     searchMatchCount: number,
     currentMatchNumber: number,
-    processedCache: any,
+    processedCache: Record<string, ProcessedCache>,
     scrollToIndex: number | null,
     highlightedIndex: number | null,
     indexingFileIds: Set<string>,
     pendingCliFiles: number,
     bridgedUpdateTrigger: number,
-    settings: any,
-    resolvedTheme: any,
+    settings: AppSettings,
+    resolvedTheme: ResolvedTheme,
     hasNewContent: boolean,
     setActivePaneId: (id: string) => void,
     handleTabClick: (paneId: string, fileId: string) => void,
@@ -186,11 +187,11 @@ function renderPaneTree(
     handleSplitTabRight: (paneId: string, fileId: string) => void,
     handleSplitTabDown: (paneId: string, fileId: string) => void,
     setHighlightedIndex: (index: number | null) => void,
-    addLayer: (type: any, config?: any) => void,
+    addLayer: (type: LayerType | string, config?: Partial<LayerConfig>) => void,
     handleToggleBookmark: (lineIndex: number) => void,
     handleUpdateBookmarkComment: (lineIndex: number, comment: string) => void,
     setCanvasSelectedText: (text: string) => void,
-    setActiveView: (view: any) => void,
+    setActiveView: (view: string) => void,
     clearNewContent: () => void,
     setScrollToIndex: (index: number | null) => void,
     activeFile: { lineCount?: number } | null,
@@ -198,13 +199,13 @@ function renderPaneTree(
     setPanes: React.Dispatch<React.SetStateAction<Pane[]>>,
     handleOpen: () => void,
     onQueryChange: (query: string) => void,
-    onConfigChange: (config: any) => void,
+    onConfigChange: (config: SearchConfigInput) => void,
     onNavigate: (direction: 'next' | 'prev') => void,
     onGoToLine: (lineNum: number) => void,
     onToggleFind: (paneId: string, visible: boolean) => void,
     onToggleGoToLine: (paneId: string, visible: boolean) => void,
     clearSearch: () => void,
-    setProcessedCache: any
+    setProcessedCache: React.Dispatch<React.SetStateAction<Record<string, ProcessedCache>>>
 ): React.ReactNode {
     return panes.map((pane, index) => {
         const isLastPane = index === panes.length - 1;
@@ -368,13 +369,13 @@ interface MainContentProps {
     currentMatchNumber: number;
     activeFile: { lineCount?: number } | null;
     activeFileId: string | null;
-    processedCache: any;
+    processedCache: Record<string, ProcessedCache>;
     setSearchQuery: (query: string) => void;
-    setSearchConfig: (config: any) => void;
+    setSearchConfig: (config: SearchConfigInput) => void;
     findNextSearchMatchWithJump: (direction: 'next' | 'prev') => void;
     handleJumpToLine: (line: number, total: number) => void;
     clearSearch: () => void;
-    setProcessedCache: any;
+    setProcessedCache: React.Dispatch<React.SetStateAction<Record<string, ProcessedCache>>>;
     panes: Pane[];
     setPanes: React.Dispatch<React.SetStateAction<Pane[]>>;
     files: FileData[];
@@ -385,15 +386,15 @@ interface MainContentProps {
     indexingFileIds: Set<string>;
     pendingCliFiles: number;
     bridgedUpdateTrigger: number;
-    settings: any;
-    resolvedTheme: any;
+    settings: AppSettings;
+    resolvedTheme: ResolvedTheme;
     hasNewContent: boolean;
     setActivePaneId: (id: string) => void;
-    addLayer: (type: any, config?: any) => void;
+    addLayer: (type: LayerType | string, config?: Partial<LayerConfig>) => void;
     handleToggleBookmark: (lineIndex: number) => void;
     handleUpdateBookmarkComment: (lineIndex: number, comment: string) => void;
     setCanvasSelectedText: (text: string) => void;
-    setActiveView: (view: any) => void;
+    setActiveView: (view: string) => void;
     clearNewContent: () => void;
     setScrollToIndex: (index: number | null) => void;
     removePane: (paneId: string) => void;

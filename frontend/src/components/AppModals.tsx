@@ -1,33 +1,41 @@
 import React from 'react';
-import { CommandPalette } from './CommandPalette';
-import { RemotePathPicker } from './RemotePathPicker';
+import { CommandPalette, Command } from './CommandPalette';
+import { RemotePathPicker, DirectoryItem } from './RemotePathPicker';
 import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel';
 import { SettingsPanel } from './SettingsPanel';
-import { ExportDialog } from './ExportDialog';
+import { ExportDialog, ExportFormat } from './ExportDialog';
 import { StorageSettings } from './StorageSettings';
 import { WorkerConfigPanel } from './WorkerConfigPanel';
 import { PluginManager } from './PluginManager';
+import { Notification } from '../hooks/useAppModals';
+
+export interface ExportOptions {
+  fileId: string;
+  outputPath: string;
+  format: ExportFormat;
+  includeLineNumbers: boolean;
+  includeTimestamps: boolean;
+}
 
 interface AppModalsProps {
   isRemotePickerOpen: boolean;
-  remotePickerMode: any;
-  listDirectory: any;
-  handleRemotePickerClose: any;
-  handleRemotePathSelected: any;
-  commands: any;
+  remotePickerMode: 'file' | 'folder' | 'both';
+  listDirectory: (path: string) => Promise<DirectoryItem[]>;
+  handleRemotePickerClose: (open: boolean) => void;
+  handleRemotePathSelected: (path: string, isDir: boolean) => void;
+  commands: Command[];
   isCommandPaletteVisible: boolean;
-  setIsCommandPaletteVisible: any;
+  setIsCommandPaletteVisible: (v: boolean) => void;
   isSettingsVisible: boolean;
-  setIsSettingsVisible: any;
+  setIsSettingsVisible: (v: boolean) => void;
   isShortcutsVisible: boolean;
-  setIsShortcutsVisible: any;
-  notification: any;
-  // New modal states
+  setIsShortcutsVisible: (v: boolean) => void;
+  notification: Notification | null;
   isExportDialogOpen?: boolean;
   onCloseExportDialog?: () => void;
   exportFileId?: string;
   exportFileName?: string;
-  onExport?: (options: any) => Promise<void>;
+  onExport?: (options: ExportOptions) => Promise<void>;
   isStorageSettingsOpen?: boolean;
   onCloseStorageSettings?: () => void;
   storageDefaultPath?: string;

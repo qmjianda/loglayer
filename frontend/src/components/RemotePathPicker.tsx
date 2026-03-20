@@ -64,7 +64,7 @@ const LoadingSpinner = () => (
     </svg>
 );
 
-interface DirectoryItem {
+export interface DirectoryItem {
     name: string;
     path: string;
     isDir: boolean;

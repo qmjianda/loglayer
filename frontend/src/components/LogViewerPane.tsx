@@ -4,7 +4,7 @@ import { FileLoadingSkeleton, PendingFilesWall } from './LoadingOverlays';
 import { EmptyState } from './EmptyState';
 import { TabBar } from './TabBar';
 import { FloatingWidgets } from './FloatingWidgets';
-import { LayerType } from '../types';
+import { LayerType, ProcessedCache, AppSettings, ResolvedTheme, SearchConfigInput, LayerConfig } from '../types';
 import { Pane, FileData } from '../hooks/useFileManagement';
 
 interface LogViewerPaneProps {
@@ -17,14 +17,14 @@ interface LogViewerPaneProps {
   searchConfig: { regex: boolean; caseSensitive: boolean };
   searchMatchCount: number;
   currentMatchNumber: number;
-  processedCache: any;
+  processedCache: ProcessedCache;
   scrollToIndex: number | null;
   highlightedIndex: number | null;
   indexingFileIds: Set<string>;
   pendingCliFiles: number;
   bridgedUpdateTrigger: number;
-  settings: any;
-  resolvedTheme: any;
+  settings: AppSettings;
+  resolvedTheme: ResolvedTheme;
   hasNewContent: boolean;
   canClose: boolean;
   onTabClick: (fileId: string) => void;
@@ -37,7 +37,7 @@ interface LogViewerPaneProps {
   onSplitTabRight?: (fileId: string) => void;
   onSplitTabDown?: (fileId: string) => void;
   onLineClick: (idx: number) => void;
-  onAddLayer: (type: LayerType, config?: any) => void;
+  onAddLayer: (type: LayerType | string, config?: Partial<LayerConfig>) => void;
   onToggleBookmark: (lineIndex: number) => void;
   onUpdateBookmarkComment: (lineIndex: number, comment: string) => void;
   onSelectedTextChange: (text: string) => void;
@@ -46,13 +46,13 @@ interface LogViewerPaneProps {
   onPaneClick: () => void;
   onOpen: () => void;
   onQueryChange: (query: string) => void;
-  onConfigChange: (config: any) => void;
+  onConfigChange: (config: SearchConfigInput) => void;
   onNavigate: (direction: 'next' | 'prev') => void;
   onGoToLine: (lineNum: number) => void;
   onToggleFind: (visible: boolean) => void;
   onToggleGoToLine: (visible: boolean) => void;
   clearSearch: () => void;
-  setProcessedCache: any;
+  setProcessedCache: React.Dispatch<React.SetStateAction<ProcessedCache>>;
 }
 
 export const LogViewerPane: React.FC<LogViewerPaneProps> = ({

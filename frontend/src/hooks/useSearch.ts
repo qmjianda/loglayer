@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { syncAll } from '../bridge_client';
+import { syncAll, getSearchMatchIndex, getNearestSearchRank } from '../bridge_client';
 import { LogLayer } from '../types';
 import { useShortcut } from '../shortcuts';
 
@@ -168,8 +168,6 @@ export function useSearch({
         if (effectiveMatchCount === 0) {
             return -1;
         }
-
-        const { getSearchMatchIndex, getNearestSearchRank } = await import('../bridge_client');
 
         let nextRank = -1;
 
