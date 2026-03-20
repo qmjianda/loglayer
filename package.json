@@ -14,7 +14,11 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "test:e2e:visual": "playwright test visual-regression",
+    "test:e2e:visual:update": "playwright test visual-regression --update-snapshots",
+    "test:generate": "node tools/ai-test-generator.js",
+    "test:compare-visual": "node tools/visual-compare.js"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",

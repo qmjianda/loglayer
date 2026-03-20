@@ -1,4 +1,13 @@
-import { FileBridgeAPI } from './types';
+import { FileBridgeAPI, LogLayer } from './types';
+
+// Search configuration for sync operations
+// Mirror: backend/loglayer/schemas.py::SearchConfig
+export interface SyncSearchConfig {
+    query: string;
+    regex: boolean;
+    caseSensitive: boolean;
+    wholeWord?: boolean;
+}
 
 interface ApiRequest {
   [key: string]: string | number | boolean | string[] | number[] | undefined;
@@ -289,7 +298,7 @@ export async function readProcessedLines(fileId: string, start: number, count: n
     }
 }
 
-export async function syncAll(fileId: string, layers: any[], search: any): Promise<void> {
+export async function syncAll(fileId: string, layers: LogLayer[], search: SyncSearchConfig): Promise<void> {
     if (!fileBridge) return;
     fileBridge.sync_all(fileId, JSON.stringify(layers), JSON.stringify(search));
 }
@@ -297,7 +306,7 @@ export async function syncAll(fileId: string, layers: any[], search: any): Promi
 /**
  * 仅同步渲染层配置 (快速响应，不重跑 Pipeline)
  */
-export async function syncDecorations(fileId: string, layers: any[]): Promise<void> {
+export async function syncDecorations(fileId: string, layers: LogLayer[]): Promise<void> {
     if (!fileBridge) return;
     await fileBridge.sync_decorations(fileId, JSON.stringify(layers));
 }
@@ -436,9 +445,9 @@ export async function listDirectory(folderPath: string): Promise<any[]> {
 export interface WorkspaceConfig {
     version: number;
     lastModified: string;
-    files?: Array<{ path: string; name: string; size: number; layers: any[] }>;
+    files?: Array<{ path: string; name: string; size: number; layers: LogLayer[] }>;
     activeFilePath?: string | null;
-    layers?: any[];
+    layers?: LogLayer[];
 }
 
 export async function saveWorkspaceConfig(folderPath: string, config: WorkspaceConfig): Promise<boolean> {

@@ -89,6 +89,25 @@ TypeScript: 2 空格, camelCase, 函数组件 + Hooks
 
 ---
 
+## 类型同步
+
+前后端类型必须保持同步。详细映射见 `docs/TYPE_SYNC.md`。
+
+**添加新类型的步骤：**
+
+1. 在 `backend/loglayer/schemas.py` 添加 Pydantic 模型
+2. 在 `frontend/src/types.ts` 添加对应 TypeScript interface
+3. 添加 `// Mirror: backend/loglayer/schemas.py::TypeName` 注释
+4. 更新 `docs/TYPE_SYNC.md` 文档
+5. CI 会自动检查类型数量是否匹配
+
+**命名约定：**
+- Python: `snake_case` (file_id, line_index)
+- TypeScript: `camelCase` (fileId, lineIndex)
+- `bridge_client.ts` 自动处理转换
+
+---
+
 ## 工作流 (OpenSpec)
 ```
 1. openspec new <change>   → 创建变更
@@ -106,6 +125,7 @@ TypeScript: 2 空格, camelCase, 函数组件 + Hooks
 | 界面布局 | docs/UI/README.md |
 | 技术决策 | docs/TECHNICAL_DECISIONS.md |
 | 图层开发 | docs/guides/LAYER_DEV_GUIDE.md |
+| 类型同步 | docs/TYPE_SYNC.md |
 | 完整索引 | docs/INDEX.md |
 
 *2026-03-14*

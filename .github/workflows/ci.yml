@@ -59,3 +59,40 @@ jobs:
           name: frontend-build
           path: dist/
           retention-days: 1
+
+  type-sync-check:
+    runs-on: ubuntu-latest
+    name: Verify TypeScript/Python type synchronization
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Count Python types
+        id: python-types
+        run: |
+          COUNT=$(grep -c "class.*BaseModel" backend/loglayer/schemas.py || echo "0")
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          echo "Python Pydantic models: $COUNT"
+      
+      - name: Count TypeScript types
+        id: ts-types
+        run: |
+          # Count interface and enum declarations
+          COUNT=$(grep -cE "^(export )?(interface|enum) " frontend/src/types.ts || echo "0")
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          echo "TypeScript interfaces/enums: $COUNT"
+      
+      - name: Verify type counts match
+        run: |
+          PYTHON_COUNT=${{ steps.python-types.outputs.count }}
+          TS_COUNT=${{ steps.ts-types.outputs.count }}
+          
+          echo "Python types: $PYTHON_COUNT"
+          echo "TypeScript types: $TS_COUNT"
+          
+          if [ "$PYTHON_COUNT" != "$TS_COUNT" ]; then
+            echo "::error::Type count mismatch! Python has $PYTHON_COUNT, TypeScript has $TS_COUNT. Update both files and docs/TYPE_SYNC.md"
+            exit 1
+          fi
+          
+          echo "✓ Type counts match"

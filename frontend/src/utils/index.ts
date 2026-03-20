@@ -113,3 +113,5 @@ export async function fetchJson<T>(endpoint: string, method: string = 'GET', bod
     }
     return res.json();
 }
+
+export * from './errorHandler';
