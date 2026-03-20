@@ -110,7 +110,47 @@ export interface LogLine {
 export interface ProcessedCache {
   searchMatchCount?: number;
   layerStats?: Record<string, { count: number; distribution: number[] }>;
-  [key: string]: any;
+}
+
+export interface SearchConfigInput {
+  regex: boolean;
+  caseSensitive: boolean;
+  wholeWord?: boolean;
+}
+
+export interface AppSettings {
+  autoOpenLastFile: boolean;
+  rememberWindowPosition: boolean;
+  fileEncoding: string;
+  theme: 'dark' | 'light' | 'system';
+  fontSize: number;
+  lineHeight: number;
+  showLineNumbers: boolean;
+  searchRegexDefault: boolean;
+  searchCaseSensitiveDefault: boolean;
+  searchHighlightAll: boolean;
+  searchHistoryLimit: number;
+  wordWrap: boolean;
+  showWhitespace: boolean;
+  virtualScrollBuffer: number;
+  layerPresetDefault: string;
+  syncLayersOnOpen: boolean;
+  backendUrl: string;
+  debugMode: boolean;
+}
+
+export type ResolvedTheme = 'dark' | 'light';
+
+export interface ApiError {
+  code: string;
+  message: string;
+  details?: unknown;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: ApiError;
 }
 
 // --- Bridge Interface ---

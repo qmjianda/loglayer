@@ -20,3 +20,9 @@ export const LOG_VIEWER = {
   CACHE_PRUNE_ON_IDLE: true,
   LAZY_LOAD_THRESHOLD: 1000,
 } as const;
+
+export const INTERVALS = {
+  FILE_WATCH_POLL_MS: 2000,
+  SYSTEM_METRICS_MS: 1000,
+  MEMORY_UPDATE_MS: 2000,
+} as const;
