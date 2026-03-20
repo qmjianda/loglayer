@@ -225,6 +225,10 @@ export const ShortcutProvider: React.FC<ShortcutProviderProps> = ({ children }) 
    */
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // DEBUG: Log all keydown events
+      console.log('[ShortcutProvider] keydown:', event.key, 'ctrl:', event.ctrlKey, 'shift:', event.shiftKey, 'alt:', event.altKey, 'meta:', event.metaKey);
+      console.log('[ShortcutProvider] registered handlers:', handlersRef.current.size, Array.from(handlersRef.current.keys()));
+
       // Collect all matching shortcuts
       const matches: ShortcutEntry[] = [];
 
@@ -235,7 +239,9 @@ export const ShortcutProvider: React.FC<ShortcutProviderProps> = ({ children }) 
         // Check each key combination
         for (const keyCombo of entry.keys) {
           const normalized = normalizeKeyCombo(keyCombo, platform);
-          if (eventMatchesCombo(event, normalized)) {
+          const matchesCombo = eventMatchesCombo(event, normalized);
+          console.log('[ShortcutProvider] checking', entry.id, keyCombo, 'normalized:', normalized, 'matches:', matchesCombo);
+          if (matchesCombo) {
             matches.push(entry);
             break;
           }
