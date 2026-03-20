@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import React from 'react';
 import { useUIState } from '../hooks/useUIState';
+import { ShortcutProvider } from '../shortcuts';
 
 const mockUndo = vi.fn();
 const mockRedo = vi.fn();
 const mockSetSearchQuery = vi.fn();
+
+const wrapper = ({ children }: { children: React.ReactNode }) => 
+  React.createElement(ShortcutProvider, null, children);
 
 describe('hooks/useUIState', () => {
   beforeEach(() => {
@@ -26,7 +31,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     expect(result.current.activeView).toBe('main');
     expect(result.current.sidebarWidth).toBe(288);
@@ -40,7 +45,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     act(() => {
       result.current.setActiveView('help');
@@ -55,7 +60,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     act(() => {
       result.current.setSidebarWidth(400);
@@ -70,7 +75,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     act(() => {
       result.current.setScrollToIndex(100);
@@ -85,7 +90,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     act(() => {
       result.current.setHighlightedIndex(50);
@@ -100,7 +105,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     act(() => {
       result.current.setIsProcessing(true);
@@ -121,7 +126,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     act(() => {
       result.current.setOperationStatus({ op: 'indexing', progress: 50 });
@@ -142,7 +147,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     act(() => {
       result.current.setWorkspaceRoot({ path: '/test/path', name: 'test' });
@@ -157,7 +162,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     act(() => {
       result.current.handleJumpToLine(100, 1000);
@@ -173,7 +178,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     act(() => {
       result.current.handleJumpToLine(2000, 1000);
@@ -188,7 +193,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     act(() => {
       result.current.handleJumpToLine(100, 0);
@@ -203,7 +208,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     act(() => {
       result.current.setIsWatching(true);
@@ -224,7 +229,7 @@ describe('hooks/useUIState', () => {
       redo: mockRedo,
       setSearchQuery: mockSetSearchQuery,
       searchQuery: '',
-    }));
+    }), { wrapper });
 
     act(() => {
       result.current.setHighlightedIndex(50);

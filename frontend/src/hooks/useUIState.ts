@@ -1,11 +1,5 @@
-/**
- * useUIState - UI interaction state hook
- * 
- * Manages UI state like sidebar width, active views, find/goto visibility,
- * scroll position, and keyboard shortcuts.
- */
-
 import { useState, useCallback, useEffect } from 'react';
+import { useShortcut } from '../shortcuts';
 
 export type ActiveView = 'main' | 'help';
 
@@ -92,88 +86,58 @@ export function useUIState({
     const [isWatching, setIsWatching] = useState(false);
     const [hasNewContent, setHasNewContent] = useState(false);
 
-    // Keyboard shortcuts
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            const target = e.target as HTMLElement;
-            const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-            
-            const isZ = e.key.toLowerCase() === 'z';
-            const isY = e.key.toLowerCase() === 'y';
-            const isF = e.key.toLowerCase() === 'f';
-            const isG = e.key.toLowerCase() === 'g';
-            const isB = e.key.toLowerCase() === 'b';
-            const isO = e.key.toLowerCase() === 'o';
-            const isH = e.key.toLowerCase() === 'h';
-            const isCmdOrCtrl = e.metaKey || e.ctrlKey;
-            const isShift = e.shiftKey;
+    useShortcut('toggleSidebar', useCallback(() => {
+        onToggleSidebar?.();
+    }, [onToggleSidebar]));
 
-            // Ctrl+B: 切换侧边栏
-            if (isCmdOrCtrl && isB && !isInput) {
-                e.preventDefault();
-                onToggleSidebar?.();
-                return;
+    useShortcut('openFile', useCallback(() => {
+        onOpenFile?.();
+    }, [onOpenFile]));
+
+    useShortcut('openFolder', useCallback(() => {
+        onOpenFolder?.();
+    }, [onOpenFolder]));
+
+    useShortcut('searchHistory', useCallback(() => {
+        onShowSearchHistory?.();
+    }, [onShowSearchHistory]));
+
+    useShortcut('undo', useCallback(() => {
+        undo();
+    }, [undo]));
+
+    useShortcut('redo', useCallback(() => {
+        redo();
+    }, [redo]));
+
+    useShortcut('find', useCallback(() => {
+        const selText = canvasSelectedText || window.getSelection()?.toString() || '';
+        if (selText) {
+            const firstLine = selText.split(/\r?\n/)[0].trim();
+            if (firstLine) {
+                setSearchQuery(firstLine);
             }
+        }
+        onToggleFind?.(true);
+    }, [setSearchQuery, canvasSelectedText, onToggleFind]));
 
-            // Ctrl+O: 打开文件
-            if (isCmdOrCtrl && isO && !isShift && !isInput) {
-                e.preventDefault();
-                onOpenFile?.();
-                return;
-            }
+    useShortcut('gotoLine', useCallback(() => {
+        onToggleGoToLine?.(true);
+    }, [onToggleGoToLine]));
 
-            // Ctrl+Shift+O: 打开文件夹
-            if (isCmdOrCtrl && isO && isShift && !isInput) {
-                e.preventDefault();
-                onOpenFolder?.();
-                return;
-            }
+    useShortcut('nextBookmark', useCallback(() => {
+        onNavigateToNextBookmark?.();
+    }, [onNavigateToNextBookmark]));
 
-            // Ctrl+H: 搜索历史
-            if (isCmdOrCtrl && isH && !isInput) {
-                e.preventDefault();
-                onShowSearchHistory?.();
-                return;
-            }
+    useShortcut('prevBookmark', useCallback(() => {
+        onNavigateToPrevBookmark?.();
+    }, [onNavigateToPrevBookmark]));
 
-if (isCmdOrCtrl && isZ) {
-                e.preventDefault();
-                if (isShift) redo();
-                else undo();
-            } else if (isCmdOrCtrl && isY) {
-                e.preventDefault();
-                redo();
-            } else if (isCmdOrCtrl && isF) {
-                e.preventDefault();
-                const selText = canvasSelectedText || window.getSelection()?.toString() || '';
-                if (selText) {
-                    const firstLine = selText.split(/\r?\n/)[0].trim();
-                    if (firstLine) {
-                        setSearchQuery(firstLine);
-                    }
-                }
-                onToggleFind?.(true);
-            } else if (isCmdOrCtrl && isG) {
-                e.preventDefault();
-                onToggleGoToLine?.(true);
-            } else if (e.key === 'F2') {
-                e.preventDefault();
-                if (isShift) {
-                    onNavigateToPrevBookmark?.();
-                } else {
-                    onNavigateToNextBookmark?.();
-                }
-            } else if (e.key === 'Escape') {
-                if (isFindVisible) onToggleFind?.(false);
-                if (isGoToLineVisible) onToggleGoToLine?.(false);
-            }
-        };
+    useShortcut('escape', useCallback(() => {
+        if (isFindVisible) onToggleFind?.(false);
+        if (isGoToLineVisible) onToggleGoToLine?.(false);
+    }, [isFindVisible, isGoToLineVisible, onToggleFind, onToggleGoToLine]));
 
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undo, redo, isFindVisible, isGoToLineVisible, setSearchQuery, canvasSelectedText, onNavigateToNextBookmark, onNavigateToPrevBookmark, onToggleSidebar, onOpenFile, onOpenFolder, onShowSearchHistory, onToggleFind, onToggleGoToLine]);
-
-    // Jump to line
     const handleJumpToLine = useCallback((index: number, totalLines: number) => {
         if (totalLines === 0) return;
 
@@ -182,13 +146,11 @@ if (isCmdOrCtrl && isZ) {
         setScrollToIndex(boundedIndex);
         setHighlightedIndex(boundedIndex);
 
-        // Clear scroll signal after delay
         setTimeout(() => {
             setScrollToIndex(null);
         }, 150);
     }, []);
 
-    // Handle log viewer interaction (clears highlight when user interacts)
     const handleLogViewerInteraction = useCallback(() => {
         if (highlightedIndex !== null) {
             setHighlightedIndex(null);

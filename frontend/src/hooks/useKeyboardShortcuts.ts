@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
-import { MAX_PANES } from '../hooks/usePaneManagement';
+import { useCallback } from 'react';
+import { MAX_PANES } from './usePaneManagement';
+import { useShortcut } from '../shortcuts';
 
 interface UseKeyboardShortcutsParams {
   handleToggleWatch: () => void;
@@ -20,78 +21,36 @@ export const useKeyboardShortcuts = ({
   activePaneId,
   panes
 }: UseKeyboardShortcutsParams) => {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-        return;
-      }
+  useShortcut('commandPalette', useCallback(() => {
+    setIsCommandPaletteVisible(true);
+  }, [setIsCommandPaletteVisible]));
 
-      const isP = e.key.toLowerCase() === 'p';
-      const isT = e.key.toLowerCase() === 't';
-      const isComma = e.key === ',';
-      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
-      const isShift = e.shiftKey;
+  useShortcut('toggleWatch', useCallback(() => {
+    handleToggleWatch();
+  }, [handleToggleWatch]));
 
-      if (isCmdOrCtrl && isP && isShift) {
-        e.preventDefault();
-        setIsCommandPaletteVisible(true);
-        return;
-      }
+  useShortcut('openSettings', useCallback(() => {
+    setIsSettingsVisible(true);
+  }, [setIsSettingsVisible]));
 
-      if (isCmdOrCtrl && isT && isShift) {
-        e.preventDefault();
-        handleToggleWatch();
-        return;
-      }
+  const handleSplitRight = useCallback(() => {
+    if (panes.length < MAX_PANES) {
+      splitPane(activePaneId, undefined, 'right');
+    }
+  }, [splitPane, activePaneId, panes.length]);
+  useShortcut('splitPaneRight', handleSplitRight);
 
-      if (isCmdOrCtrl && isComma) {
-        e.preventDefault();
-        setIsSettingsVisible(true);
-        return;
-      }
+  const handleSplitBottom = useCallback(() => {
+    if (panes.length < MAX_PANES) {
+      splitPane(activePaneId, undefined, 'bottom');
+    }
+  }, [splitPane, activePaneId, panes.length]);
+  useShortcut('splitPaneBottom', handleSplitBottom);
 
-      if (isCmdOrCtrl && e.key === '\\' && !isShift) {
-        e.preventDefault();
-        if (panes.length < MAX_PANES) {
-          splitPane(activePaneId, undefined, 'right');
-        }
-        return;
-      }
-
-      if (isCmdOrCtrl && e.key === '\\' && isShift) {
-        e.preventDefault();
-        if (panes.length < MAX_PANES) {
-          splitPane(activePaneId, undefined, 'bottom');
-        }
-        return;
-      }
-
-      if (isCmdOrCtrl && isShift && e.key === 'ArrowRight') {
-        e.preventDefault();
-        if (panes.length < MAX_PANES) {
-          splitPane(activePaneId, undefined, 'right');
-        }
-        return;
-      }
-
-      if (isCmdOrCtrl && isShift && e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (panes.length < MAX_PANES) {
-          splitPane(activePaneId, undefined, 'bottom');
-        }
-        return;
-      }
-
-      if (isCmdOrCtrl && e.key === 'w' && !isShift) {
-        e.preventDefault();
-        if (panes.length > 1) {
-          removePane(activePaneId);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleToggleWatch, setIsSettingsVisible, setIsCommandPaletteVisible, splitPane, removePane, activePaneId, panes]);
+  const handleClosePane = useCallback(() => {
+    if (panes.length > 1) {
+      removePane(activePaneId);
+    }
+  }, [removePane, activePaneId, panes.length]);
+  useShortcut('closePane', handleClosePane);
 };

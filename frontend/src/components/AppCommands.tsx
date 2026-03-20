@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { LayerType } from '../types';
 import { MAX_PANES } from '../hooks/usePaneManagement';
+import { SHORTCUT_REGISTRY } from '../shortcuts';
 
 export interface Command {
   id: string;
@@ -33,6 +34,11 @@ interface _UseAppCommandsParams {
   activeFileName?: string;
 }
 
+function getShortcutKey(shortcutId: keyof typeof SHORTCUT_REGISTRY): string | undefined {
+  const shortcut = SHORTCUT_REGISTRY[shortcutId];
+  return shortcut?.keys[0];
+}
+
 export const useAppCommands = (params: _UseAppCommandsParams) => {
   const {
     handleOpen,
@@ -55,19 +61,20 @@ export const useAppCommands = (params: _UseAppCommandsParams) => {
     bookmarks,
     activeFileName
   } = params;
+  
   const commands: Command[] = useMemo(() => [
-    { id: 'file.open', label: '打开文件', shortcut: 'Ctrl+O', category: '文件', action: handleOpen },
-    { id: 'file.openFolder', label: '打开文件夹', shortcut: 'Ctrl+Shift+O', category: '文件', action: handleNativeFolderSelect },
-    { id: 'search.focus', label: '聚焦搜索', shortcut: 'Ctrl+F', category: '搜索', action: () => onToggleFind(true) },
-    { id: 'search.next', label: '下一个匹配', shortcut: 'F3', category: '搜索', action: () => findNextSearchMatchWithJump('next') },
-    { id: 'search.prev', label: '上一个匹配', shortcut: 'Shift+F3', category: '搜索', action: () => findNextSearchMatchWithJump('prev') },
-    { id: 'goto.line', label: '跳转到行', shortcut: 'Ctrl+G', category: '导航', action: () => onToggleGoToLine(true) },
+    { id: 'file.open', label: '打开文件', shortcut: getShortcutKey('openFile'), category: '文件', action: handleOpen },
+    { id: 'file.openFolder', label: '打开文件夹', shortcut: getShortcutKey('openFolder'), category: '文件', action: handleNativeFolderSelect },
+    { id: 'search.focus', label: '聚焦搜索', shortcut: getShortcutKey('find'), category: '搜索', action: () => onToggleFind(true) },
+    { id: 'search.next', label: '下一个匹配', shortcut: getShortcutKey('findNext'), category: '搜索', action: () => findNextSearchMatchWithJump('next') },
+    { id: 'search.prev', label: '上一个匹配', shortcut: getShortcutKey('findPrev'), category: '搜索', action: () => findNextSearchMatchWithJump('prev') },
+    { id: 'goto.line', label: '跳转到行', shortcut: getShortcutKey('gotoLine'), category: '导航', action: () => onToggleGoToLine(true) },
     { id: 'view.main', label: '主视图', category: '视图', action: () => setActiveView('main') },
     { id: 'view.help', label: '帮助视图', category: '视图', action: () => setActiveView('help') },
     { 
       id: 'pane.splitRight', 
       label: '向右分屏', 
-      shortcut: 'Ctrl+\\ | Ctrl+Shift+→', 
+      shortcut: getShortcutKey('splitPaneRight'), 
       category: '分屏', 
       action: () => splitPane(activePaneId, undefined, 'right'), 
       enabled: panes.length < MAX_PANES 
@@ -75,7 +82,7 @@ export const useAppCommands = (params: _UseAppCommandsParams) => {
     { 
       id: 'pane.splitBottom', 
       label: '向下分屏', 
-      shortcut: 'Ctrl+Shift+\\ | Ctrl+Shift+↓', 
+      shortcut: getShortcutKey('splitPaneBottom'), 
       category: '分屏', 
       action: () => splitPane(activePaneId, undefined, 'bottom'), 
       enabled: panes.length < MAX_PANES 
@@ -83,7 +90,7 @@ export const useAppCommands = (params: _UseAppCommandsParams) => {
     { 
       id: 'pane.close', 
       label: '关闭当前分屏', 
-      shortcut: 'Ctrl+W', 
+      shortcut: getShortcutKey('closePane'), 
       category: '分屏', 
       action: () => removePane(activePaneId), 
       enabled: panes.length > 1 
@@ -91,7 +98,7 @@ export const useAppCommands = (params: _UseAppCommandsParams) => {
     { 
       id: 'layer.new', 
       label: '新建图层', 
-      shortcut: 'Ctrl+Shift+L', 
+      shortcut: getShortcutKey('newLayer'), 
       category: '图层', 
       action: () => addLayer(LayerType.HIGHLIGHT, { query: '', color: '#fbbf24', enabled: true })
     },
@@ -120,7 +127,7 @@ export const useAppCommands = (params: _UseAppCommandsParams) => {
         }
       }
     },
-    { id: 'settings.open', label: '打开设置', shortcut: 'Ctrl+,', category: '设置', action: () => setIsSettingsVisible(true) },
+    { id: 'settings.open', label: '打开设置', shortcut: getShortcutKey('openSettings'), category: '设置', action: () => setIsSettingsVisible(true) },
     { id: 'export.open', label: '导出日志', category: '工具', action: () => setIsExportDialogOpen(true), enabled: !!activeFileId },
     { id: 'storage.open', label: '存储设置', category: '工具', action: () => setIsStorageSettingsOpen(true) },
     { id: 'worker.open', label: 'Worker 配置', category: '工具', action: () => setIsWorkerConfigOpen(true) },

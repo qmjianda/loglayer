@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { LOG_VIEWER, KEYBOARD_SHORTCUTS } from './constants';
+import { LOG_VIEWER } from './constants';
+import { SHORTCUT_REGISTRY } from './shortcuts/registry';
 
 describe('constants', () => {
   describe('LOG_VIEWER', () => {
@@ -36,39 +37,41 @@ describe('constants', () => {
       expect(typeof LOG_VIEWER.CACHE_PRUNE_ON_IDLE).toBe('boolean');
     });
   });
+});
 
-  describe('KEYBOARD_SHORTCUTS', () => {
-    it('should have go to line shortcut', () => {
-      expect(KEYBOARD_SHORTCUTS.GO_TO_LINE).toEqual({
-        key: 'g',
-        modifier: 'ctrl',
-      });
-    });
+describe('SHORTCUT_REGISTRY', () => {
+  it('should have gotoLine shortcut', () => {
+    expect(SHORTCUT_REGISTRY.gotoLine).toBeDefined();
+    expect(SHORTCUT_REGISTRY.gotoLine.keys).toContain('Ctrl+G');
+  });
 
-    it('should have move selection shortcuts', () => {
-      expect(KEYBOARD_SHORTCUTS.MOVE_SELECTION_UP).toEqual({
-        key: 'ArrowUp',
-        modifier: 'alt',
-      });
-      expect(KEYBOARD_SHORTCUTS.MOVE_SELECTION_DOWN).toEqual({
-        key: 'ArrowDown',
-        modifier: 'alt',
-      });
-    });
+  it('should have move selection shortcuts', () => {
+    expect(SHORTCUT_REGISTRY.moveSelectionUp).toBeDefined();
+    expect(SHORTCUT_REGISTRY.moveSelectionDown).toBeDefined();
+  });
 
-    it('should have select all shortcut', () => {
-      expect(KEYBOARD_SHORTCUTS.SELECT_ALL).toEqual({
-        key: 'a',
-        modifier: 'ctrl',
-      });
-    });
+  it('should have selectAll shortcut', () => {
+    expect(SHORTCUT_REGISTRY.selectAll).toBeDefined();
+    expect(SHORTCUT_REGISTRY.selectAll.keys).toContain('Ctrl+A');
+  });
 
-    it('should have all required shortcuts', () => {
-      const required = ['GO_TO_LINE', 'SELECT_LINE', 'JUMP_TO_SELECTION', 
-                       'MOVE_SELECTION_UP', 'MOVE_SELECTION_DOWN', 'SELECT_ALL'];
-      required.forEach(key => {
-        expect(KEYBOARD_SHORTCUTS).toHaveProperty(key);
-      });
+  it('should have all essential shortcuts', () => {
+    const required = ['gotoLine', 'selectLine', 'jumpToSelection', 
+                     'moveSelectionUp', 'moveSelectionDown', 'selectAll',
+                     'find', 'findNext', 'findPrev', 'openFile', 'openFolder'];
+    required.forEach(key => {
+      expect(SHORTCUT_REGISTRY).toHaveProperty(key);
     });
+  });
+
+  it('should have valid structure for all shortcuts', () => {
+    for (const [id, shortcut] of Object.entries(SHORTCUT_REGISTRY)) {
+      expect(shortcut).toHaveProperty('id');
+      expect(shortcut).toHaveProperty('keys');
+      expect(shortcut).toHaveProperty('description');
+      expect(shortcut).toHaveProperty('category');
+      expect(Array.isArray(shortcut.keys)).toBe(true);
+      expect(shortcut.keys.length).toBeGreaterThan(0);
+    }
   });
 });

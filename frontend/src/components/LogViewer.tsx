@@ -10,6 +10,7 @@ import { LOG_VIEWER } from '../constants';
 import { getLogViewerColors } from '../theme';
 import { AppSettings } from '../hooks/useSettings';
 import { detectJson } from '../utils/jsonTree';
+import { useShortcut } from '../shortcuts';
 
 interface LogViewerProps {
   totalLines: number;
@@ -422,104 +423,82 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   // Keyboard navigation handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Escape key: close context menu / popovers
       if (e.key === 'Escape') {
         if (contextMenu) { setContextMenu(null); return; }
         if (commentPopover) { setCommentPopover(null); return; }
         if (expandedJsonLine !== null) { setExpandedJsonLine(null); return; }
       }
-
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-      const modifier = isMac ? e.metaKey : e.ctrlKey;
-
-      if (e.key === 'g' && modifier && !e.shiftKey) {
-        e.preventDefault();
-        setShowGoToLine(true);
-        return;
-      }
-
-      if (showGoToLine) return;
-
-      if (e.key === 'l' && modifier && e.shiftKey) {
-        e.preventDefault();
-        if (hoveredLineIndex !== null) {
-          const line = bridgedLines.get(hoveredLineIndex);
-          const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
-          setSelection({
-            startLine: hoveredLineIndex,
-            startChar: 0,
-            endLine: hoveredLineIndex,
-            endChar: content.length
-          });
-        } else if (highlightedIndex !== null) {
-          const line = bridgedLines.get(highlightedIndex);
-          const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
-          setSelection({
-            startLine: highlightedIndex,
-            startChar: 0,
-            endLine: highlightedIndex,
-            endChar: content.length
-          });
-        }
-        return;
-      }
-
-      if (e.key === 'Enter' && modifier) {
-        e.preventDefault();
-        if (selection) {
-          const norm = normalizeSelection(selection);
-          onLineClick?.(norm.topLine);
-        }
-        return;
-      }
-
-      if (e.key === 'ArrowUp' && e.altKey) {
-        e.preventDefault();
-        if (selection) {
-          const norm = normalizeSelection(selection);
-          const newTopLine = Math.max(0, norm.topLine - 1);
-          const newBottomLine = Math.max(0, norm.bottomLine - 1);
-          setSelection({
-            startLine: newTopLine,
-            startChar: norm.topChar,
-            endLine: newBottomLine,
-            endChar: norm.bottomChar
-          });
-        }
-        return;
-      }
-
-      if (e.key === 'ArrowDown' && e.altKey) {
-        e.preventDefault();
-        if (selection) {
-          const norm = normalizeSelection(selection);
-          const newTopLine = Math.min(totalLines - 1, norm.topLine + 1);
-          const newBottomLine = Math.min(totalLines - 1, norm.bottomLine + 1);
-          setSelection({
-            startLine: newTopLine,
-            startChar: norm.topChar,
-            endLine: newBottomLine,
-            endChar: norm.bottomChar
-          });
-        }
-        return;
-      }
-
-      if (e.key === 'a' && modifier) {
-        e.preventDefault();
-        setSelection({
-          startLine: 0,
-          startChar: 0,
-          endLine: totalLines - 1,
-          endChar: 0
-        });
-        return;
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showGoToLine, hoveredLineIndex, highlightedIndex, selection, bridgedLines, totalLines, onLineClick, contextMenu, commentPopover, expandedJsonLine]);
+  }, [contextMenu, commentPopover, expandedJsonLine]);
+
+  useShortcut('selectLine', useCallback(() => {
+    if (hoveredLineIndex !== null) {
+      const line = bridgedLines.get(hoveredLineIndex);
+      const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
+      setSelection({
+        startLine: hoveredLineIndex,
+        startChar: 0,
+        endLine: hoveredLineIndex,
+        endChar: content.length
+      });
+    } else if (highlightedIndex !== null) {
+      const line = bridgedLines.get(highlightedIndex);
+      const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
+      setSelection({
+        startLine: highlightedIndex,
+        startChar: 0,
+        endLine: highlightedIndex,
+        endChar: content.length
+      });
+    }
+  }, [hoveredLineIndex, highlightedIndex, bridgedLines]));
+
+  useShortcut('jumpToSelection', useCallback(() => {
+    if (selection) {
+      const norm = normalizeSelection(selection);
+      onLineClick?.(norm.topLine);
+    }
+  }, [selection, onLineClick]));
+
+  useShortcut('moveSelectionUp', useCallback(() => {
+    if (selection) {
+      const norm = normalizeSelection(selection);
+      const newTopLine = Math.max(0, norm.topLine - 1);
+      const newBottomLine = Math.max(0, norm.bottomLine - 1);
+      setSelection({
+        startLine: newTopLine,
+        startChar: norm.topChar,
+        endLine: newBottomLine,
+        endChar: norm.bottomChar
+      });
+    }
+  }, [selection]));
+
+  useShortcut('moveSelectionDown', useCallback(() => {
+    if (selection) {
+      const norm = normalizeSelection(selection);
+      const newTopLine = Math.min(totalLines - 1, norm.topLine + 1);
+      const newBottomLine = Math.min(totalLines - 1, norm.bottomLine + 1);
+      setSelection({
+        startLine: newTopLine,
+        startChar: norm.topChar,
+        endLine: newBottomLine,
+        endChar: norm.bottomChar
+      });
+    }
+  }, [selection, totalLines]));
+
+  useShortcut('selectAll', useCallback(() => {
+    setSelection({
+      startLine: 0,
+      startChar: 0,
+      endLine: totalLines - 1,
+      endChar: 0
+    });
+  }, [totalLines]));
 
   const handleClick = (e: React.MouseEvent) => {
     const pos = getPosFromEvent(e);

@@ -1,73 +1,18 @@
 import { useState } from 'react';
+import { useShortcutDefinitions } from '../shortcuts';
 
-interface Shortcut {
-  keys: string;
-  description: string;
-}
-
-interface ShortcutCategory {
-  name: string;
-  shortcuts: Shortcut[];
-}
-
-const shortcutCategories: ShortcutCategory[] = [
-  {
-    name: '导航',
-    shortcuts: [
-      { keys: 'Ctrl + G', description: '跳转到行' },
-      { keys: 'Ctrl + Home', description: '跳转到文件开头' },
-      { keys: 'Ctrl + End', description: '跳转到文件结尾' },
-      { keys: 'Page Up', description: '向上滚动一页' },
-      { keys: 'Page Down', description: '向下滚动一页' },
-    ],
-  },
-  {
-    name: '搜索',
-    shortcuts: [
-      { keys: 'Ctrl + F', description: '打开搜索' },
-      { keys: 'F3', description: '下一个匹配' },
-      { keys: 'Shift + F3', description: '上一个匹配' },
-      { keys: 'Ctrl + H', description: '搜索历史' },
-    ],
-  },
-  {
-    name: '编辑',
-    shortcuts: [
-      { keys: 'Ctrl + C', description: '复制选中内容' },
-      { keys: 'Ctrl + A', description: '全选' },
-      { keys: 'Ctrl + Shift + L', description: '选中当前行' },
-      { keys: 'Alt + ↑', description: '向上移动选区' },
-      { keys: 'Alt + ↓', description: '向下移动选区' },
-      { keys: 'Ctrl + Enter', description: '跳转到选中行' },
-    ],
-  },
-  {
-    name: '命令',
-    shortcuts: [
-      { keys: 'Ctrl + Shift + P', description: '命令面板' },
-      { keys: 'Ctrl + O', description: '打开文件' },
-      { keys: 'Ctrl + B', description: '切换侧边栏' },
-      { keys: 'Ctrl + ,', description: '打开设置' },
-    ],
-  },
-  {
-    name: '图层',
-    shortcuts: [
-      { keys: 'Ctrl + Shift + L', description: '新建图层' },
-      { keys: 'Ctrl + D', description: '收藏当前行' },
-    ],
-  },
-  {
-    name: '分屏',
-    shortcuts: [
-      { keys: 'Ctrl + \\', description: '向右分屏' },
-      { keys: 'Ctrl + Shift + \\', description: '向下分屏' },
-      { keys: 'Ctrl + Shift + →', description: '向右分屏 (备用)' },
-      { keys: 'Ctrl + Shift + ↓', description: '向下分屏 (备用)' },
-      { keys: 'Ctrl + W', description: '关闭当前分屏' },
-    ],
-  },
-];
+const categoryLabels: Record<string, string> = {
+  navigation: '导航',
+  search: '搜索',
+  edit: '编辑',
+  commands: '命令',
+  layers: '图层',
+  panes: '分屏',
+  bookmarks: '书签',
+  file: '文件',
+  view: '视图',
+  tools: '工具',
+};
 
 interface KeyboardShortcutsPanelProps {
   isOpen?: boolean;
@@ -81,6 +26,18 @@ export const KeyboardShortcutsPanel: React.FC<KeyboardShortcutsPanelProps> = ({
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = externalIsOpen ?? internalIsOpen;
   const setIsOpen = onClose ? () => onClose() : setInternalIsOpen;
+  const { categories, platform } = useShortcutDefinitions();
+
+  const formatKey = (key: string): string => {
+    if (platform === 'mac') {
+      return key
+        .replace(/Ctrl/g, '⌘')
+        .replace(/Shift/g, '⇧')
+        .replace(/Alt/g, '⌥')
+        .replace(/\+/g, '');
+    }
+    return key;
+  };
 
   if (!isOpen) return null;
 
@@ -100,15 +57,17 @@ export const KeyboardShortcutsPanel: React.FC<KeyboardShortcutsPanelProps> = ({
         </div>
         <div className="p-4 overflow-y-auto max-h-[calc(80vh-60px)]">
           <div className="grid grid-cols-2 gap-4">
-            {shortcutCategories.map(category => (
-              <div key={category.name}>
-                <h3 className="text-[10px] uppercase font-bold text-gray-500 mb-2">{category.name}</h3>
+            {Array.from(categories.entries()).map(([category, shortcuts]) => (
+              <div key={category}>
+                <h3 className="text-[10px] uppercase font-bold text-gray-500 mb-2">
+                  {categoryLabels[category] || category}
+                </h3>
                 <div className="space-y-1">
-                  {category.shortcuts.map(shortcut => (
-                    <div key={shortcut.keys} className="flex items-center justify-between text-xs">
+                  {shortcuts.map(shortcut => (
+                    <div key={shortcut.id} className="flex items-center justify-between text-xs">
                       <span className="text-gray-400">{shortcut.description}</span>
                       <kbd className="px-1.5 py-0.5 bg-dark-2 border border-[#333] rounded text-gray-300 font-mono text-[10px]">
-                        {shortcut.keys}
+                        {formatKey(shortcut.keys[0])}
                       </kbd>
                     </div>
                   ))}

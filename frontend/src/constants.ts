@@ -13,20 +13,10 @@ export const LOG_VIEWER = {
   SCROLL_MARGIN: 100,
   CACHE_CLEAR_DISTANCE: 3000,
   FETCH_DEBOUNCE_MS: 50,
-  // Performance tuning
   TARGET_FPS: 60,
   IDLE_THRESHOLD_MS: 100,
   RENDER_BATCH_SIZE: 100,
   MEMORY_WARNING_THRESHOLD_MB: 500,
   CACHE_PRUNE_ON_IDLE: true,
   LAZY_LOAD_THRESHOLD: 1000,
-} as const;
-
-export const KEYBOARD_SHORTCUTS = {
-  GO_TO_LINE: { key: 'g', modifier: 'ctrl' },
-  SELECT_LINE: { key: 'l', modifier: 'ctrlShift' },
-  JUMP_TO_SELECTION: { key: 'Enter', modifier: 'ctrl' },
-  MOVE_SELECTION_UP: { key: 'ArrowUp', modifier: 'alt' },
-  MOVE_SELECTION_DOWN: { key: 'ArrowDown', modifier: 'alt' },
-  SELECT_ALL: { key: 'a', modifier: 'ctrl' },
 } as const;

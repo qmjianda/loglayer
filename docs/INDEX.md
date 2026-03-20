@@ -15,6 +15,7 @@
 | **命令速查** | `docs/CHEATSHEET.md` | 常用命令快速参考 |
 | **界面布局** | `docs/UI/README.md` | UI 组件文档 |
 | **图层开发** | `docs/guides/LAYER_DEV_GUIDE.md` | 图层开发指南 |
+| **快捷键系统** | `docs/guides/SHORTCUT_SYSTEM.md` | 快捷键开发指南 |
 | **部署指南** | `docs/guides/DEPLOY.md` | 打包与部署 |
 | **性能优化** | `docs/guides/optimization/` | 索引优化、性能追踪 |
 

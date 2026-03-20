@@ -40,6 +40,7 @@ import { useSearch } from './hooks/useSearch';
 import { useBookmarkLogic } from './hooks/useBookmarkLogic';
 import { useBookmarks } from './hooks/useBookmarks';
 import { useSettings, SettingsProvider } from './hooks/useSettings';
+import { ShortcutProvider } from './shortcuts';
 import { useResponsive } from './hooks/useResponsive';
 import { useFileWatch } from './hooks/useFileWatch';
 import { usePaneManagement, MAX_PANES } from './hooks/usePaneManagement';
@@ -854,7 +855,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <SettingsProvider>
-      <AppContent />
+      <ShortcutProvider>
+        <AppContent />
+      </ShortcutProvider>
     </SettingsProvider>
   );
 };

@@ -8,6 +8,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { syncAll } from '../bridge_client';
 import { LogLayer } from '../types';
+import { useShortcut } from '../shortcuts';
 
 export type SearchMode = 'highlight' | 'filter';
 
@@ -225,19 +226,13 @@ export function useSearch({
         setSearchHistory(history);
     }, []);
 
-    // F3/Shift+F3 keyboard shortcuts for search result navigation
-    useEffect(() => {
-        const handleF3 = async (e: KeyboardEvent) => {
-            if (e.key !== 'F3') return;
-            e.preventDefault();
+    useShortcut('findNext', useCallback(async () => {
+        await findNextSearchMatch('next');
+    }, [findNextSearchMatch]));
 
-            const direction = e.shiftKey ? 'prev' : 'next';
-            await findNextSearchMatch(direction);
-        };
-
-        window.addEventListener('keydown', handleF3);
-        return () => window.removeEventListener('keydown', handleF3);
-    }, [findNextSearchMatch]);
+    useShortcut('findPrev', useCallback(async () => {
+        await findNextSearchMatch('prev');
+    }, [findNextSearchMatch]));
 
     return {
         searchQuery,

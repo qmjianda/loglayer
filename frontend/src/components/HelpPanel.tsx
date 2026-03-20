@@ -1,6 +1,36 @@
 import React from 'react';
+import { useShortcutDefinitions, SHORTCUT_REGISTRY } from '../shortcuts';
+
+const displayShortcuts = [
+  { id: 'openFile', label: '打开文件' },
+  { id: 'openFolder', label: '打开文件夹' },
+  { id: 'find', label: '查找' },
+  { id: 'gotoLine', label: '跳转到行' },
+  { id: 'findNext', label: '下一个匹配' },
+  { id: 'findPrev', label: '上一个匹配' },
+  { id: 'nextBookmark', label: '下一个书签' },
+  { id: 'prevBookmark', label: '上一个书签' },
+  { id: 'newLayer', label: '新建图层' },
+  { id: 'openSettings', label: '打开设置' },
+  { id: 'splitPaneRight', label: '向右分屏' },
+  { id: 'closePane', label: '关闭分屏' },
+  { id: 'toggleWatch', label: '实时监视' },
+  { id: 'commandPalette', label: '命令面板' },
+] as const;
 
 export const HelpPanel: React.FC = () => {
+  const { platform } = useShortcutDefinitions();
+
+  const formatKey = (key: string): string => {
+    if (platform === 'mac') {
+      return key
+        .replace(/Ctrl/g, '⌘')
+        .replace(/Shift/g, '⇧')
+        .replace(/Alt/g, '⌥');
+    }
+    return key;
+  };
+
   return (
     <div className="p-6 flex flex-col h-full overflow-y-auto custom-scrollbar bg-theme-surface text-theme-primary select-text">
       <div className="max-w-3xl mx-auto space-y-8">
@@ -25,7 +55,7 @@ export const HelpPanel: React.FC = () => {
                 <span className="font-medium">打开文件</span>
               </div>
               <p className="text-xs text-theme-muted">
-                拖放日志文件到窗口，或使用 <kbd className="px-1.5 py-0.5 bg-theme-surface rounded text-[10px] font-mono">Ctrl+O</kbd> 打开文件选择器
+                拖放日志文件到窗口，或使用 <kbd className="px-1.5 py-0.5 bg-theme-surface rounded text-[10px] font-mono">{formatKey(SHORTCUT_REGISTRY.openFile.keys[0])}</kbd> 打开文件选择器
               </p>
             </div>
             <div className="p-4 rounded-lg bg-theme-elevated border border-theme-subtle">
@@ -43,7 +73,7 @@ export const HelpPanel: React.FC = () => {
                 <span className="font-medium">书签标注</span>
               </div>
               <p className="text-xs text-theme-muted">
-                点击行号添加书签，按 <kbd className="px-1.5 py-0.5 bg-theme-surface rounded text-[10px] font-mono">F2</kbd> 快速跳转
+                点击行号添加书签，按 <kbd className="px-1.5 py-0.5 bg-theme-surface rounded text-[10px] font-mono">{formatKey(SHORTCUT_REGISTRY.nextBookmark.keys[0])}</kbd> 快速跳转
               </p>
             </div>
           </div>
@@ -86,20 +116,17 @@ export const HelpPanel: React.FC = () => {
         <section>
           <h3 className="text-sm font-semibold text-theme-secondary mb-4 uppercase tracking-wide">快捷键</h3>
           <div className="grid grid-cols-2 gap-2">
-            <ShortcutItem label="打开文件" shortcut="Ctrl+O" />
-            <ShortcutItem label="打开文件夹" shortcut="Ctrl+Shift+O" />
-            <ShortcutItem label="查找" shortcut="Ctrl+F" />
-            <ShortcutItem label="跳转到行" shortcut="Ctrl+G" />
-            <ShortcutItem label="下一个匹配" shortcut="F3" />
-            <ShortcutItem label="上一个匹配" shortcut="Shift+F3" />
-            <ShortcutItem label="下一个书签" shortcut="F2" />
-            <ShortcutItem label="上一个书签" shortcut="Shift+F2" />
-            <ShortcutItem label="新建图层" shortcut="Ctrl+Shift+L" />
-            <ShortcutItem label="打开设置" shortcut="Ctrl+," />
-            <ShortcutItem label="向右分屏" shortcut="Ctrl+\" />
-            <ShortcutItem label="关闭分屏" shortcut="Ctrl+W" />
-            <ShortcutItem label="实时监视" shortcut="Ctrl+Shift+T" />
-            <ShortcutItem label="命令面板" shortcut="Ctrl+P" />
+            {displayShortcuts.map(({ id, label }) => {
+              const shortcut = SHORTCUT_REGISTRY[id];
+              return (
+                <div key={id} className="flex items-center justify-between p-2 rounded bg-theme-elevated border border-theme-subtle">
+                  <span className="text-xs text-theme-muted">{label}</span>
+                  <kbd className="px-2 py-1 text-[10px] font-mono bg-theme-surface rounded text-theme-secondary border border-theme-subtle">
+                    {formatKey(shortcut.keys[0])}
+                  </kbd>
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -130,12 +157,3 @@ export const HelpPanel: React.FC = () => {
     </div>
   );
 };
-
-const ShortcutItem: React.FC<{ label: string; shortcut: string }> = ({ label, shortcut }) => (
-  <div className="flex items-center justify-between p-2 rounded bg-theme-elevated border border-theme-subtle">
-    <span className="text-xs text-theme-muted">{label}</span>
-    <kbd className="px-2 py-1 text-[10px] font-mono bg-theme-surface rounded text-theme-secondary border border-theme-subtle">
-      {shortcut}
-    </kbd>
-  </div>
-);
