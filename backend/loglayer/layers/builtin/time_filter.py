@@ -1,9 +1,12 @@
 import re
+import logging
 from datetime import datetime
 from typing import Optional
 
 from loglayer.core import FilterLayer, LayerStage
 from loglayer.ui import StrInput
+
+logger = logging.getLogger(__name__)
 
 
 TIMESTAMP_PATTERNS = [
@@ -41,13 +44,13 @@ class TimeFilterLayer(FilterLayer):
         if start:
             try:
                 self.start_dt = self._parse(start)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to parse start time '{start}': {e}")
         if end:
             try:
                 self.end_dt = self._parse(end)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to parse end time '{end}': {e}")
 
     def _parse(self, s: str) -> datetime:
         for _, fmt in _COMPILED:

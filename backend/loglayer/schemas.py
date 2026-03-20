@@ -170,3 +170,20 @@ class WorkerConfig(BaseModel):
     """Worker pool configuration."""
     max_workers: int = 4
     cpu_count: int = 4
+
+
+class ApiErrorDetail(BaseModel):
+    """Error detail for API responses."""
+    code: str
+    message: str
+    details: Optional[Any] = None
+
+
+class ApiResponse(BaseModel):
+    """Generic API response envelope."""
+    success: bool
+    data: Optional[Any] = None
+    error: Optional[ApiErrorDetail] = None
+
+    class Config:
+        generic_mode = True
