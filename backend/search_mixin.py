@@ -127,20 +127,18 @@ class BookmarkPipeline:
     """
 
     def toggle_bookmark(self, file_id: str, line_index: int) -> str:
-        """Toggle bookmark for a specific line."""
         if file_id not in self._sessions:
             return "{}"
         session = self._sessions[file_id]
         
-        # 直接操作 session.bookmarks
         if line_index in session.bookmarks:
             del session.bookmarks[line_index]
         else:
             session.bookmarks[line_index] = ""
         
-        # 轻量刷新：清除渲染缓存并发送信号
         session.rendering_cache.clear()
         self._emit_refresh_signal(file_id)
+        self._save_bookmarks_to_file(file_id)
         
         return json.dumps(session.bookmarks)
 
@@ -152,7 +150,6 @@ class BookmarkPipeline:
         return json.dumps(session.bookmarks)
 
     def update_bookmark_comment(self, file_id: str, line_index: int, comment: str) -> str:
-        """Update bookmark comment."""
         if file_id not in self._sessions:
             return "{}"
         session = self._sessions[file_id]
@@ -161,6 +158,7 @@ class BookmarkPipeline:
             session.bookmarks[line_index] = comment
             session.rendering_cache.clear()
             self._emit_refresh_signal(file_id)
+            self._save_bookmarks_to_file(file_id)
         
         return json.dumps(session.bookmarks)
 
@@ -205,7 +203,6 @@ class BookmarkPipeline:
         return target_physical
 
     def clear_bookmarks(self, file_id: str) -> str:
-        """Clear all bookmarks for a file."""
         if file_id not in self._sessions:
             return "{}"
         session = self._sessions[file_id]
@@ -213,6 +210,7 @@ class BookmarkPipeline:
         session.bookmarks.clear()
         session.rendering_cache.clear()
         self._emit_refresh_signal(file_id)
+        self._save_bookmarks_to_file(file_id)
         
         return "{}"
 

@@ -8,8 +8,9 @@ import array
 import threading
 import logging
 import platform
+import hashlib
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor
 from loglayer.registry import LayerRegistry
 from loglayer.core import LayerStage, ProcessedLine
@@ -399,6 +400,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
             if session.size == 0:
                 session.line_offsets = array.array("Q")
                 self._sessions[file_id] = session
+                session.bookmarks = self._load_bookmarks_from_file(file_id)
                 payload = FileLoadedPayload(
                     name=provider.get_name(resolved_path),
                     size=0,
@@ -409,6 +411,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
 
             session.mmap = provider.get_mmap(resolved_path)
             self._sessions[file_id] = session
+            session.bookmarks = self._load_bookmarks_from_file(file_id)
             self.operationStarted.emit(file_id, "indexing")
 
             # TODO: Handle non-mmap workers for remote providers
@@ -708,6 +711,54 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
         except Exception as e:
             logger.error(f"[Workspace] Error loading config: {e}")
             return ""
+
+    def _get_bookmark_file_path(self, file_path: str) -> Optional[Path]:
+        """Get the bookmark file path for a given file."""
+        if not file_path:
+            return None
+        file_hash = hashlib.md5(file_path.encode()).hexdigest()[:16]
+        return Path(file_path).parent / ".loglayer" / "bookmarks" / f"{file_hash}.json"
+
+    def _save_bookmarks_to_file(self, file_id: str) -> bool:
+        """Save bookmarks for a file to .loglayer/bookmarks/"""
+        if file_id not in self._sessions:
+            return False
+        session = self._sessions[file_id]
+        if not session.path:
+            return False
+        
+        bookmark_file = self._get_bookmark_file_path(session.path)
+        if not bookmark_file:
+            return False
+        
+        try:
+            bookmark_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(bookmark_file, "w", encoding="utf-8") as f:
+                json.dump(session.bookmarks, f)
+            return True
+        except Exception as e:
+            logger.warning(f"[Bookmarks] Failed to save: {e}")
+            return False
+
+    def _load_bookmarks_from_file(self, file_id: str) -> Dict[int, str]:
+        """Load bookmarks from .loglayer/bookmarks/"""
+        if file_id not in self._sessions:
+            return {}
+        session = self._sessions[file_id]
+        if not session.path:
+            return {}
+        
+        bookmark_file = self._get_bookmark_file_path(session.path)
+        if not bookmark_file or not bookmark_file.exists():
+            return {}
+        
+        try:
+            with open(bookmark_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return {int(k): v for k, v in data.items()}
+        except Exception as e:
+            logger.warning(f"[Bookmarks] Failed to load: {e}")
+            return {}
 
     def get_lines_by_indices(self, file_id: str, indices: list) -> str:
         """获取指定索引的行内容（纯文本）"""
