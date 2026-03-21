@@ -26,7 +26,7 @@
 
 ## 4. Testing
 
-- [ ] 4.1 Test: Save bookmark creates file
-- [ ] 4.2 Test: Load bookmark on file open
-- [ ] 4.3 Test: Bookmark persists after close/reopen
-- [ ] 4.4 Test: Error handling when directory not writable
+- [x] 4.1 Test: Save bookmark creates file
+- [x] 4.2 Test: Load bookmark on file open
+- [x] 4.3 Test: Bookmark persists after close/reopen
+- [x] 4.4 Test: Error handling when directory not writable
