@@ -196,6 +196,11 @@ def get_nearest_search_rank(file_id: str, current_index: int, direction: str):
     return bridge.get_nearest_search_rank(file_id, current_index, direction)
 
 
+@app.get("/api/get_next_search_match")
+def get_next_search_match(file_id: str, current_index: int, direction: str):
+    return json.loads(bridge.get_next_search_match(file_id, current_index, direction))
+
+
 @app.get("/api/get_search_matches_range")
 def get_search_matches_range(file_id: str, start_rank: int, count: int):
     return json.loads(bridge.get_search_matches_range(file_id, start_rank, count))

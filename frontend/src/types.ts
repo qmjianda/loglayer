@@ -189,6 +189,7 @@ export interface FileBridgeAPI {
   search_ripgrep(fileId: string, query: string, regex: boolean, caseSensitive: boolean): Promise<boolean>;
   get_search_match_index(fileId: string, rank: number): Promise<number>;
   get_nearest_search_rank(fileId: string, currentIndex: number, direction: string): Promise<number>;
+  get_next_search_match(fileId: string, currentIndex: number, direction: string): Promise<{ rank: number; index: number }>;
   get_search_matches_range(fileId: string, startRank: number, count: number): Promise<string>;
   is_search_match(fileId: string, index: number): Promise<boolean>;
   get_search_rank_for_index(fileId: string, index: number): Promise<number>;

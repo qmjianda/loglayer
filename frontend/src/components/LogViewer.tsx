@@ -118,6 +118,9 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [hoveredLineIndex, setHoveredLineIndex] = useState<number | null>(null);
+  
+  // Word highlight state for double-click feature
+  const [highlightedWord, setHighlightedWord] = useState<string | null>(null);
 
   const [bridgedLines, setBridgedLines] = useState<Map<number, LogLine | string>>(new Map());
   const lastFetchRef = useRef<{ start: number; end: number }>({ start: -1, end: -1 });
@@ -531,6 +534,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       if (!selection || (selection.startLine === selection.endLine && Math.abs(selection.startChar - selection.endChar) < 2)) {
         onLineClick?.(pos.lineIndex);
       }
+      setHighlightedWord(null);
     }
   };
 
@@ -543,22 +547,18 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
     if (!content) return;
 
-    // Find word boundaries (alphanumeric + underscore)
     const charIndex = pos.charIndex;
     let start = charIndex;
     let end = charIndex;
 
-    // Expand left
     while (start > 0 && /[\w]/.test(content[start - 1])) {
       start--;
     }
 
-    // Expand right
     while (end < content.length && /[\w]/.test(content[end])) {
       end++;
     }
 
-    // Only select if we have a valid word
     if (end > start) {
       setSelection({
         startLine: pos.lineIndex,
@@ -567,6 +567,11 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         endChar: end
       });
       setIsSelecting(false);
+      
+      const selectedWord = content.substring(start, end);
+      if (selectedWord.length >= 2) {
+        setHighlightedWord(selectedWord);
+      }
     }
   };
 
@@ -790,10 +795,32 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         }
 
         const renderText = (text: string, startX: number, startY: number) => {
-          const highlightsToRender = searchHighlightAll ? logLine?.highlights : [];
-          if (highlightsToRender && highlightsToRender.length > 0) {
+          const allHighlights: Array<{ start: number; end: number; color: string; opacity: number; isSearch?: boolean }> = [];
+          
+          if (searchHighlightAll && logLine?.highlights) {
+            allHighlights.push(...logLine.highlights);
+          }
+          
+          if (highlightedWord && highlightedWord.length >= 2) {
+            const wordRegex = new RegExp(`\\b${highlightedWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
+            let match;
+            while ((match = wordRegex.exec(text)) !== null) {
+              const existing = allHighlights.find(h => h.start === match!.index && h.end === match!.index + match![0].length);
+              if (!existing) {
+                allHighlights.push({
+                  start: match.index,
+                  end: match.index + match[0].length,
+                  color: '#3b82f6',
+                  opacity: 30,
+                  isSearch: false
+                });
+              }
+            }
+          }
+          
+          if (allHighlights.length > 0) {
             let lastIdx = 0;
-            const sorted = [...highlightsToRender].sort((a, b) => a.start - b.start);
+            const sorted = [...allHighlights].sort((a, b) => a.start - b.start);
             sorted.forEach(h => {
               if (h.start > lastIdx) {
                 ctx.fillStyle = colors.TEXT;
@@ -905,7 +932,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const lastDrawDepsRef = useRef<string>('');
 
   useEffect(() => {
-    const currentDeps = `${startIndex}-${endIndex}-${scrollTop}-${scrollLeft}-${highlightedIndex}-${hoveredLineIndex}-${selection?.startLine}-${bridgedLines.size}`;
+    const currentDeps = `${startIndex}-${endIndex}-${scrollTop}-${scrollLeft}-${highlightedIndex}-${hoveredLineIndex}-${selection?.startLine}-${bridgedLines.size}-${highlightedWord}`;
     const needsRedraw = lastDrawDepsRef.current !== currentDeps;
     lastDrawDepsRef.current = currentDeps;
 
@@ -936,7 +963,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     } else {
       updatePerformanceStats();
     }
-  }, [draw, startIndex, endIndex, scrollTop, scrollLeft, highlightedIndex, hoveredLineIndex, selection, bridgedLines.size]);
+  }, [draw, startIndex, endIndex, scrollTop, scrollLeft, highlightedIndex, hoveredLineIndex, selection, bridgedLines.size, highlightedWord]);
 
   return (
     <div
@@ -967,7 +994,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       onContextMenu={handleContextMenu}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      onMouseLeave={() => setHoveredLineIndex(null)}
+      onMouseLeave={() => { setHoveredLineIndex(null); setHighlightedWord(null); }}
     >
       {fileId && totalLines > 0 && viewportWidth > 0 && viewportHeight > 0 && (
         <div style={{ position: 'sticky', top: 0, left: 0, width: 0, height: 0, overflow: 'visible', zIndex: 1 }}>

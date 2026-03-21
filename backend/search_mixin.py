@@ -83,6 +83,37 @@ class SearchPipeline:
             else:
                 return len(matches) - 1  # Wrap to last
 
+    def get_next_search_match(
+        self, file_id: str, current_index: int, direction: str
+    ) -> str:
+        """Combined API: returns both rank and index in one call.
+        
+        Returns JSON: {"rank": int, "index": int}
+        Returns {"rank": -1, "index": -1} if no matches.
+        """
+        if file_id not in self._sessions:
+            return json.dumps({"rank": -1, "index": -1})
+        session = self._sessions[file_id]
+        matches = session.search_matches
+        if matches is None or len(matches) == 0:
+            return json.dumps({"rank": -1, "index": -1})
+
+        if direction == "next":
+            rank = bisect.bisect_right(matches, current_index)
+            if rank < len(matches):
+                result_rank = rank
+            else:
+                result_rank = 0  # Wrap to first
+        else:
+            rank = bisect.bisect_left(matches, current_index)
+            if rank > 0:
+                result_rank = rank - 1
+            else:
+                result_rank = len(matches) - 1  # Wrap to last
+        
+        result_index = matches[result_rank]
+        return json.dumps({"rank": int(result_rank), "index": int(result_index)})
+
     def get_search_matches_range(
         self, file_id: str, start_rank: int, count: int
     ) -> str:

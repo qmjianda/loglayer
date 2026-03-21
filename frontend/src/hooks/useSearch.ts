@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { syncAll, getSearchMatchIndex, getNearestSearchRank } from '../bridge_client';
+import { syncAll, getSearchMatchIndex, getNearestSearchRank, getNextSearchMatch } from '../bridge_client';
 import { LogLayer } from '../types';
 import { useShortcut } from '../shortcuts';
 
@@ -169,11 +169,19 @@ export function useSearch({
             return -1;
         }
 
+        if (fromIndex !== undefined && fromIndex !== null) {
+            const result = await getNextSearchMatch(activeFileId, fromIndex, direction);
+            if (result.rank !== -1 && result.index !== -1) {
+                setCurrentMatchRank(result.rank);
+                setCurrentMatchIndex(result.index);
+                return result.index;
+            }
+            return -1;
+        }
+
         let nextRank = -1;
 
-        if (fromIndex !== undefined && fromIndex !== null) {
-            nextRank = await getNearestSearchRank(activeFileId, fromIndex, direction);
-        } else if (currentMatchRank === -1) {
+        if (currentMatchRank === -1) {
             nextRank = direction === 'next' ? 0 : effectiveMatchCount - 1;
         } else {
             if (direction === 'next') {
