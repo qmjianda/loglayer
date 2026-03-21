@@ -73,6 +73,78 @@ tools/package_offline.py            # 打包
 
 ---
 
+## 测试
+
+### 目录结构
+```
+tests/                          # Python 后端测试
+├── logs/                      # 测试日志文件
+│   ├── large_dummy.log        # 小型测试文件 (300KB)
+│   └── large_test.log         # 大型测试文件 (1.3GB)
+└── unit/                      # 单元测试
+
+e2e/                            # Playwright E2E 测试
+├── fixtures.ts                # Page Objects
+├── selectors/                 # UI 选择器
+├── utils/                     # 测试工具
+├── keyboard-shortcuts.test.ts # 键盘快捷键
+├── bookmark-operations.test.ts# 书签功能
+├── pane-management.test.ts    # 分屏管理
+├── error-handling.test.ts     # 错误处理
+├── drag-drop.test.ts          # 拖拽操作
+└── browser-use/               # AI UI/UX 测试
+    ├── scripts/
+    │   ├── verify-qwen.sh     # 验证 Qwen 配置
+    │   ├── ai-exploration.sh  # AI 探索测试
+    │   └── smoke-test.sh      # 冒烟测试
+    └── reports/               # 测试报告
+```
+
+### 测试命令
+```bash
+# 后端测试
+pytest tests/ -v
+
+# 前端类型检查
+cd frontend && npx tsc --noEmit
+
+# E2E 测试 (需要后端运行)
+python backend/main.py --no-ui &
+npx playwright test e2e/
+
+# E2E 测试 - 特定文件
+npx playwright test e2e/keyboard-shortcuts.test.ts
+
+# E2E 测试 - 有头模式
+npx playwright test e2e/ --headed
+```
+
+### 测试执行规则 ⚠️
+
+**完成任务后必须执行测试验证：**
+
+1. **前端代码变更** → 运行 `npx tsc --noEmit`
+2. **后端代码变更** → 运行 `pytest tests/ -v`
+3. **UI/交互代码变更** → 运行 E2E 测试
+
+**E2E 测试前置条件：**
+```bash
+# 1. 启动后端 (无 UI 模式)
+python backend/main.py --no-ui &
+
+# 2. 等待后端启动 (约 2 秒)
+sleep 2
+
+# 3. 运行 E2E 测试
+npx playwright test e2e/
+```
+
+**测试文件选择器：**
+- 文件输入: `input[type="file"]:not([webkitdirectory])`
+- 文件夹输入: `input[type="file"][webkitdirectory]`
+
+---
+
 ## 关键模式
 | 模式 | 说明 |
 |:-----|:-----|
@@ -129,4 +201,70 @@ TypeScript: 2 空格, camelCase, 函数组件 + Hooks
 | 模块设计 | docs/modules/*.md |
 | 完整索引 | docs/INDEX.md |
 
-*2026-03-14*
+*2026-03-21*
+
+---
+
+## 完成任务检查清单 ✅
+
+每次完成代码变更后，**必须**执行以下验证：
+
+```bash
+# 1. 前端类型检查 (任何前端变更)
+cd frontend && npx tsc --noEmit
+
+# 2. 后端测试 (任何后端变更)
+pytest tests/ -v
+
+# 3. E2E 测试 (UI/交互变更)
+# 先启动后端
+python backend/main.py --no-ui &
+sleep 2
+# 再运行测试
+npx playwright test e2e/
+
+# 4. AI UI/UX 探索测试 (可选，重要变更时执行)
+# 前置条件：设置环境变量 QWEN_URL 和 QWEN_API_KEY
+bash e2e/browser-use/scripts/verify-qwen.sh  # 验证配置
+bash e2e/browser-use/scripts/ai-exploration.sh  # 运行 AI 探索
+```
+
+**禁止跳过测试验证。** 如测试失败，必须修复或说明原因。
+
+---
+
+## 测试类型对比
+
+| 类型 | 工具 | 用途 | 执行时机 |
+|------|------|------|----------|
+| 类型检查 | `tsc --noEmit` | TypeScript 类型验证 | 每次前端变更 |
+| 后端测试 | `pytest` | Python 单元测试 | 每次后端变更 |
+| E2E 测试 | Playwright | 自动化回归测试 | UI/交互变更 |
+| AI 探索测试 | browser-use | UI/UX 智能探索 | 重要功能变更 |
+
+### AI UI/UX 测试详解
+
+**配置环境变量** (在 `~/.bashrc` 中):
+```bash
+export QWEN_URL="https://coding.dashscope.aliyuncs.com/v1"
+export QWEN_API_KEY="sk-your-api-key"
+```
+
+**运行 AI 探索测试**:
+```bash
+# 验证配置
+bash e2e/browser-use/scripts/verify-qwen.sh
+
+# 运行完整探索
+bash e2e/browser-use/scripts/ai-exploration.sh
+
+# 指定模型
+MODEL_NAME=qwen-max bash e2e/browser-use/scripts/ai-exploration.sh
+```
+
+**AI 探索测试覆盖**:
+- 侧边栏所有面板功能
+- 键盘快捷键验证
+- 视觉布局检查
+- 交互流程测试
+- 问题发现和建议

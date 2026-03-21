@@ -1,0 +1,80 @@
+name: 键盘快捷键测试
+description: 测试所有键盘快捷键功能
+priority: medium
+tags: [keyboard, shortcuts]
+timeout: 60000
+
+scenarios:
+  - id: key-001
+    name: 搜索框快捷键
+    description: Ctrl+F 打开搜索框
+    steps:
+      - action: pressKey
+        params: { key: "Control+F" }
+      - action: waitForTimeout
+        params: { ms: 300 }
+      - action: expectVisible
+        selector: "search.input"
+      - action: pressKey
+        params: { key: "Escape" }
+    expectedResult: 搜索框打开并关闭
+
+  - id: key-002
+    name: 跳转行快捷键
+    description: Ctrl+G 打开跳转行框
+    steps:
+      - action: pressKey
+        params: { key: "Control+G" }
+      - action: waitForTimeout
+        params: { ms: 300 }
+      - action: expectVisible
+        selector: "[data-goto-line], input[placeholder*='行']"
+      - action: pressKey
+        params: { key: "Escape" }
+    expectedResult: 跳转框打开并关闭
+
+  - id: key-003
+    name: 设置快捷键
+    description: Ctrl+, 打开设置面板
+    steps:
+      - action: pressKey
+        params: { key: "Control+," }
+      - action: waitForTimeout
+        params: { ms: 500 }
+      - action: expectVisible
+        selector: "settings.panel"
+      - action: pressKey
+        params: { key: "Escape" }
+    expectedResult: 设置面板打开并关闭
+
+  - id: key-004
+    name: 命令面板快捷键
+    description: Ctrl+Shift+P 打开命令面板
+    steps:
+      - action: pressKey
+        params: { key: "Control+Shift+P" }
+      - action: waitForTimeout
+        params: { ms: 300 }
+      - action: expectVisible
+        selector: "commandPalette.container"
+      - action: pressKey
+        params: { key: "Escape" }
+    expectedResult: 命令面板打开并关闭
+
+  - id: key-005
+    name: Escape 关闭弹窗
+    description: Escape 关闭当前弹窗
+    steps:
+      - action: pressKey
+        params: { key: "Control+," }
+      - action: waitForTimeout
+        params: { ms: 500 }
+      - action: expectVisible
+        selector: "settings.panel"
+      - action: pressKey
+        params: { key: "Escape" }
+      - action: waitForTimeout
+        params: { ms: 300 }
+      - action: expectHidden
+        selector: "settings.panel"
+    expectedResult: 弹窗关闭

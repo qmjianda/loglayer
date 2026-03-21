@@ -1,0 +1,57 @@
+name: 冒烟测试
+description: 验证应用基本功能正常工作
+priority: high
+tags: [smoke, critical]
+timeout: 60000
+
+scenarios:
+  - id: smoke-001
+    name: 应用加载
+    description: 用户打开应用，验证基本 UI 元素可见
+    steps:
+      - action: goto
+        params: { url: "/" }
+      - action: waitForLoadState
+        params: { state: "networkidle" }
+      - action: expectVisible
+        selector: "#root"
+      - action: screenshot
+        params: { name: "smoke-app-loaded.png" }
+    expectedResult: 页面标题包含 LogLayer，根元素可见
+
+  - id: smoke-002
+    name: 侧边栏可见
+    description: 验证侧边栏正常显示
+    steps:
+      - action: expectVisible
+        selector: "sidebar.container"
+    expectedResult: 侧边栏容器可见
+
+  - id: smoke-003
+    name: 状态栏显示
+    description: 验证状态栏正常显示
+    steps:
+      - action: expectVisible
+        selector: "statusBar.container"
+      - action: getText
+        selector: "statusBar.container"
+        saveAs: "statusText"
+    expectedResult: 状态栏文本非空
+
+  - id: smoke-004
+    name: 图标栏完整
+    description: 验证侧边栏图标完整
+    steps:
+      - action: expectVisible
+        selector: "sidebar.workspace"
+      - action: expectVisible
+        selector: "sidebar.search"
+      - action: expectVisible
+        selector: "sidebar.stats"
+      - action: expectVisible
+        selector: "sidebar.ai"
+      - action: expectVisible
+        selector: "sidebar.help"
+      - action: expectVisible
+        selector: "sidebar.settings"
+    expectedResult: 6 个侧边栏图标全部可见

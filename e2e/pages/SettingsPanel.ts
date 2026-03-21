@@ -14,11 +14,11 @@ export class SettingsPanel {
 
   constructor(page: Page) {
     this.page = page;
-    this.panel = page.locator('[role="dialog"]:has-text("设置"), .settings-panel, [aria-label="Settings"]');
-    this.closeButton = page.getByRole('button', { name: /关闭|close/i }).or(page.locator('.close-btn'));
-    this.themeSelector = page.getByRole('combobox', { name: /主题|theme/i }).or(page.locator('.theme-selector'));
-    this.languageSelector = page.getByRole('combobox', { name: /语言|language/i }).or(page.locator('.language-selector'));
-    this.fontSizeSlider = page.getByRole('slider', { name: /字体|font/i }).or(page.locator('.font-size-slider'));
+    this.panel = page.locator('.fixed.inset-0.z-\\[100\\], [class*="bg-theme-surface"]:has(h2:text("设置"))').first();
+    this.closeButton = page.locator('.fixed.inset-0.z-\\[100\\] button:has(svg path[d*="M6 18L18 6M6 6l12 12"])').first();
+    this.themeSelector = page.getByRole('combobox', { name: /主题|theme/i }).or(page.locator('select[class*="theme"]'));
+    this.languageSelector = page.getByRole('combobox', { name: /语言|language/i }).or(page.locator('select[class*="language"]'));
+    this.fontSizeSlider = page.getByRole('slider', { name: /字体|font/i }).or(page.locator('input[type="range"]'));
   }
 
   /**

@@ -254,7 +254,7 @@ class TestUISchema:
         assert isinstance(schema, list)
     
     def test_highlight_layer_schema(self):
-        from loglayer.builtin.highlight import HighlightLayer
+        from loglayer.layers.builtin.highlight import HighlightLayer
         schema = HighlightLayer.get_ui_schema()
         assert isinstance(schema, list)
         assert len(schema) == 3  # query, color, opacity

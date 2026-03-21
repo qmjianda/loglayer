@@ -1,0 +1,88 @@
+name: 日志查看器测试
+description: 测试 Canvas 渲染、虚拟滚动、搜索、选择功能
+priority: high
+tags: [log-viewer, core-feature]
+timeout: 120000
+requiresFile: true
+
+scenarios:
+  - id: viewer-001
+    name: Canvas 渲染
+    description: 验证日志 Canvas 正常渲染
+    steps:
+      - action: uploadFile
+        params: { file: "tests/large_dummy.log" }
+      - action: waitForTimeout
+        params: { ms: 2000 }
+      - action: expectVisible
+        selector: "logViewer.canvas"
+      - action: getBoundingBox
+        selector: "logViewer.canvas"
+        saveAs: "canvasBox"
+      - action: assert
+        condition: "canvasBox.width > 0 && canvasBox.height > 0"
+    expectedResult: Canvas 可见且尺寸有效
+
+  - id: viewer-002
+    name: 虚拟滚动
+    description: 验证大文件虚拟滚动正常工作
+    steps:
+      - action: scroll
+        selector: "logViewer.container"
+        params: { y: 1000 }
+      - action: waitForTimeout
+        params: { ms: 500 }
+      - action: getText
+        selector: "statusBar.lineInfo"
+        saveAs: "lineInfo"
+    expectedResult: 状态栏行号信息更新
+
+  - id: viewer-003
+    name: 日志搜索
+    description: 验证搜索功能正常
+    steps:
+      - action: fill
+        selector: "search.input"
+        params: { value: "ERROR" }
+      - action: waitForTimeout
+        params: { ms: 1000 }
+      - action: getText
+        selector: "search.matchCount"
+        saveAs: "matchCount"
+    expectedResult: 显示匹配数量
+
+  - id: viewer-004
+    name: 正则搜索
+    description: 验证正则表达式搜索
+    steps:
+      - action: click
+        selector: "search.regexToggle"
+      - action: fill
+        selector: "search.input"
+        params: { value: "\\d{4}-\\d{2}-\\d{2}" }
+      - action: waitForTimeout
+        params: { ms: 500 }
+    expectedResult: 正则搜索返回结果
+
+  - id: viewer-005
+    name: 行选择
+    description: 验证点击选择行
+    steps:
+      - action: clickCanvas
+        selector: "logViewer.canvas"
+        params: { x: "center", y: 100 }
+      - action: waitForTimeout
+        params: { ms: 300 }
+      - action: getText
+        selector: "statusBar.lineInfo"
+    expectedResult: 状态栏显示当前选中行
+
+  - id: viewer-006
+    name: 性能测试
+    description: 验证渲染性能在合理范围
+    steps:
+      - action: measurePerformance
+        params: { iterations: 10 }
+      - action: assert
+        condition: "performance.average < 100"
+    expectedResult: 平均帧时间小于 100ms

@@ -1,0 +1,101 @@
+name: 工作区操作测试
+description: 测试文件管理、标签操作、工作区导航
+priority: medium
+tags: [workspace, feature]
+timeout: 90000
+
+scenarios:
+  - id: workspace-001
+    name: 文件上传
+    description: 用户上传日志文件
+    steps:
+      - action: uploadFile
+        params: { file: "tests/large_dummy.log" }
+      - action: waitForTimeout
+        params: { ms: 2000 }
+      - action: expectVisible
+        selector: "workspacePanel.fileTab"
+      - action: screenshot
+        params: { name: "file-uploaded.png" }
+    expectedResult: 文件标签显示
+
+  - id: workspace-002
+    name: 多文件标签
+    description: 用户打开多个文件
+    steps:
+      - action: uploadFile
+        params: { file: "tests/large_dummy.log" }
+      - action: waitForTimeout
+        params: { ms: 1000 }
+      - action: uploadFile
+        params: { file: "tests/logs/dummy_log_1.log" }
+      - action: waitForTimeout
+        params: { ms: 1000 }
+      - action: count
+        selector: "workspacePanel.fileTab"
+        saveAs: "tabCount"
+      - action: assert
+        condition: "tabCount >= 2"
+    expectedResult: 多个文件标签显示
+
+  - id: workspace-003
+    name: 切换标签
+    description: 用户切换文件标签
+    steps:
+      - action: click
+        selector: "workspacePanel.fileTab"
+        params: { index: 1 }
+      - action: waitForTimeout
+        params: { ms: 300 }
+    expectedResult: 标签切换成功
+
+  - id: workspace-004
+    name: 关闭标签
+    description: 用户关闭文件标签
+    steps:
+      - action: click
+        selector: "workspacePanel.tabClose"
+        params: { index: 0 }
+      - action: waitForTimeout
+        params: { ms: 300 }
+    expectedResult: 标签关闭
+
+  - id: workspace-005
+    name: 主题切换
+    description: 用户切换主题
+    steps:
+      - action: evaluate
+        params: 
+          script: "document.documentElement.getAttribute('data-theme')"
+        saveAs: "initialTheme"
+      - action: pressKey
+        params: { key: "Control+," }
+      - action: waitForTimeout
+        params: { ms: 500 }
+      - action: click
+        selector: "settings.theme.selector"
+      - action: waitForTimeout
+        params: { ms: 300 }
+      - action: evaluate
+        params:
+          script: "document.documentElement.getAttribute('data-theme')"
+        saveAs: "newTheme"
+    expectedResult: 主题改变
+
+  - id: workspace-006
+    name: 响应式布局
+    description: 验证不同视口下的布局
+    steps:
+      - action: setViewport
+        params: { width: 1920, height: 1080 }
+      - action: screenshot
+        params: { name: "viewport-desktop.png" }
+      - action: setViewport
+        params: { width: 768, height: 1024 }
+      - action: screenshot
+        params: { name: "viewport-tablet.png" }
+      - action: setViewport
+        params: { width: 375, height: 667 }
+      - action: screenshot
+        params: { name: "viewport-mobile.png" }
+    expectedResult: 所有视口截图正常

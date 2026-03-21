@@ -1,11 +1,5 @@
 import { Page, Locator } from '@playwright/test';
 
-/**
- * LogLayer Page Object - 基础页面
- * 
- * 封装常用操作，提供可复用的测试抽象层
- */
-
 export class LogLayerPage {
   readonly page: Page;
   readonly root: Locator;
@@ -19,51 +13,31 @@ export class LogLayerPage {
   constructor(page: Page) {
     this.page = page;
     this.root = page.locator('#root');
-    
-    // 使用语义化选择器（根据实际 UI 调整）
-    this.settingsButton = page.getByRole('button', { name: /设置|settings/i });
-    this.helpButton = page.getByRole('button', { name: /帮助|help/i });
+    this.settingsButton = page.locator('nav button').last();
+    this.helpButton = page.locator('nav button').nth(1);
     this.searchInput = page.getByPlaceholder(/搜索|search/i);
-    this.sidebar = page.getByRole('complementary').or(page.locator('.sidebar, aside'));
-    this.statusBar = page.getByRole('contentinfo').or(page.locator('.status-bar, footer'));
-    this.tabBar = page.getByRole('tablist').or(page.locator('.tab-bar, .tabs'));
+    this.sidebar = page.locator('[role="complementary"], aside').first();
+    this.statusBar = page.locator('.h-6, [class*="status"]').first();
+    this.tabBar = page.locator('[role="tablist"], .tabs').first();
   }
 
-  /**
-   * 导航到首页
-   */
   async goto() {
     await this.page.goto('/');
     await this.page.waitForLoadState('networkidle');
   }
 
-  /**
-   * 等待页面加载完成
-   */
   async waitForLoaded() {
     await this.root.waitFor({ state: 'visible' });
   }
 
-  /**
-   * 打开设置面板
-   */
   async openSettings() {
-    const count = await this.settingsButton.count();
-    if (count > 0) {
-      await this.settingsButton.first().click();
-      await this.page.waitForTimeout(300);
-    }
+    await this.settingsButton.click();
+    await this.page.waitForTimeout(300);
   }
 
-  /**
-   * 打开帮助面板
-   */
   async openHelp() {
-    const count = await this.helpButton.count();
-    if (count > 0) {
-      await this.helpButton.first().click();
-      await this.page.waitForTimeout(300);
-    }
+    await this.helpButton.click();
+    await this.page.waitForTimeout(300);
   }
 
   /**
@@ -127,7 +101,7 @@ export class LogLayerPage {
    * 上传文件
    */
   async uploadFile(filePath: string) {
-    const fileInput = this.page.locator('input[type="file"]');
+    const fileInput = this.page.locator('input[type="file"][accept]:not([webkitdirectory])');
     await fileInput.setInputFiles(filePath);
     await this.page.waitForTimeout(1000);
   }

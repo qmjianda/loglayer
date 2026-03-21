@@ -1,0 +1,96 @@
+name: Browser-Use UI Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Test type'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - feature
+          - exploration
+          - all
+  pull_request:
+    paths:
+      - 'frontend/src/**'
+      - 'e2e/browser-use/**'
+
+jobs:
+  ui-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Node dependencies
+        run: npm ci
+      
+      - name: Install browser-use
+        run: |
+          pip install browser-use
+          browser-use doctor || true
+      
+      - name: Start dev server
+        run: |
+          npm run dev &
+          npx wait-on http://localhost:3000 -t 120000
+      
+      - name: Run smoke tests
+        if: inputs.test_type == 'smoke' || inputs.test_type == 'all'
+        run: |
+          bash e2e/browser-use/scripts/smoke-test.sh
+        env:
+          APP_URL: http://localhost:3000
+      
+      - name: Run feature tests
+        if: inputs.test_type == 'feature' || inputs.test_type == 'all'
+        run: |
+          bash e2e/browser-use/scripts/feature-check.sh
+        env:
+          APP_URL: http://localhost:3000
+      
+      - name: Run AI exploration
+        if: inputs.test_type == 'exploration' || inputs.test_type == 'all'
+        run: |
+          bash e2e/browser-use/scripts/ai-exploration.sh
+        env:
+          APP_URL: http://localhost:3000
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-use-screenshots
+          path: e2e/browser-use/screenshots/
+          retention-days: 7
+      
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-use-reports
+          path: e2e/browser-use/reports/
+          retention-days: 7
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          browser-use close --all || true
+          browser-use tunnel stop --all || true

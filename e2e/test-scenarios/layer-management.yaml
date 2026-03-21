@@ -1,0 +1,95 @@
+name: 图层管理测试
+description: 测试图层增删改查、拖拽排序、预设功能
+priority: medium
+tags: [layer, feature]
+timeout: 90000
+
+scenarios:
+  - id: layer-001
+    name: 显示图层面板
+    description: 验证图层面板正常显示
+    steps:
+      - action: expectVisible
+        selector: "layerPanel.container"
+      - action: expectVisible
+        selector: "layerPanel.layerList"
+    expectedResult: 图层面板和列表可见
+
+  - id: layer-002
+    name: 添加图层
+    description: 用户添加新的过滤图层
+    steps:
+      - action: count
+        selector: "layerPanel.layerItem"
+        saveAs: "initialCount"
+      - action: click
+        selector: "layerPanel.addButton"
+      - action: waitForTimeout
+        params: { ms: 500 }
+      - action: count
+        selector: "layerPanel.layerItem"
+        saveAs: "newCount"
+      - action: assert
+        condition: "newCount >= initialCount"
+    expectedResult: 图层数量增加
+
+  - id: layer-003
+    name: 删除图层
+    description: 用户删除已存在的图层
+    steps:
+      - action: count
+        selector: "layerPanel.layerItem"
+        saveAs: "beforeCount"
+      - action: click
+        selector: "layerPanel.layerItem"
+        params: { index: 0 }
+      - action: click
+        selector: "layerPanel.deleteButton"
+      - action: waitForTimeout
+        params: { ms: 300 }
+      - action: count
+        selector: "layerPanel.layerItem"
+        saveAs: "afterCount"
+      - action: assert
+        condition: "afterCount < beforeCount"
+    expectedResult: 图层被删除
+
+  - id: layer-004
+    name: 切换可见性
+    description: 用户切换图层可见性
+    steps:
+      - action: click
+        selector: "layerPanel.visibilityToggle"
+        params: { index: 0 }
+      - action: waitForTimeout
+        params: { ms: 300 }
+    expectedResult: 图层可见性状态改变
+
+  - id: layer-005
+    name: 编辑图层配置
+    description: 用户编辑图层查询条件
+    steps:
+      - action: click
+        selector: "layerPanel.layerItem"
+        params: { index: 0 }
+      - action: waitForTimeout
+        params: { ms: 300 }
+      - action: expectVisible
+        selector: "layerPanel.configPanel"
+      - action: fill
+        selector: "layerPanel.configPanel input"
+        params: { value: "test query" }
+      - action: pressKey
+        params: { key: "Enter" }
+    expectedResult: 配置面板显示，查询条件更新
+
+  - id: layer-006
+    name: 拖拽排序
+    description: 用户拖拽图层改变顺序
+    steps:
+      - action: drag
+        selector: "layerPanel.dragHandle"
+        params: { fromIndex: 0, toIndex: 2 }
+      - action: waitForTimeout
+        params: { ms: 500 }
+    expectedResult: 图层顺序改变

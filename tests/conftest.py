@@ -47,10 +47,11 @@ def rg_path():
 
 @pytest.fixture
 def mock_session():
-    """Provides a mock LogSession for testing mixins."""
+    """Provides a mock LogSession for testing."""
 
     class MockSession:
         def __init__(self):
+            self.path = "test.log"
             self.file_path = "test.log"
             self.line_offsets = []
             self.visible_indices = None
