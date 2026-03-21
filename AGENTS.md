@@ -102,21 +102,16 @@ e2e/                            # Playwright E2E 测试
 
 ### 测试命令
 ```bash
-# 后端测试
-pytest tests/ -v
+# 统一测试入口 (推荐)
+python tools/run_all_tests.py              # TypeScript + pytest
+python tools/run_all_tests.py --e2e        # 包含 E2E
+python tools/run_all_tests.py --browser-use  # 包含 AI 测试
+npm run test:all                           # 同上 (npm 入口)
 
-# 前端类型检查
-cd frontend && npx tsc --noEmit
-
-# E2E 测试 (需要后端运行)
-python backend/main.py --no-ui &
-npx playwright test e2e/
-
-# E2E 测试 - 特定文件
-npx playwright test e2e/keyboard-shortcuts.test.ts
-
-# E2E 测试 - 有头模式
-npx playwright test e2e/ --headed
+# 单独测试
+pytest tests/ -v                           # 后端测试
+cd frontend && npx tsc --noEmit            # 前端类型检查
+npx playwright test e2e/                   # E2E 测试
 ```
 
 ### 测试执行规则 ⚠️
@@ -210,24 +205,19 @@ TypeScript: 2 空格, camelCase, 函数组件 + Hooks
 每次完成代码变更后，**必须**执行以下验证：
 
 ```bash
-# 1. 前端类型检查 (任何前端变更)
-cd frontend && npx tsc --noEmit
+# 推荐: 统一测试入口
+python tools/run_all_tests.py              # TypeScript + pytest
 
-# 2. 后端测试 (任何后端变更)
-pytest tests/ -v
-
-# 3. E2E 测试 (UI/交互变更)
-# 先启动后端
+# 包含 E2E 测试 (需要先启动后端)
 python backend/main.py --no-ui &
 sleep 2
-# 再运行测试
-npx playwright test e2e/
+python tools/run_all_tests.py --e2e
 
-# 4. AI UI/UX 探索测试 (可选，重要变更时执行)
-# 前置条件：设置环境变量 QWEN_URL 和 QWEN_API_KEY
-bash e2e/browser-use/scripts/verify-qwen.sh  # 验证配置
-bash e2e/browser-use/scripts/ai-exploration.sh  # 运行 AI 探索
+# 包含 AI 探索测试 (需要配置 QWEN_URL 和 QWEN_API_KEY)
+python tools/run_all_tests.py --browser-use
 ```
+
+**测试报告位置**: `test-results/test-report.html`
 
 **禁止跳过测试验证。** 如测试失败，必须修复或说明原因。
 
