@@ -902,8 +902,13 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
   const frameCountRef = useRef(0);
   const lastFpsUpdateRef = useRef(performance.now());
+  const lastDrawDepsRef = useRef<string>('');
 
   useEffect(() => {
+    const currentDeps = `${startIndex}-${endIndex}-${scrollTop}-${scrollLeft}-${highlightedIndex}-${hoveredLineIndex}-${selection?.startLine}-${bridgedLines.size}`;
+    const needsRedraw = lastDrawDepsRef.current !== currentDeps;
+    lastDrawDepsRef.current = currentDeps;
+
     const updatePerformanceStats = () => {
       frameCountRef.current++;
       const now = performance.now();
@@ -922,12 +927,16 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       }
     };
 
-    const frame = requestAnimationFrame(() => {
-      draw();
+    if (needsRedraw) {
+      const frame = requestAnimationFrame(() => {
+        draw();
+        updatePerformanceStats();
+      });
+      return () => cancelAnimationFrame(frame);
+    } else {
       updatePerformanceStats();
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [draw, startIndex, endIndex]);
+    }
+  }, [draw, startIndex, endIndex, scrollTop, scrollLeft, highlightedIndex, hoveredLineIndex, selection, bridgedLines.size]);
 
   return (
     <div
