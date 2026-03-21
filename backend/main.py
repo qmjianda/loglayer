@@ -463,7 +463,15 @@ if os.path.exists(www_dir):
 
 def run_server(host, port):
     try:
-        uvicorn.run(app, host=host, port=port, log_level="warning", reload=False)
+        uvicorn.run(
+            app,
+            host=host,
+            port=port,
+            log_level="warning",
+            reload=False,
+            loop="uvloop",
+            http="httptools",
+        )
     except OSError as e:
         if "address already in use" in str(e).lower():
             logger.info(
@@ -493,6 +501,8 @@ def run_server(host, port):
                                     port=port,
                                     log_level="warning",
                                     reload=False,
+                                    loop="uvloop",
+                                    http="httptools",
                                 )
                                 return
                             except Exception as kill_err:

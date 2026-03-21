@@ -30,11 +30,32 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: '../dist',
       emptyOutDir: true,
+      sourcemap: false,
+      minify: 'esbuild',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom'],
+            radix: [
+              '@radix-ui/react-context-menu',
+              '@radix-ui/react-dropdown-menu',
+              '@radix-ui/react-dialog',
+            ],
+          },
+          chunkFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash].[ext]',
+        },
+      },
+      chunkSizeWarningLimit: 1000,
     },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './frontend/src'),
       }
-    }
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom'],
+      exclude: [],
+    },
   };
 });

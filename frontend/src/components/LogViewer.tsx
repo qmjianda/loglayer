@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { LogLine, LayerType } from '../types';
 import { readProcessedLines } from '../bridge_client';
@@ -136,21 +136,27 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const virtualScrollBufferSetting = settings?.virtualScrollBuffer ?? 500;
   const searchHighlightAll = settings?.searchHighlightAll ?? true;
   const theme = resolvedTheme ?? 'dark';
-  const colors = getLogViewerColors(theme as 'dark' | 'light');
 
   const gutterWidth = GUTTER_WIDTH;
 
-  const realTotalHeight = totalLines * lineHeight;
-  const useScrollScaling = realTotalHeight > VIRTUAL_HEIGHT_LIMIT;
+  const realTotalHeight = useMemo(() => totalLines * lineHeight, [totalLines, lineHeight]);
+  const useScrollScaling = useMemo(() => realTotalHeight > VIRTUAL_HEIGHT_LIMIT, [realTotalHeight]);
   const baseBuffer = useScrollScaling ? BUFFER_LARGE : BUFFER_NORMAL;
   const velocityBuffer = Math.abs(scrollVelocityRef.current) * 200;
   const directionBonus = scrollDirectionRef.current === 'down' ? 500 : 0;
-  const dynamicBuffer = Math.floor(Math.min(virtualScrollBufferSetting, baseBuffer + velocityBuffer + directionBonus));
+  const dynamicBuffer = useMemo(() => 
+    Math.floor(Math.min(virtualScrollBufferSetting, baseBuffer + velocityBuffer + directionBonus)),
+    [virtualScrollBufferSetting, baseBuffer, velocityBuffer, directionBonus]
+  );
   const buffer = dynamicBuffer;
-  const virtualTotalHeight = (useScrollScaling ? VIRTUAL_HEIGHT_LIMIT : realTotalHeight) + SCROLL_MARGIN;
+  const virtualTotalHeight = useMemo(() => 
+    (useScrollScaling ? VIRTUAL_HEIGHT_LIMIT : realTotalHeight) + SCROLL_MARGIN,
+    [useScrollScaling, realTotalHeight]
+  );
+  const colors = useMemo(() => getLogViewerColors(theme as 'dark' | 'light'), [theme]);
 
   const charWidthRef = useRef(CHAR_WIDTH_DEFAULT);
-  const font = `${fontSize}px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
+  const font = useMemo(() => `${fontSize}px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`, [fontSize]);
 
   // Persistent offscreen canvas for text measurement (CJK-safe)
   const measureCtxRef = useRef<CanvasRenderingContext2D | null>(null);
