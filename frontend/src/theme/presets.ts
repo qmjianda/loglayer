@@ -53,6 +53,7 @@ export interface ThemePreset {
         SEARCH_HIGHLIGHT: string;
         SEARCH_HIGHLIGHT_ACTIVE: string;
         LAYER_HIGHLIGHT: string;
+        WORD_HIGHLIGHT: string;
         CURRENT_LINE: string;
     };
 }
@@ -107,6 +108,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
             SEARCH_HIGHLIGHT: '#E6DB74',
             SEARCH_HIGHLIGHT_ACTIVE: '#FF6188',
             LAYER_HIGHLIGHT: '#66D9EF',
+            WORD_HIGHLIGHT: 'rgba(102, 217, 239, 0.35)',
             CURRENT_LINE: '#A6E22E',
         },
     },
@@ -160,6 +162,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
             SEARCH_HIGHLIGHT: '#FFB86C',
             SEARCH_HIGHLIGHT_ACTIVE: '#FF79C6',
             LAYER_HIGHLIGHT: '#BD93F9',
+            WORD_HIGHLIGHT: 'rgba(139, 233, 253, 0.35)',
             CURRENT_LINE: '#BD93F9',
         },
     },
@@ -213,6 +216,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
             SEARCH_HIGHLIGHT: '#EBCB8B',
             SEARCH_HIGHLIGHT_ACTIVE: '#D08770',
             LAYER_HIGHLIGHT: '#88C0D0',
+            WORD_HIGHLIGHT: 'rgba(136, 192, 208, 0.35)',
             CURRENT_LINE: '#88C0D0',
         },
     },
@@ -266,6 +270,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
             SEARCH_HIGHLIGHT: '#D29922',
             SEARCH_HIGHLIGHT_ACTIVE: '#F0883E',
             LAYER_HIGHLIGHT: '#58A6FF',
+            WORD_HIGHLIGHT: 'rgba(88, 166, 255, 0.35)',
             CURRENT_LINE: '#58A6FF',
         },
     },

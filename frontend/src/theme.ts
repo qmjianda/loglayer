@@ -78,6 +78,7 @@ export const LOG_VIEWER_COLORS = {
     SEARCH_HIGHLIGHT: '#facc15',
     SEARCH_HIGHLIGHT_ACTIVE: '#ff9632',
     LAYER_HIGHLIGHT: '#3b82f6',
+    WORD_HIGHLIGHT: 'rgba(6, 182, 212, 0.35)',
     CURRENT_LINE: '#60a5fa',
   },
   LIGHT: {
@@ -97,6 +98,7 @@ export const LOG_VIEWER_COLORS = {
     SEARCH_HIGHLIGHT: '#eab308',
     SEARCH_HIGHLIGHT_ACTIVE: '#e67700',
     LAYER_HIGHLIGHT: '#2563eb',
+    WORD_HIGHLIGHT: 'rgba(6, 182, 212, 0.35)',
     CURRENT_LINE: '#3b82f6',
   },
 };

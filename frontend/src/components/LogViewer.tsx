@@ -810,8 +810,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({
                 allHighlights.push({
                   start: match.index,
                   end: match.index + match[0].length,
-                  color: '#3b82f6',
-                  opacity: 30,
+                  color: colors.WORD_HIGHLIGHT,
+                  opacity: 100,
                   isSearch: false
                 });
               }
