@@ -118,7 +118,10 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
         if (paneRef.current?.contains(target)) {
           e.preventDefault();
           e.stopPropagation();
-          if (isFindVisible) onToggleFind(false);
+          if (isFindVisible) {
+            onToggleFind(false);
+            clearSearch(); // Clear the highlighted line when closing search
+          }
           if (isGoToLineVisible) onToggleGoToLine(false);
         }
       }
@@ -126,7 +129,7 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isFindVisible, isGoToLineVisible, onToggleFind, onToggleGoToLine]);
+  }, [isFindVisible, isGoToLineVisible, onToggleFind, onToggleGoToLine, clearSearch]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();

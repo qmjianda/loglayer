@@ -535,6 +535,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         onLineClick?.(pos.lineIndex);
       }
       setHighlightedWord(null);
+      setJumpPulseIndex(null); // Clear jump highlight when clicking in content area
     }
   };
 
