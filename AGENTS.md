@@ -1,260 +1,237 @@
 # AGENTS.md - LogLayer AI Guide
 
-> OpenCode 必读：完整文档 `docs/INDEX.md`
+> AI coding assistant guidelines for the LogLayer project
 
 ---
 
-## 项目
-**LogLayer** - 高性能日志分析桌面应用 (Python FastAPI + React + pywebview)
+## Project Overview
+
+**LogLayer** - High-performance log analysis desktop application
+- **Backend**: Python 3.10+ FastAPI with Pydantic
+- **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS 4
+- **Desktop**: pywebview for cross-platform native window
 
 ---
 
-## UI 布局
+## Build / Lint / Test Commands
+
+### Unified Test Structure
 ```
-┌────────────────────────────────────────────────────────────────────────────┐
-│  LogLayer  large_test.log                                         ─ □ ✕   │
-├───────┬───────────────────────────────────────────────────────────────┬────┤
-│       │ large_test.log                                          [⚙] │ 📂 │
-│  ◈    │                                                               │    │
-│  💡   │        LogViewer (Canvas)                                     │    │
-│  📊   │        Virtual Scrolling, 60FPS @ 1M+ lines                 │    │
-│  🤖   │                                                               │    │
-│  ?    │                                                               │    │
-│       │                                                               │    │
-│  ⚙    │                                                               │    │
-├───────┴───────────────────────────────────────────────────────────────┴────┤
-│ 正在建立索引...  CPU:1.3%│MEM:85.2%  UTF-8  Ln 1, Col 1                     │
-└────────────────────────────────────────────────────────────────────────────┘
+tests/
+├── unit/           # Python backend unit tests
+├── integration/    # Python backend integration tests
+├── e2e/            # Playwright E2E tests
+├── vitest/         # Frontend Vitest tests
+├── benchmarks/     # Performance tests
+└── repro/          # Bug reproduction tests
 ```
 
-左侧图标栏: 工作区│搜索│统计│AI助手│帮助│设置
-侧边栏面板: 工作区(文件树)│AI助手(聊天)│统计│搜索│帮助
-浮动面板: 设置(6选项卡)│快捷键│命令面板(Ctrl+P)
-
-**详细布局**: `docs/UI/README.md` (MAIN.md|SIDEBAR.md|MODALS.md)
-
----
-
-## 目录
-```
-loglayer/
-├── AGENTS.md                    # AI 入口
-├── backend/                     # Python FastAPI
-│   ├── bridge.py               # mmap 索引
-│   ├── main.py                # FastAPI 入口
-│   └── loglayer/              # 图层引擎
-├── frontend/src/                # React + TypeScript
-│   ├── App.tsx               # 主入口
-│   ├── components/           # UI 组件
-│   └── hooks/               # 业务 Hooks
-├── docs/
-│   ├── INDEX.md            # 文档索引
-│   ├── CONTEXT.md          # 技术参考
-│   ├── PROJECT_MAP.md      # 架构地图
-│   ├── TECHNICAL_DECISIONS.md
-│   ├── CHEATSHEET.md       # 命令速查
-│   ├── assets/            # 截图、图片
-│   ├── UI/               # 界面文档
-│   └── guides/          # 开发指南
-│       ├── DEPLOY.md
-│       ├── LAYER_DEV_GUIDE.md
-│       └── optimization/
-└── openspec/               # 变更追踪
-```
-
----
-
-## 命令
+### Frontend (TypeScript/React)
 ```bash
-npm run dev; python backend/main.py  # 开发
-pytest tests/; npx tsc --noEmit      # 测试
-tools/package_offline.py            # 打包
+# Development
+npm run dev                    # Start Vite dev server
+
+# Build
+npm run build                  # Type check + Vite build
+npx tsc --noEmit              # Type check only (fast)
+
+# Testing (Vitest)
+npm run test                   # Run all Vitest tests
+npm run test:watch             # Watch mode
+npm run test:coverage          # With coverage report
+
+# E2E Testing (Playwright)
+npm run test:e2e               # Run E2E tests
+npm run test:e2e:ui            # Interactive mode
+npm run test:e2e:headed        # Visible browser
+npx playwright show-report     # View test report
+
+# Linting
+npx eslint .                   # ESLint check
 ```
 
----
-
-## 测试
-
-### 目录结构
-```
-tests/                          # Python 后端测试
-├── logs/                      # 测试日志文件
-│   ├── large_dummy.log        # 小型测试文件 (300KB)
-│   └── large_test.log         # 大型测试文件 (1.3GB)
-└── unit/                      # 单元测试
-
-e2e/                            # Playwright E2E 测试
-├── fixtures.ts                # Page Objects
-├── selectors/                 # UI 选择器
-├── utils/                     # 测试工具
-├── keyboard-shortcuts.test.ts # 键盘快捷键
-├── bookmark-operations.test.ts# 书签功能
-├── pane-management.test.ts    # 分屏管理
-├── error-handling.test.ts     # 错误处理
-├── drag-drop.test.ts          # 拖拽操作
-└── browser-use/               # AI UI/UX 测试
-    ├── scripts/
-    │   ├── verify-qwen.sh     # 验证 Qwen 配置
-    │   ├── ai-exploration.sh  # AI 探索测试
-    │   └── smoke-test.sh      # 冒烟测试
-    └── reports/               # 测试报告
-```
-
-### 测试命令
+### Backend (Python)
 ```bash
-# 统一测试入口 (推荐)
-python tools/run_all_tests.py              # TypeScript + pytest
-python tools/run_all_tests.py --e2e        # 包含 E2E
-python tools/run_all_tests.py --browser-use  # 包含 AI 测试
-npm run test:all                           # 同上 (npm 入口)
+# Run server
+python backend/main.py
+python backend/main.py --no-ui  # Headless mode
 
-# 单独测试
-pytest tests/ -v                           # 后端测试
-cd frontend && npx tsc --noEmit            # 前端类型检查
-npx playwright test e2e/                   # E2E 测试
-```
+# Testing (pytest)
+pytest tests/unit/ -v          # Run unit tests
+pytest tests/integration/ -v   # Run integration tests
+pytest tests/unit/test_layer_core.py -v   # Single test file
+pytest tests/unit/test_layer_core.py::TestLayerStage::test_stage_values -v  # Single test
 
-### 测试执行规则 ⚠️
+# Linting
+ruff check .                   # Python linting
+ruff check --fix .             # Auto-fix issues
+mypy backend/                  # Type checking
 
-**完成任务后必须执行测试验证：**
-
-1. **前端代码变更** → 运行 `npx tsc --noEmit`
-2. **后端代码变更** → 运行 `pytest tests/ -v`
-3. **UI/交互代码变更** → 运行 E2E 测试
-
-**E2E 测试前置条件：**
-```bash
-# 1. 启动后端 (无 UI 模式)
-python backend/main.py --no-ui &
-
-# 2. 等待后端启动 (约 2 秒)
-sleep 2
-
-# 3. 运行 E2E 测试
-npx playwright test e2e/
-```
-
-**测试文件选择器：**
-- 文件输入: `input[type="file"]:not([webkitdirectory])`
-- 文件夹输入: `input[type="file"][webkitdirectory]`
-
----
-
-## 关键模式
-| 模式 | 说明 |
-|:-----|:-----|
-| 虚拟滚动 | O(1) 渲染，Canvas |
-| Layer | sync_layers/decorations 分离 |
-| 平台 | /api/platform |
-| 类型 | 禁止 as any |
-
----
-
-## 代码风格
-Python: 4 空格, snake_case, Pydantic BaseModel
-TypeScript: 2 空格, camelCase, 函数组件 + Hooks
-
----
-
-## 类型同步
-
-前后端类型必须保持同步。详细映射见 `docs/TYPE_SYNC.md`。
-
-**添加新类型的步骤：**
-
-1. 在 `backend/loglayer/schemas.py` 添加 Pydantic 模型
-2. 在 `frontend/src/types.ts` 添加对应 TypeScript interface
-3. 添加 `// Mirror: backend/loglayer/schemas.py::TypeName` 注释
-4. 更新 `docs/TYPE_SYNC.md` 文档
-5. CI 会自动检查类型数量是否匹配
-
-**命名约定：**
-- Python: `snake_case` (file_id, line_index)
-- TypeScript: `camelCase` (fileId, lineIndex)
-- `bridge_client.ts` 自动处理转换
-
----
-
-## 工作流 (OpenSpec)
-```
-1. openspec new <change>   → 创建变更
-2. openspec continue       → 实施变更
-3. openspec verify         → 验证变更
-4. openspec archive        → 归档变更
+# Unified test runner
+python tools/run_all_tests.py              # Run all tests
+python tools/run_all_tests.py --e2e        # Include E2E
+python tools/run_all_tests.py --browser-use # Include AI tests
 ```
 
 ---
 
-## 文档
-| 场景 | 文档 |
-|:-----|:-----|
-| 技术栈/模块 | docs/CONTEXT.md |
-| 界面布局 | docs/UI/README.md |
-| 技术决策 | docs/TECHNICAL_DECISIONS.md |
-| 图层开发 | docs/guides/LAYER_DEV_GUIDE.md |
-| 类型同步 | docs/TYPE_SYNC.md |
-| 模块设计 | docs/modules/*.md |
-| 完整索引 | docs/INDEX.md |
+## Code Style Guidelines
 
-*2026-03-21*
+### TypeScript (Frontend)
+
+**Imports**
+- Group imports: React → External libs → Internal modules
+- Use named imports for React: `import React from 'react'`
+- **Use relative paths** (NOT `@/` alias): `'./components/Sidebar'`
+
+```typescript
+// Good
+import React from 'react';
+import { useState, useCallback } from 'react';
+import { Icon } from './components/common/Icon';  // Relative path
+
+// Avoid
+import * as React from 'react';  // Don't use namespace import
+import { Icon } from '@/components/common/Icon';  // Don't use @/ alias
+```
+
+**Naming**
+- Components: PascalCase (`EmptyState.tsx`)
+- Hooks: camelCase with `use` prefix (`useFileManagement.ts`)
+- Types/Interfaces: PascalCase (`interface EmptyStateProps`)
+- Variables/functions: camelCase (`onOpen`, `fileId`)
+- Constants: UPPER_SNAKE_CASE (`DARK_THEME`, `LOG_VIEWER_COLORS`)
+
+**Types**
+- Prefer `interface` over `type` for object shapes
+- Use explicit return types for exported functions
+- **NEVER use `as any`** or `@ts-ignore` (strict policy)
+- Mirror Python types with `// Mirror: backend/loglayer/schemas.py::TypeName`
+
+**Components**
+- Use functional components with hooks
+- Props interface named `{ComponentName}Props`
+- Event handlers named `on{Event}` (e.g., `onClick`, `onFileActivate`)
+
+```typescript
+interface ButtonProps {
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+export const Button: React.FC<ButtonProps> = ({ onClick, disabled }) => {
+  return <button onClick={onClick} disabled={disabled} />;
+};
+```
+
+### Python (Backend)
+
+**Imports**
+- Standard library → Third-party → First-party
+- Sort with `ruff` (isort configured)
+
+```python
+# Good
+from enum import Enum
+from typing import Optional, List
+
+from pydantic import BaseModel
+
+from loglayer.core import Layer
+```
+
+**Naming**
+- Variables/functions: snake_case (`file_id`, `line_index`)
+- Classes: PascalCase (`LayerRegistryEntry`)
+- Constants: UPPER_SNAKE_CASE (`DEFAULT_TIMEOUT`)
+- Enums: PascalCase with values as UPPER (`LayerType.FILTER`)
+
+**Types**
+- Use Pydantic `BaseModel` for data classes
+- Use `Optional[]` for nullable types
+- Add type hints for function signatures
+
+**Error Handling**
+- Use FastAPI HTTPException for API errors
+- Log errors with context before raising
 
 ---
 
-## 完成任务检查清单 ✅
+## Theme Architecture (CSS Variables)
 
-每次完成代码变更后，**必须**执行以下验证：
+**Unified theme system** - Use CSS variables, never hardcode colors.
 
-```bash
-# 推荐: 统一测试入口
-python tools/run_all_tests.py              # TypeScript + pytest
-
-# 包含 E2E 测试 (需要先启动后端)
-python backend/main.py --no-ui &
-sleep 2
-python tools/run_all_tests.py --e2e
-
-# 包含 AI 探索测试 (需要配置 QWEN_URL 和 QWEN_API_KEY)
-python tools/run_all_tests.py --browser-use
+```css
+/* Available CSS Variables */
+--bg-primary, --bg-secondary, --bg-tertiary, --bg-elevated
+--fg-primary, --fg-secondary, --fg-muted
+--border-default, --border-subtle
+--color-primary, --color-success, --color-warning, --color-error
 ```
 
-**测试报告位置**: `test-results/test-report.html`
+**Utility Classes** (in `index.css`)
+```
+.bg-primary, .bg-secondary, .bg-tertiary, .bg-elevated
+.text-primary, .text-secondary, .text-muted
+.border-default, .border-subtle
+.text-primary-color, .bg-primary-color
+```
 
-**禁止跳过测试验证。** 如测试失败，必须修复或说明原因。
+**Usage in Components**
+```tsx
+// ✅ Good - Theme-aware
+<div className="bg-secondary text-primary border-default">
+
+// ❌ Bad - Hardcoded, breaks theme switching
+<div className="bg-white text-black">
+<div className="bg-blue-500/10 text-blue-400">
+<div className="text-white">  // White text on colored bg
+```
+
+**Theme Colors**
+- Dark theme (default): bg `#0d0d0d` / fg `#e5e5e5`
+- Light theme: bg `#f8fafc` / fg `#0f172a`
 
 ---
 
-## 测试类型对比
+## Type Sync (Frontend ↔ Backend)
 
-| 类型 | 工具 | 用途 | 执行时机 |
-|------|------|------|----------|
-| 类型检查 | `tsc --noEmit` | TypeScript 类型验证 | 每次前端变更 |
-| 后端测试 | `pytest` | Python 单元测试 | 每次后端变更 |
-| E2E 测试 | Playwright | 自动化回归测试 | UI/交互变更 |
-| AI 探索测试 | browser-use | UI/UX 智能探索 | 重要功能变更 |
+When adding new types:
+1. Add Pydantic model in `backend/loglayer/schemas.py`
+2. Add TypeScript interface in `frontend/src/types.ts`
+3. Add mirror comment: `// Mirror: backend/loglayer/schemas.py::TypeName`
+4. Update `docs/TYPE_SYNC.md`
 
-### AI UI/UX 测试详解
+**Naming conversion**:
+- Python `snake_case` → TypeScript `camelCase`
+- `bridge_client.ts` handles automatic conversion
 
-**配置环境变量** (在 `~/.bashrc` 中):
-```bash
-export QWEN_URL="https://coding.dashscope.aliyuncs.com/v1"
-export QWEN_API_KEY="sk-your-api-key"
-```
+---
 
-**运行 AI 探索测试**:
-```bash
-# 验证配置
-bash e2e/browser-use/scripts/verify-qwen.sh
+## Testing Guidelines
 
-# 运行完整探索
-bash e2e/browser-use/scripts/ai-exploration.sh
+**After code changes, always run:**
+- Frontend: `npx tsc --noEmit`
+- Backend: `pytest tests/ -v`
+- UI changes: E2E tests with `npx playwright test e2e/`
 
-# 指定模型
-MODEL_NAME=qwen-max bash e2e/browser-use/scripts/ai-exploration.sh
-```
+**Test patterns:**
+- Python: `pytest` with class-based organization
+- TypeScript: `vitest` with `@testing-library/react`
+- E2E: `playwright` with page objects in `e2e/fixtures.ts`
 
-**AI 探索测试覆盖**:
-- 侧边栏所有面板功能
-- 键盘快捷键验证
-- 视觉布局检查
-- 交互流程测试
-- 问题发现和建议
+---
+
+## Documentation References
+
+| Topic | File |
+|-------|------|
+| Architecture | `docs/PROJECT_MAP.md` |
+| Tech Stack | `docs/CONTEXT.md` |
+| Type Sync | `docs/TYPE_SYNC.md` |
+| UI Layout | `docs/UI/README.md` |
+| Layer Development | `docs/guides/LAYER_DEV_GUIDE.md` |
+
+---
+
+*Last updated: 2026-03-22*

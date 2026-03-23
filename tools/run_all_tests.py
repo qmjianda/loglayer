@@ -4,15 +4,18 @@ LogLayer Unified Test Runner
 =============================
 
 统一测试入口，支持:
+- TypeScript 类型检查
+- Vitest (前端单元测试)
 - pytest (Python 后端测试)
 - Playwright E2E (前端 E2E 测试)
 - browser-use AI (AI UI/UX 测试)
 
 用法:
     python tools/run_all_tests.py                    # 运行所有测试
+    python tools/run_all_tests.py --vitest           # 仅运行前端 Vitest
     python tools/run_all_tests.py --pytest           # 仅运行 pytest
     python tools/run_all_tests.py --e2e              # 仅运行 E2E
-    python tools/run_all_tests.py --browser-use      # 仅运行 browser-use
+    python tools/run_all_tests.py --browser-use      # 包含 browser-use
     python tools/run_all_tests.py --no-browser-use   # 跳过 browser-use
     python tools/run_all_tests.py --report           # 生成 HTML 报告
 """
@@ -106,8 +109,8 @@ class TestRunner:
     
     def __init__(self, project_root: Path):
         self.project_root = project_root
-        self.report_dir = project_root / "test-results"
-        self.report_dir.mkdir(exist_ok=True)
+        self.report_dir = project_root / "tests" / ".outputs" / "pytest"
+        self.report_dir.mkdir(parents=True, exist_ok=True)
         
     def run_all(self, 
                 run_pytest: bool = True,
@@ -126,13 +129,25 @@ class TestRunner:
         print("=" * 60)
         
         # 1. TypeScript 类型检查
-        print("\n[1/4] TypeScript 类型检查...")
+        print("\n[1/5] TypeScript 类型检查...")
         report.results["typescript"] = self.run_typescript_check()
         self._print_result(report.results["typescript"])
         
-        # 2. pytest 测试
+        # 2. Vitest 前端单元测试
+        if run_pytest:  # Reusing run_pytest flag for vitest
+            print("\n[2/5] Vitest 前端单元测试...")
+            report.results["vitest"] = self.run_vitest()
+            self._print_result(report.results["vitest"])
+        else:
+            report.results["vitest"] = TestResult(
+                name="vitest", 
+                status=TestStatus.SKIPPED
+            )
+            print("\n[2/5] Vitest 前端单元测试... 跳过")
+        
+        # 3. pytest 测试
         if run_pytest:
-            print("\n[2/4] pytest 后端测试...")
+            print("\n[3/5] pytest 后端测试...")
             report.results["pytest"] = self.run_pytest()
             self._print_result(report.results["pytest"])
         else:
@@ -140,11 +155,11 @@ class TestRunner:
                 name="pytest", 
                 status=TestStatus.SKIPPED
             )
-            print("\n[2/4] pytest 后端测试... 跳过")
+            print("\n[3/5] pytest 后端测试... 跳过")
         
-        # 3. E2E Playwright 测试
+        # 4. E2E Playwright 测试
         if run_e2e:
-            print("\n[3/4] E2E Playwright 测试...")
+            print("\n[4/5] E2E Playwright 测试...")
             report.results["e2e"] = self.run_e2e()
             self._print_result(report.results["e2e"])
         else:
@@ -152,11 +167,11 @@ class TestRunner:
                 name="e2e", 
                 status=TestStatus.SKIPPED
             )
-            print("\n[3/4] E2E Playwright 测试... 跳过")
+            print("\n[4/5] E2E Playwright 测试... 跳过")
         
-        # 4. browser-use AI 测试
+        # 5. browser-use AI 测试
         if run_browser_use:
-            print("\n[4/4] browser-use AI 测试...")
+            print("\n[5/5] browser-use AI 测试...")
             report.results["browser_use"] = self.run_browser_use()
             self._print_result(report.results["browser_use"])
         else:
@@ -164,7 +179,7 @@ class TestRunner:
                 name="browser_use", 
                 status=TestStatus.SKIPPED
             )
-            print("\n[4/4] browser-use AI 测试... 跳过")
+            print("\n[5/5] browser-use AI 测试... 跳过")
         
         report.duration = time.time() - start_time
         
@@ -208,6 +223,53 @@ class TestRunner:
             result.status = TestStatus.ERROR
             result.duration = time.time() - start_time
             result.error_message = "TypeScript check timed out"
+        except Exception as e:
+            result.status = TestStatus.ERROR
+            result.duration = time.time() - start_time
+            result.error_message = str(e)
+        
+        return result
+    
+    def run_vitest(self) -> TestResult:
+        """运行 Vitest 前端测试"""
+        result = TestResult(name="vitest", status=TestStatus.RUNNING)
+        start_time = time.time()
+        
+        try:
+            proc = subprocess.run(
+                ["npm", "run", "test"],
+                cwd=self.project_root,
+                capture_output=True,
+                text=True,
+                timeout=180
+            )
+            
+            result.duration = time.time() - start_time
+            
+            output = proc.stdout + proc.stderr
+            
+            import re
+            passed_match = re.search(r'(\d+) passed', output)
+            failed_match = re.search(r'(\d+) failed', output)
+            
+            result.passed = int(passed_match.group(1)) if passed_match else 0
+            result.failed = int(failed_match.group(1)) if failed_match else 0
+            result.total = result.passed + result.failed
+            
+            if result.failed == 0:
+                result.status = TestStatus.PASSED
+            else:
+                result.status = TestStatus.FAILED
+                result.error_message = output[-500:]
+                
+        except subprocess.TimeoutExpired:
+            result.status = TestStatus.ERROR
+            result.duration = time.time() - start_time
+            result.error_message = "Vitest timed out"
+        except FileNotFoundError:
+            result.status = TestStatus.SKIPPED
+            result.duration = time.time() - start_time
+            result.error_message = "npm not found or test script missing"
         except Exception as e:
             result.status = TestStatus.ERROR
             result.duration = time.time() - start_time
@@ -281,7 +343,7 @@ class TestRunner:
         
         try:
             proc = subprocess.run(
-                ["npx", "playwright", "test", "e2e/", "--reporter=json"],
+                ["npx", "playwright", "test", "tests/e2e/", "--reporter=json"],
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
@@ -345,7 +407,7 @@ class TestRunner:
                 return result
             
             # 运行冒烟测试
-            smoke_script = self.project_root / "e2e" / "browser-use" / "scripts" / "smoke-test.sh"
+            smoke_script = self.project_root / "tests" / "ai" / "scripts" / "smoke-test.sh"
             
             if not smoke_script.exists():
                 result.status = TestStatus.SKIPPED

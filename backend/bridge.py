@@ -22,20 +22,9 @@ from loglayer.constants import (
     CHUNK_TRUNCATE_LIMIT,
     LRU_CACHE_DEFAULT_SIZE,
 )
-from workers import (
-    IndexingWorker,
-    PipelineWorker,
-    StatsWorker
-)
+from workers import IndexingWorker, PipelineWorker, StatsWorker
 from search_mixin import SearchPipeline, BookmarkPipeline
 from pipeline_mixin import LayerPipelineMixin
-
-try:
-    import tkinter as tk
-    from tkinter import filedialog
-except ImportError:
-    tk = None
-    filedialog = None
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -85,7 +74,7 @@ class LRUCache:
         self.max_size = max_size
         self._cache = {}
         self._access_order = []
-    
+
     def __setitem__(self, key, value):
         if key in self._cache:
             self._access_order.remove(key)
@@ -94,33 +83,34 @@ class LRUCache:
             del self._cache[lru_key]
         self._cache[key] = value
         self._access_order.append(key)
-    
+
     def __getitem__(self, key):
         if key in self._cache:
             self._access_order.remove(key)
             self._access_order.append(key)
             return self._cache[key]
         raise KeyError(key)
-    
+
     def __contains__(self, key):
         return key in self._cache
-    
+
     def __len__(self):
         return len(self._cache)
-    
+
     def get(self, key, default=None):
         if key in self._cache:
             self._access_order.remove(key)
             self._access_order.append(key)
             return self._cache[key]
         return default
-    
+
     def put(self, key, value):
         self[key] = value
-    
+
     def clear(self):
         self._cache.clear()
         self._access_order.clear()
+
 
 # Constants
 PROCESS_CLEANUP_TIMEOUT = 0.3  # Seconds to wait for process termination before killing
@@ -146,13 +136,11 @@ def get_log_files_recursive(folder_path):
                     full_path = os.path.join(root, file)
                     try:
                         stats = os.stat(full_path)
-                        log_files.append(
-                            {"name": file, "path": full_path, "size": stats.st_size}
-                        )
+                        log_files.append({"name": file, "path": full_path, "size": stats.st_size})
                     except (OSError, PermissionError):
                         continue
     except Exception as e:
-            logger.error(f"Error walking directory {folder_path}: {e}")
+        logger.error(f"Error walking directory {folder_path}: {e}")
     return log_files
 
 
@@ -176,7 +164,7 @@ def get_directory_contents(folder_path):
                 continue
         items.sort(key=lambda x: (not x["isDir"], x["name"].lower()))
     except Exception as e:
-            logger.error(f"Error listing directory {folder_path}: {e}")
+        logger.error(f"Error listing directory {folder_path}: {e}")
     return items
 
 
@@ -210,6 +198,7 @@ from workers import Signal, IndexingWorker, PipelineWorker, StatsWorker
 
 import threading
 
+
 class LogSession:
     def __init__(self, file_id, path, provider=None):
         self.id = file_id
@@ -232,11 +221,11 @@ class LogSession:
         self.processing_cache = {}
         self.rendering_cache = LRUCache(max_size=5000)
         self.workers = {}
-        
+
         # 统计结果缓存 - 避免重复计算
         self.stats_cache: Dict[str, Any] = {}
         self.stats_config_hash: str = ""  # 用于判断配置是否变化
-        
+
         # 独立于图层系统的书签存储 (line_index -> comment)
         self.bookmarks = {}
 
@@ -255,7 +244,7 @@ class LogSession:
                     worker.stop()
                     worker.wait()
         self.workers.clear()
-        
+
         # 使用锁保护mmap关闭
         with self._mmap_lock:
             if self.mmap:
@@ -415,19 +404,11 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
             self.operationStarted.emit(file_id, "indexing")
 
             # TODO: Handle non-mmap workers for remote providers
-            worker = IndexingWorker(
-                session.mmap or session.file_obj, session.size, resolved_path
-            )
+            worker = IndexingWorker(session.mmap or session.file_obj, session.size, resolved_path)
             session.workers["indexing"] = worker
-            worker.finished.connect(
-                lambda offsets: self._on_indexing_finished(file_id, offsets)
-            )
-            worker.progress.connect(
-                lambda p: self.operationProgress.emit(file_id, "indexing", p)
-            )
-            worker.error.connect(
-                lambda e: self.operationError.emit(file_id, "indexing", e)
-            )
+            worker.finished.connect(lambda offsets: self._on_indexing_finished(file_id, offsets))
+            worker.progress.connect(lambda p: self.operationProgress.emit(file_id, "indexing", p))
+            worker.error.connect(lambda e: self.operationError.emit(file_id, "indexing", e))
             worker.start()
             return True
         except Exception as e:
@@ -468,9 +449,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
         session.sparse_cache.clear()
 
         name = (
-            session.provider.get_name(session.path)
-            if session.provider
-            else Path(session.path).name
+            session.provider.get_name(session.path) if session.provider else Path(session.path).name
         )
 
         payload = FileLoadedPayload(
@@ -496,7 +475,11 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
 
     def _get_line_offset_sparse(self, session, line_idx):
         if not session.sparse_index:
-            return session.line_offsets[line_idx] if line_idx < len(session.line_offsets) else session.size
+            return (
+                session.line_offsets[line_idx]
+                if line_idx < len(session.line_offsets)
+                else session.size
+            )
 
         if line_idx in session.sparse_cache:
             return session.sparse_cache[line_idx]
@@ -551,7 +534,9 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
             is_sparse = session.sparse_index
 
             if is_sparse:
-                total = getattr(session, 'sparse_line_count', len(offsets) * session.sparse_interval)
+                total = getattr(
+                    session, "sparse_line_count", len(offsets) * session.sparse_interval
+                )
             else:
                 total = len(v_indices) if v_indices is not None else len(offsets)
 
@@ -570,17 +555,13 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
                             continue
                         start_off = offsets[real_idx]
                         end_off = (
-                            offsets[real_idx + 1]
-                            if real_idx + 1 < len(offsets)
-                            else session.size
+                            offsets[real_idx + 1] if real_idx + 1 < len(offsets) else session.size
                         )
                     chunk = session.mmap[start_off:end_off]
                     if len(chunk) > CHUNK_TRUNCATE_LIMIT:
                         chunk = chunk[:CHUNK_TRUNCATE_LIMIT] + b"... [truncated]"
                     content = (
-                        chunk.decode("utf-8", errors="replace")
-                        .replace("\r", "")
-                        .replace("\n", " ")
+                        chunk.decode("utf-8", errors="replace").replace("\r", "").replace("\n", " ")
                     )
 
                     # 1. 应用处理层的内容变换
@@ -588,15 +569,13 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
                     row_style: Dict[str, Any] = {}
                     # 只有 Transform 类型的图层允许修改内容
                     logic_layers = [
-                        l
-                        for l in session.layer_instances
-                        if l.stage == LayerStage.LOGIC
+                        l for l in session.layer_instances if l.stage == LayerStage.LOGIC
                     ]
                     current_offset_map = None
 
                     for layer in logic_layers:
                         # Only call process_line if the layer has this method (TransformLayer, etc.)
-                        if hasattr(layer, 'process_line'):
+                        if hasattr(layer, "process_line"):
                             res = layer.process_line(content)
                             if isinstance(res, ProcessedLine):
                                 content = res.content
@@ -626,7 +605,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
                             )
                             if style:
                                 # RowStyle dataclass -> dict
-                                if hasattr(style, '__dataclass_fields__'):
+                                if hasattr(style, "__dataclass_fields__"):
                                     for field in style.__dataclass_fields__:
                                         val = getattr(style, field)
                                         if val is not None:
@@ -639,11 +618,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
                         sc = session.search_config
                         try:
                             flags = re.IGNORECASE if not sc.get("caseSensitive") else 0
-                            pattern = (
-                                sc["query"]
-                                if sc.get("regex")
-                                else re.escape(sc["query"])
-                            )
+                            pattern = sc["query"] if sc.get("regex") else re.escape(sc["query"])
                             search_re = re.compile(pattern, flags)
                             for m in search_re.finditer(content):
                                 highlights.append(
@@ -657,7 +632,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
                                 )
                         except (re.error, AttributeError):
                             pass
-                    
+
                     # 4. 直接读取 session.bookmarks (独立于图层系统)
                     line_data = {
                         "index": real_idx,
@@ -726,11 +701,11 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
         session = self._sessions[file_id]
         if not session.path:
             return False
-        
+
         bookmark_file = self._get_bookmark_file_path(session.path)
         if not bookmark_file:
             return False
-        
+
         try:
             bookmark_file.parent.mkdir(parents=True, exist_ok=True)
             with open(bookmark_file, "w", encoding="utf-8") as f:
@@ -747,11 +722,11 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
         session = self._sessions[file_id]
         if not session.path:
             return {}
-        
+
         bookmark_file = self._get_bookmark_file_path(session.path)
         if not bookmark_file or not bookmark_file.exists():
             return {}
-        
+
         try:
             with open(bookmark_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -776,9 +751,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
                     if idx < 0 or idx >= len(offsets):
                         continue
                     start_off = offsets[idx]
-                    end_off = (
-                        offsets[idx + 1] if idx + 1 < len(offsets) else session.size
-                    )
+                    end_off = offsets[idx + 1] if idx + 1 < len(offsets) else session.size
                     chunk = session.mmap[start_off:end_off]
                     if len(chunk) > 200:
                         chunk = chunk[:200]  # 截断为200字符
@@ -827,59 +800,38 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
             del self._sessions[file_id]
 
     def select_files(self) -> str:
-        if hasattr(self, "window"):
-            try:
-                from webview import FileDialog
+        if not hasattr(self, "window"):
+            return "[]"
 
-                paths = self.window.create_file_dialog(
-                    FileDialog.OPEN,
-                    allow_multiple=True,
-                    file_types=("Log files (*.log;*.txt;*.json)", "All files (*.*)"),
-                )
-            except Exception as e:
-                logger.error(f"[Bridge] select_files error: {e}")
-                paths = self.window.create_file_dialog(
-                    0,
-                    allow_multiple=True,
-                    file_types=("Log files (*.log;*.txt;*.json)", "All files (*.*)"),
-                )
-            return json.dumps(paths if paths else [])
+        try:
+            from webview import FileDialog
 
-        # Fallback to tkinter for browser-only mode
-        if tk and filedialog:
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes("-topmost", True)
-            paths = filedialog.askopenfilenames(
-                title="选择日志文件",
-                filetypes=[("Log files", "*.log *.txt *.json"), ("All files", "*.*")],
+            paths = self.window.create_file_dialog(
+                FileDialog.OPEN,
+                allow_multiple=True,
+                file_types=("Log files (*.log;*.txt;*.json)", "All files (*.*)"),
             )
-            root.destroy()
-            return json.dumps(list(paths) if paths else [])
-
-        return "[]"
+        except Exception as e:
+            logger.error(f"[Bridge] select_files error: {e}")
+            paths = self.window.create_file_dialog(
+                0,
+                allow_multiple=True,
+                file_types=("Log files (*.log;*.txt;*.json)", "All files (*.*)"),
+            )
+        return json.dumps(paths if paths else [])
 
     def select_folder(self) -> str:
-        if hasattr(self, "window"):
-            try:
-                from webview import FileDialog
+        if not hasattr(self, "window"):
+            return ""
 
-                path = self.window.create_file_dialog(FileDialog.FOLDER)
-            except Exception as e:
-                logger.error(f"[Bridge] select_folder error: {e}")
-                path = self.window.create_file_dialog(1)  # 1 is FOLDER
-            return path[0] if path else ""
+        try:
+            from webview import FileDialog
 
-        # Fallback to tkinter for browser-only mode
-        if tk and filedialog:
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes("-topmost", True)
-            path = filedialog.askdirectory(title="选择项目文件夹")
-            root.destroy()
-            return path if path else ""
-
-        return ""
+            path = self.window.create_file_dialog(FileDialog.FOLDER)
+        except Exception as e:
+            logger.error(f"[Bridge] select_folder error: {e}")
+            path = self.window.create_file_dialog(1)  # 1 is FOLDER
+        return path[0] if path else ""
 
     def list_logs_in_folder(self, folder_path: str) -> str:
         return json.dumps(get_log_files_recursive(folder_path))
@@ -911,11 +863,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
                     if i + 1 < len(session.line_offsets)
                     else session.size
                 )
-                line = (
-                    session.mmap[start_off:end_off]
-                    .decode("utf-8", errors="replace")
-                    .strip()
-                )
+                line = session.mmap[start_off:end_off].decode("utf-8", errors="replace").strip()
                 level = detector.detect_log_level(line)
                 if level:
                     level_counts[level] = level_counts.get(level, 0) + 1
@@ -928,7 +876,9 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
             "sampled": sample_size,
         }
 
-    def analyze_log_pattern(self, file_id: str, sample_size: int = SAMPLE_SIZE_PATTERN_ANALYSIS) -> dict:
+    def analyze_log_pattern(
+        self, file_id: str, sample_size: int = SAMPLE_SIZE_PATTERN_ANALYSIS
+    ) -> dict:
         if file_id not in self._sessions:
             return {"error": "File not found"}
 
@@ -948,11 +898,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
                     if i + 1 < len(session.line_offsets)
                     else session.size
                 )
-                line = (
-                    session.mmap[start_off:end_off]
-                    .decode("utf-8", errors="replace")
-                    .strip()
-                )
+                line = session.mmap[start_off:end_off].decode("utf-8", errors="replace").strip()
                 lines.append(line)
             except (IndexError, ValueError, UnicodeDecodeError):
                 continue
@@ -991,11 +937,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
                     if i + 1 < len(session.line_offsets)
                     else session.size
                 )
-                line = (
-                    session.mmap[start_off:end_off]
-                    .decode("utf-8", errors="replace")
-                    .strip()
-                )
+                line = session.mmap[start_off:end_off].decode("utf-8", errors="replace").strip()
                 lines.append(line)
             except (IndexError, ValueError, UnicodeDecodeError):
                 continue
@@ -1005,37 +947,34 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
 
         return suggestions
 
-    def export_visible_lines(self, file_id: str, output_path: str, format: str = 'txt') -> dict:
+    def export_visible_lines(self, file_id: str, output_path: str, format: str = "txt") -> dict:
         """
         Export visible (filtered) log lines to a file.
-        
+
         Args:
             file_id: File session ID
             output_path: Output file path
             format: Export format (csv/json/txt)
-            
+
         Returns:
             Dict with success status and message
         """
         if file_id not in self._sessions:
-            return {'success': False, 'error': 'File not found'}
-        
+            return {"success": False, "error": "File not found"}
+
         from loglayer.export import LogExporter
-        
+
         session = self._sessions[file_id]
         exporter = LogExporter(file_id, session.path)
-        
+
         success = exporter.export_visible_lines(
-            self, 
-            output_path, 
-            format, 
-            include_line_numbers=True
+            self, output_path, format, include_line_numbers=True
         )
-        
+
         if success:
-            return {'success': True, 'path': output_path}
+            return {"success": True, "path": output_path}
         else:
-            return {'success': False, 'error': 'Export failed'}
+            return {"success": False, "error": "Export failed"}
 
     # SearchMixin provides:
     # get_search_match_index, get_nearest_search_rank, get_search_matches_range,

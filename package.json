@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test tests/e2e",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
@@ -22,7 +22,10 @@
     "test:all": "python tools/run_all_tests.py",
     "test:all:ai": "python tools/run_all_tests.py --browser-use",
     "test:pytest": "python tools/run_all_tests.py --pytest",
-    "test:report": "open test-results/test-report.html"
+    "test:report": "open tests/.outputs/pytest/test-report.html",
+    "release:build": "python tools/package.py",
+    "release:exe": "python tools/package.py --exe",
+    "release:zip": "python tools/package.py --format zip"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",
@@ -30,6 +33,7 @@
     "@radix-ui/react-dialog": "^1.1.15",
     "cmdk": "^1.1.1",
     "lucide-react": "^0.575.0",
+    "opencode-ai": "^1.2.27",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-resizable-panels": "^4.5.3",

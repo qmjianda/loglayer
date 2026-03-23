@@ -24,6 +24,7 @@ import json
 import os
 import sys
 import subprocess
+import argparse
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
@@ -273,17 +274,18 @@ class AITestOptimizer:
         # 基于缺口生成建议
         critical_gaps = [g for g in coverage_report.gaps if g.priority == Priority.CRITICAL]
         if critical_gaps:
+            first_gap = critical_gaps[0]
             recommendations.append(TestRecommendation(
                 title="关键功能测试覆盖",
                 description=f"发现 {len(critical_gaps)} 个关键功能缺少测试覆盖，建议优先补充",
                 priority=Priority.CRITICAL,
-                affected_files=[g.file_path for g in critical_gaps[:5]],
+                affected_files=[gap.file_path for gap in critical_gaps[:5]],
                 suggested_tests=[
-                    f"为 {g.function_name} 添加单元测试",
-                    f"为 {g.function_name} 添加集成测试",
-                    f"为 {g.function_name} 添加边界条件测试"
+                    f"为 {first_gap.function_name} 添加单元测试",
+                    f"为 {first_gap.function_name} 添加集成测试",
+                    f"为 {first_gap.function_name} 添加边界条件测试"
                 ],
-                code_example=self._generate_test_example(critical_gaps[0])
+                code_example=self._generate_test_example(first_gap)
             ))
         
         # 覆盖率提升建议
@@ -416,7 +418,7 @@ def main():
     parser.add_argument("--coverage", action="store_true", help="仅运行覆盖率分析")
     parser.add_argument("--recommend", action="store_true", help="生成测试建议")
     parser.add_argument("--report", action="store_true", help="生成完整质量报告")
-    parser.add_argument("--output", "-o", default="test-results", help="输出目录")
+    parser.add_argument("--output", "-o", default="tests/.outputs/ai", help="输出目录")
     
     args = parser.parse_args()
     

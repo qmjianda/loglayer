@@ -15,8 +15,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onOpen }) => {
       </svg>
       <p className="text-sm font-medium">将日志文件拖拽至此处打开</p>
       <p className="text-xs mt-2 opacity-60">或点击浏览并打开文件/文件夹</p>
-      <div className="mt-6 p-4 bg-blue-500/10 rounded-lg border border-blue-300/30 max-w-xs">
-        <p className="text-xs font-semibold text-blue-400 mb-2">分屏: Ctrl+\ 或 Ctrl+Shift+\</p>
+      <div className="mt-6 p-4 bg-secondary rounded-lg border border-default max-w-xs">
+        <p className="text-xs font-semibold text-primary-color mb-2">分屏: Ctrl+\ 或 Ctrl+Shift+\</p>
         <p className="text-xs text-muted">关闭: Ctrl+W (保留至少1个分屏)</p>
       </div>
     </div>

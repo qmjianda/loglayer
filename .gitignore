@@ -16,11 +16,15 @@ dist/
 dist-ssr/
 dist_offline/
 build/
+releases/
 *.spec
 *.local
 .pytest_cache/
 coverage/
 skills-lock.json
+
+# Test outputs
+tests/.outputs/
 
 # Editor directories and files
 .vscode/*

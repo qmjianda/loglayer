@@ -508,7 +508,7 @@ canUndo,
                     <div className="flex-1 flex flex-col overflow-hidden bg-theme-surface">
                         {/* 文件/文件夹选择操作 - 始终显示，以便于随时切换文件夹 */}
                         <div className="flex gap-1 p-2 border-b border-theme-subtle bg-theme-surface shrink-0">
-                            <button onClick={onOpen} className="flex-1 flex items-center justify-center gap-2 text-[10px] py-1.5 bg-theme-accent hover:bg-blue-600 text-white rounded transition-colors shadow-sm font-bold" title="打开文件或项目文件夹">
+                            <button onClick={onOpen} className="flex-1 flex items-center justify-center gap-2 text-[10px] py-1.5 bg-primary-color hover:opacity-90 text-primary rounded transition-colors shadow-sm font-bold" title="打开文件或项目文件夹">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" /></svg>
                                 浏览并打开 (Open)
                             </button>
