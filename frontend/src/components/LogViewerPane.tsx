@@ -38,6 +38,7 @@ interface LogViewerPaneProps {
   onSplitTabDown?: (fileId: string) => void;
   onLineClick: (idx: number) => void;
   onAddLayer: (type: LayerType | string, config?: Partial<LayerConfig>) => void;
+  bookmarks: Record<number, string>;
   onToggleBookmark: (lineIndex: number) => void;
   onUpdateBookmarkComment: (lineIndex: number, comment: string) => void;
   onSelectedTextChange: (text: string) => void;
@@ -84,6 +85,7 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
   onSplitTabDown,
   onLineClick,
   onAddLayer,
+  bookmarks,
   onToggleBookmark,
   onUpdateBookmarkComment,
   onSelectedTextChange,
@@ -113,6 +115,8 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isPaneActive) return;
+
       if (e.key === 'Escape' && (isFindVisible || isGoToLineVisible)) {
         const target = e.target as HTMLElement;
         if (paneRef.current?.contains(target)) {
@@ -129,7 +133,7 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isFindVisible, isGoToLineVisible, onToggleFind, onToggleGoToLine, clearSearch]);
+  }, [isPaneActive, isFindVisible, isGoToLineVisible, onToggleFind, onToggleGoToLine, clearSearch]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -217,6 +221,7 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
       tabIndex={-1}
       className={`flex-1 flex flex-col min-h-0 overflow-hidden ${isPaneActive ? 'ring-1 ring-blue-500/30' : ''}`} 
       style={{ height: '100%' }}
+      onClick={() => onPaneClick?.()}
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDrop={handleDrop}
@@ -290,6 +295,7 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
               key={paneFileId}
               totalLines={paneFile?.lineCount || 0}
               fileId={pane.activeFileId}
+              paneId={pane.id}
               searchQuery={isFindVisible ? searchQuery : ''}
               searchConfig={searchConfig}
               scrollToIndex={isPaneActive ? scrollToIndex : null}
@@ -297,6 +303,7 @@ export const LogViewerPane: React.FC<LogViewerPaneProps> = ({
               isIndexing={isLoading}
               onLineClick={onLineClick}
               onAddLayer={onAddLayer}
+              bookmarks={bookmarks}
               onToggleBookmark={onToggleBookmark}
               onUpdateBookmarkComment={onUpdateBookmarkComment}
               onSelectedTextChange={onSelectedTextChange}

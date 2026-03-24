@@ -34,7 +34,17 @@ function removePaneFromTree(panes: Pane[], targetId: string): Pane[] {
                 result.push({ ...pane, children: newChildren });
             }
         } else {
-            result.push(pane);
+            result.push({
+                ...pane,
+                findVisible: false,
+                goToLineVisible: false,
+                searchQuery: '',
+                searchConfig: { regex: false, caseSensitive: false },
+                highlightedIndex: null,
+                scrollToIndex: null,
+                searchMatchCount: 0,
+                currentMatchNumber: 0
+            });
         }
     }
     return result;
@@ -188,6 +198,7 @@ function renderPaneTree(
     handleSplitTabDown: (paneId: string, fileId: string) => void,
     setHighlightedIndex: (index: number | null) => void,
     addLayer: (type: LayerType | string, config?: Partial<LayerConfig>) => void,
+    bookmarks: Record<number, string>,
     handleToggleBookmark: (lineIndex: number) => void,
     handleUpdateBookmarkComment: (lineIndex: number, comment: string) => void,
     setCanvasSelectedText: (text: string) => void,
@@ -245,6 +256,7 @@ function renderPaneTree(
                                 handleSplitTabDown,
                                 setHighlightedIndex,
                                 addLayer,
+                                bookmarks,
                                 handleToggleBookmark,
                                 handleUpdateBookmarkComment,
                                 setCanvasSelectedText,
@@ -286,13 +298,13 @@ function renderPaneTree(
                         files={files}
                         isPaneActive={isPaneActive}
                         activeView={activeView}
-                        searchQuery={searchQuery}
-                        searchConfig={searchConfig}
-                        searchMatchCount={paneSearchMatchCount}
-                        currentMatchNumber={currentMatchNumber}
+                        searchQuery={pane.searchQuery || ''}
+                        searchConfig={pane.searchConfig || { regex: false, caseSensitive: false }}
+                        searchMatchCount={pane.searchMatchCount ?? (pane.activeFileId ? (processedCache[pane.activeFileId]?.searchMatchCount || 0) : 0)}
+                        currentMatchNumber={pane.currentMatchNumber ?? currentMatchNumber}
                         processedCache={processedCache}
-                        scrollToIndex={isPaneActive ? scrollToIndex : null}
-                        highlightedIndex={isPaneActive ? highlightedIndex : null}
+                        scrollToIndex={isPaneActive ? scrollToIndex : pane.scrollToIndex || null}
+                        highlightedIndex={pane.highlightedIndex ?? null}
                         indexingFileIds={indexingFileIds}
                         pendingCliFiles={pendingCliFiles}
                         bridgedUpdateTrigger={bridgedUpdateTrigger}
@@ -316,15 +328,27 @@ function renderPaneTree(
                         onLineClick={(idx) => {
                             if (!isPaneActive) setActivePaneId(pane.id);
                             setHighlightedIndex(idx);
+                            // Also update pane-specific index for cross-pane context retention
+                            setPanes(prev => updatePaneInTree(prev, pane.id, (p) => ({
+                                ...p,
+                                highlightedIndex: idx
+                            })));
                         }}
                         onAddLayer={addLayer}
+                        bookmarks={bookmarks}
                         onToggleBookmark={handleToggleBookmark}
                         onUpdateBookmarkComment={handleUpdateBookmarkComment}
                         onSelectedTextChange={setCanvasSelectedText}
                         onScrollToNewContent={() => {
                             clearNewContent();
                             if (activeFile?.lineCount) {
-                                setScrollToIndex(activeFile.lineCount - 1);
+                                const newIndex = activeFile.lineCount - 1;
+                                setScrollToIndex(newIndex);
+                                // Also update pane-specific scroll index
+                                setPanes(prev => updatePaneInTree(prev, pane.id, (p) => ({
+                                    ...p,
+                                    scrollToIndex: newIndex
+                                })));
                             }
                         }}
                         onPaneClose={() => {
@@ -342,8 +366,21 @@ function renderPaneTree(
                         }}
                         onPaneClick={() => setActivePaneId(pane.id)}
                         onOpen={handleOpen}
-                        onQueryChange={onQueryChange}
-                        onConfigChange={onConfigChange}
+                        onQueryChange={(query) => {
+                            setPanes(prev => updatePaneInTree(prev, pane.id, (p) => ({
+                                ...p,
+                                searchQuery: query
+                            })));
+                        }}
+                        onConfigChange={(config) => {
+                            setPanes(prev => updatePaneInTree(prev, pane.id, (p) => ({
+                                ...p,
+                                searchConfig: {
+                                    regex: config.regex ?? p.searchConfig?.regex ?? false,
+                                    caseSensitive: config.caseSensitive ?? p.searchConfig?.caseSensitive ?? false
+                                }
+                            })));
+                        }}
                         onNavigate={onNavigate}
                         onGoToLine={(lineNum) => {
                             onGoToLine(lineNum);
@@ -351,7 +388,14 @@ function renderPaneTree(
                         }}
                         onToggleFind={(visible) => onToggleFind(pane.id, visible)}
                         onToggleGoToLine={(visible) => onToggleGoToLine(pane.id, visible)}
-                        clearSearch={clearSearch}
+                        clearSearch={() => {
+                            setPanes(prev => updatePaneInTree(prev, pane.id, (p) => ({
+                                ...p,
+                                searchQuery: '',
+                                findVisible: false
+                            })));
+                            clearSearch();
+                        }}
                         setProcessedCache={setProcessedCache}
                     />
                 </Panel>
@@ -372,7 +416,7 @@ interface MainContentProps {
     processedCache: Record<string, ProcessedCache>;
     setSearchQuery: (query: string) => void;
     setSearchConfig: (config: SearchConfigInput) => void;
-    findNextSearchMatchWithJump: (direction: 'next' | 'prev') => void;
+    onNavigate: (direction: 'next' | 'prev') => void;
     handleJumpToLine: (line: number, total: number) => void;
     clearSearch: () => void;
     setProcessedCache: React.Dispatch<React.SetStateAction<Record<string, ProcessedCache>>>;
@@ -391,6 +435,7 @@ interface MainContentProps {
     hasNewContent: boolean;
     setActivePaneId: (id: string) => void;
     addLayer: (type: LayerType | string, config?: Partial<LayerConfig>) => void;
+    bookmarks: Record<number, string>;
     handleToggleBookmark: (lineIndex: number) => void;
     handleUpdateBookmarkComment: (lineIndex: number, comment: string) => void;
     setCanvasSelectedText: (text: string) => void;
@@ -420,7 +465,7 @@ export const MainContent: React.FC<MainContentProps> = ({
     processedCache,
     setSearchQuery,
     setSearchConfig,
-    findNextSearchMatchWithJump,
+    onNavigate,
     handleJumpToLine,
     clearSearch,
     setProcessedCache,
@@ -439,6 +484,7 @@ export const MainContent: React.FC<MainContentProps> = ({
     hasNewContent,
     setActivePaneId,
     addLayer,
+    bookmarks,
     handleToggleBookmark,
     handleUpdateBookmarkComment,
     setCanvasSelectedText,
@@ -594,6 +640,7 @@ export const MainContent: React.FC<MainContentProps> = ({
                         handleSplitTabDown,
                         setHighlightedIndex,
                         addLayer,
+                        bookmarks,
                         handleToggleBookmark,
                         handleUpdateBookmarkComment,
                         setCanvasSelectedText,
@@ -606,7 +653,7 @@ export const MainContent: React.FC<MainContentProps> = ({
                         handleOpen,
                         setSearchQuery,
                         setSearchConfig,
-                        findNextSearchMatchWithJump,
+                        onNavigate,
                         (lineNum) => handleJumpToLine(lineNum - 1, activeFile?.lineCount || 0),
                         onToggleFind,
                         onToggleGoToLine,

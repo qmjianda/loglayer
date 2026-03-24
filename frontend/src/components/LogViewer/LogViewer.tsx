@@ -220,9 +220,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   });
 
   useEffect(() => {
-    if (bookmarks && Object.keys(bookmarks).length > 0) {
-      actions.updateBookmarks(bookmarks);
-    }
+    actions.updateBookmarks(bookmarks || {});
   }, [bookmarks, actions.updateBookmarks]);
 
   // ========== Selection Handling ==========

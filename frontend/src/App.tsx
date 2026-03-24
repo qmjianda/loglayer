@@ -19,7 +19,7 @@ import { FileInputs } from './components/FileInputs';
 import { SidebarContainer } from './components/SidebarContainer';
 import { MainContent } from './components/MainContent';
 import { StatusBar } from './components/StatusBar';
-import { updatePaneInTree } from './hooks/useFileManagement';
+import { updatePaneInTree, findPaneRecursive } from './hooks/useFileManagement';
 import { ProcessedCache } from './types';
 import { hasNativeDialogs } from './bridge_client';
 import { removeFromSet, basename } from './utils';
@@ -41,7 +41,7 @@ import { useSearch } from './hooks/useSearch';
 import { useBookmarkLogic } from './hooks/useBookmarkLogic';
 import { useBookmarks } from './hooks/useBookmarks';
 import { useSettings, SettingsProvider } from './hooks/useSettings';
-import { ShortcutProvider } from './shortcuts';
+import { ShortcutProvider, useShortcutContext } from './shortcuts';
 import { useResponsive } from './hooks/useResponsive';
 import { useFileWatch } from './hooks/useFileWatch';
 import { usePaneManagement, MAX_PANES } from './hooks/usePaneManagement';
@@ -222,6 +222,7 @@ const AppContent: React.FC = () => {
     setSearchQuery: (q: string) => search.setSearchQuery(q),
     searchQuery: search.searchQuery,
     canvasSelectedText,
+    activePaneId,
     onToggleSidebar: () => {
       setTimeout(() => {
         const currentWidth = sidebarWidth;
@@ -253,8 +254,8 @@ const AppContent: React.FC = () => {
         })));
       }
     },
-    isFindVisible: activePaneId ? (panes.find(p => p.id === activePaneId)?.findVisible ?? false) : false,
-    isGoToLineVisible: activePaneId ? (panes.find(p => p.id === activePaneId)?.goToLineVisible ?? false) : false
+    isFindVisible: activePaneId ? (findPaneRecursive(panes, activePaneId)?.findVisible ?? false) : false,
+    isGoToLineVisible: activePaneId ? (findPaneRecursive(panes, activePaneId)?.goToLineVisible ?? false) : false
   });
 
   const {
@@ -529,15 +530,38 @@ const AppContent: React.FC = () => {
   }, [activeFileId, setBridgeActiveFileId]);
 
   // 为侧边栏 UnifiedPanel 准备文件列表信息
-  const fileInfoList: FileInfo[] = useMemo(() =>
-    files.map(f => ({
+  const fileInfoList: FileInfo[] = useMemo(() => {
+    // Helper to find which pane contains a given fileId
+    const findPaneForFile = (fileId: string): string | undefined => {
+      const findInPane = (p: any): string | undefined => {
+        if (p.openFileIds?.includes(fileId)) {
+          return p.id;
+        }
+        if (p.children) {
+          for (const child of p.children) {
+            const found = findInPane(child);
+            if (found) return found;
+          }
+        }
+        return undefined;
+      };
+      for (const pane of panes) {
+        const found = findInPane(pane);
+        if (found) return found;
+      }
+      return undefined;
+    };
+
+    return files.map(f => ({
       id: f.id,
       name: f.name,
       size: f.size,
       isActive: f.id === activeFileId,
       lineCount: f.lineCount,
-      layers: f.layers
-    })), [files, activeFileId]);
+      layers: f.layers,
+      paneId: findPaneForFile(f.id)
+    }));
+  }, [files, activeFileId, panes]);
 
   
 
@@ -702,8 +726,10 @@ const AppContent: React.FC = () => {
             workspaceRoot={workspaceRoot}
             fileInfoList={fileInfoList}
             activeFileId={activeFileId}
+            activePaneId={activePaneId}
             layers={layers}
             layerStats={layerStats}
+            processedCache={processedCache}
             selectedLayerId={selectedLayerId}
             presets={presets}
             saveStatus={saveStatus}
@@ -748,7 +774,7 @@ const AppContent: React.FC = () => {
           processedCache={processedCache}
           setSearchQuery={setSearchQuery}
           setSearchConfig={setSearchConfig}
-          findNextSearchMatchWithJump={findNextSearchMatchWithJump}
+          onNavigate={findNextSearchMatchWithJump}
           handleJumpToLine={handleJumpToLine}
           clearSearch={clearSearch}
           setProcessedCache={setProcessedCache}
@@ -767,6 +793,7 @@ const AppContent: React.FC = () => {
           hasNewContent={hasNewContent}
           setActivePaneId={setActivePaneId}
           addLayer={addLayer}
+          bookmarks={bookmarks}
           handleToggleBookmark={handleToggleBookmark}
           handleUpdateBookmarkComment={handleUpdateBookmarkComment}
           setCanvasSelectedText={setCanvasSelectedText}

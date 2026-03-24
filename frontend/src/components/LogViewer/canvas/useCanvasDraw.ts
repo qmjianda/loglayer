@@ -7,7 +7,7 @@
  * Extracted from LogViewer.tsx lines 647-969
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 /**
  * Colors object from theme
@@ -526,11 +526,28 @@ export function useCanvasDraw({
     highlightedWord,
   ]);
 
-  /**
-   * requestAnimationFrame scheduling with performance monitoring
-   */
+  const bookmarkCount = useMemo(() => {
+    let count = 0;
+    bridgedLines.forEach(line => {
+      if (typeof line === 'object' && line !== null && (line as CanvasLogLine).isMarked) {
+        count++;
+      }
+    });
+    return count;
+  }, [bridgedLines]);
+
+  const searchHighlightCount = useMemo(() => {
+    let count = 0;
+    bridgedLines.forEach(line => {
+      if (typeof line === 'object' && line !== null && (line as CanvasLogLine).highlights) {
+        count += (line as CanvasLogLine).highlights!.length;
+      }
+    });
+    return count;
+  }, [bridgedLines]);
+
   useEffect(() => {
-    const currentDeps = `${startIndex}-${endIndex}-${scrollTop}-${scrollLeft}-${highlightedIndex}-${hoveredLineIndex}-${selection?.startLine}-${bridgedLines.size}-${highlightedWord}`;
+    const currentDeps = `${startIndex}-${endIndex}-${scrollTop}-${scrollLeft}-${highlightedIndex}-${hoveredLineIndex}-${selection?.startLine}-${bridgedLines.size}-${bookmarkCount}-${searchHighlightCount}-${highlightedWord}-${jumpPulseIndex}`;
     const needsRedraw = lastDrawDepsRef.current !== currentDeps;
     lastDrawDepsRef.current = currentDeps;
 
@@ -571,7 +588,10 @@ export function useCanvasDraw({
     hoveredLineIndex,
     selection,
     bridgedLines.size,
+    bookmarkCount,
+    searchHighlightCount,
     highlightedWord,
+    jumpPulseIndex,
     onPerformanceStatsUpdate,
   ]);
 

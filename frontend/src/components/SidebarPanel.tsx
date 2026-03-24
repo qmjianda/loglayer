@@ -1,6 +1,6 @@
 import React from 'react';
 import { UnifiedPanel } from './UnifiedPanel';
-import { LayerType } from '../types';
+import { LayerType, ProcessedCache } from '../types';
 import { FileInfo } from './UnifiedPanel';
 
 type ViewType = 'main' | 'help';
@@ -10,8 +10,10 @@ interface SidebarPanelProps {
   workspaceRoot: { path: string; name: string } | null;
   fileInfoList: FileInfo[];
   activeFileId: string | null;
+  activePaneId: string | null;
   layers: any[];
   layerStats: Record<string, { count: number; distribution: number[] }>;
+  processedCache: Record<string, ProcessedCache>;
   selectedLayerId: string | null;
   presets: any[];
   saveStatus: any;
@@ -45,8 +47,10 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
   workspaceRoot,
   fileInfoList,
   activeFileId,
+  activePaneId,
   layers,
   layerStats,
+  processedCache,
   selectedLayerId,
   presets,
   saveStatus,
@@ -82,11 +86,13 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
           onOpenFileByPath={onOpenFileByPath}
           files={fileInfoList}
           activeFileId={activeFileId}
+          activePaneId={activePaneId}
           onOpen={onOpen}
           onFileActivate={onFileActivate}
           onFileRemove={onFileRemove}
           layers={layers}
           layerStats={layerStats}
+          processedCache={processedCache}
           selectedLayerId={selectedLayerId}
           fileId={activeFileId}
           onSelectLayer={onSelectLayer}
