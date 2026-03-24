@@ -128,6 +128,7 @@ export interface SelectionActions {
 export interface DataActions {
   setBridgedLines: (value: Map<number, LogLine | string>) => void;
   setJumpPulseIndex: (value: number | null) => void;
+  updateBookmarks: (bookmarks: Record<number, string>) => void;
 }
 
 /**
@@ -230,6 +231,30 @@ export function useLogViewerState() {
   }), [scrollState, uiState, selectionState, dataState]);
 
   // ========== Actions ==========
+  const updateBookmarks = useCallback((bookmarks: Record<number, string>) => {
+    setBridgedLines(prev => {
+      const next = new Map(prev);
+      const bookmarkLines = new Set<number>(Object.keys(bookmarks).map(Number));
+      
+      for (const [lineIndex, line] of prev) {
+        const idx = typeof lineIndex === 'number' ? lineIndex : Number(lineIndex);
+        if (typeof line === 'object' && line !== null) {
+          const logLine = line as LogLine;
+          const hasBookmark = bookmarkLines.has(idx);
+          if (hasBookmark || logLine.isMarked) {
+            next.set(idx, {
+              ...logLine,
+              isMarked: hasBookmark,
+              bookmarkComment: hasBookmark ? bookmarks[idx] : undefined,
+            });
+          }
+        }
+      }
+      
+      return next;
+    });
+  }, [setBridgedLines]);
+
   const actions = useMemo<LogViewerActions>(() => ({
     // Scroll actions
     setScrollTop,
@@ -252,7 +277,8 @@ export function useLogViewerState() {
     // Data actions
     setBridgedLines,
     setJumpPulseIndex,
-  }), []);
+    updateBookmarks,
+  }), [updateBookmarks]);
 
   // ========== Refs ==========
   const refs = useMemo<LogViewerRefs>(() => ({

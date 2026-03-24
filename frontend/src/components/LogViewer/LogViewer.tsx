@@ -203,7 +203,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
   const { maxPhysicalScroll, maxLogicalScroll, effectiveScrollTop, startIndex, endIndex } = scrollComputed;
 
-  // ========== Line Fetcher ==========
+    // ========== Line Fetcher ==========
   useLineFetcher({
     fileId,
     totalLines,
@@ -218,6 +218,12 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     setBridgedLines: actions.setBridgedLines,
     setMaxLineWidth: actions.setMaxLineWidth,
   });
+
+  useEffect(() => {
+    if (bookmarks && Object.keys(bookmarks).length > 0) {
+      actions.updateBookmarks(bookmarks);
+    }
+  }, [bookmarks, actions.updateBookmarks]);
 
   // ========== Selection Handling ==========
   const { getPosFromEvent, handleMouseDown, handleDoubleClick } = useSelection({
