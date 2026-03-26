@@ -36,9 +36,8 @@ import {
 } from './hooks';
 import { useFileManagement } from './hooks/useFileManagement';
 import { useLayerManagement } from './hooks/useLayerManagement';
-import { useSearch } from './hooks/useSearch';
 import { useBookmarkLogic } from './hooks/useBookmarkLogic';
-import { toggleBookmark as apiToggleBookmark, getBookmarks as apiGetBookmarks, clearBookmarks as apiClearBookmarks, getLinesByIndices, physicalToVisualIndex } from './bridge_client';
+import { toggleBookmark as apiToggleBookmark, getBookmarks as apiGetBookmarks, clearBookmarks as apiClearBookmarks, getLinesByIndices, physicalToVisualIndex, syncAll, getNextSearchMatch, getSearchMatchIndex, getNearestSearchRank, getSearchRankForIndex } from './bridge_client';
 import { useSettings, SettingsProvider } from './hooks/useSettings';
 import { ShortcutProvider, useShortcutContext } from './shortcuts';
 import { useResponsive } from './hooks/useResponsive';
@@ -94,7 +93,6 @@ const AppContent: React.FC = () => {
   const fileSize = activeFile?.size || 0;
   const activeProcessed = activeFileId ? processedCache[activeFileId] : null;
   const layerStats = activeProcessed?.layerStats || {};
-  const searchMatchCount = activeProcessed?.searchMatchCount || 0;
 
   // ===== 分屏管理 (Pane Management) =====
   // 负责管理分屏创建、关闭
@@ -153,32 +151,37 @@ const AppContent: React.FC = () => {
   // UI 状态控制 (UI State)
   // 处理各种面板显隐、滚动定位、进度条、工作区根目录等。
   // Note: 书签导航将在 uiState 返回后定义，使用 useEffect 注册
-  // ===== 搜索功能逻辑 (Search Logic Hook) =====
-  // Must be called BEFORE useUIState because UI state depends on search methods
-  const search = useSearch({
-    activeFileId,
-    layers,
-    layersFunctionalHash,
-    lineCount: activeFile?.lineCount || 0,
-    searchMatchCount,
-    setProcessedCache
-  });
+  
+  const activePane = activePaneId ? findPaneRecursive(panes, activePaneId) : null;
+  const searchQuery = activePane?.searchQuery || '';
+  const searchConfig = activePane?.searchConfig || { regex: false, caseSensitive: false };
+  const currentMatchRank = activePane?.currentMatchRank ?? -1;
+  const searchMatchCount = activePane?.searchMatchCount ?? 0;
+  
+  const setSearchQuery = React.useCallback((query: string) => {
+    if (activePaneId) {
+      setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => ({ ...p, searchQuery: query })));
+    }
+  }, [activePaneId, setPanes]);
+  
+  const setSearchConfig = React.useCallback((config: { regex: boolean; caseSensitive: boolean }) => {
+    if (activePaneId) {
+      setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => ({ ...p, searchConfig: config })));
+    }
+  }, [activePaneId, setPanes]);
+  
+  const setCurrentMatchRank = React.useCallback((rank: number) => {
+    if (activePaneId) {
+      setPanes(prev => updatePaneInTree(prev, activePaneId, (p) => ({ ...p, currentMatchRank: rank })));
+    }
+  }, [activePaneId, setPanes]);
 
-  const {
-    searchQuery,
-    setSearchQuery,
-    searchConfig,
-    setSearchConfig,
-    currentMatchRank,
-    setCurrentMatchRank,
-    currentMatchIndex,
-    setIsSearching,
-    currentMatchNumber,
-    findNextSearchMatch,
-    clearSearch
-  } = search;
+  const currentMatchNumber = currentMatchRank >= 0 ? currentMatchRank + 1 : 0;
 
-  // searchConfig is managed in useSearch hook
+  const clearSearch = React.useCallback(() => {
+    setSearchQuery('');
+    setCurrentMatchRank(-1);
+  }, [setSearchQuery, setCurrentMatchRank]);
   const [canvasSelectedText, setCanvasSelectedText] = useState('');
   
   const modals = useAppModals();
@@ -205,21 +208,22 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (settings.searchRegexDefault !== searchConfig.regex || 
         settings.searchCaseSensitiveDefault !== searchConfig.caseSensitive) {
-      setSearchConfig(prev => ({
-        ...prev,
+      setSearchConfig({
         regex: settings.searchRegexDefault,
         caseSensitive: settings.searchCaseSensitiveDefault
-      }));
+      });
     }
-  }, [settings.searchRegexDefault, settings.searchCaseSensitiveDefault]);
+  }, [settings.searchRegexDefault, settings.searchCaseSensitiveDefault, searchConfig.regex, searchConfig.caseSensitive, setSearchConfig]);
 
   // ===== UI 状态控制 (UI State) =====
   // 处理各种面板显隐、滚动定位、进度条、工作区根目录等。
+  const [isSearching, setIsSearching] = React.useState(false);
+  
   const uiState = useUIState({
     undo,
     redo,
-    setSearchQuery: (q: string) => search.setSearchQuery(q),
-    searchQuery: search.searchQuery,
+    setSearchQuery,
+    searchQuery,
     canvasSelectedText,
     onToggleSidebar: () => {
       setTimeout(() => {
@@ -423,13 +427,14 @@ const AppContent: React.FC = () => {
 
   const findNextSearchMatchWithJump = useCallback(async (direction: 'next' | 'prev', overrideMatchCount?: number) => {
     const matchCount = overrideMatchCount ?? processedCache[activeFileId ?? '']?.searchMatchCount ?? 0;
-    const effectiveMatchCount = matchCount > 0 ? matchCount : null;
+    if (matchCount === 0) return;
     const startIndex = highlightedIndex !== null ? highlightedIndex : null;
-    const nextIdx = await findNextSearchMatch(direction, startIndex, effectiveMatchCount);
-    if (nextIdx !== -1) {
-      handleJumpToLine(nextIdx, activeFile?.lineCount || 0);
+    const result = await getNextSearchMatch(activeFileId!, startIndex ?? -1, direction);
+    if (result.index !== -1) {
+      handleJumpToLine(result.index, activeFile?.lineCount || 0);
+      setCurrentMatchRank(result.rank);
     }
-  }, [findNextSearchMatch, handleJumpToLine, activeFile?.lineCount, highlightedIndex, processedCache, activeFileId]);
+  }, [handleJumpToLine, activeFile?.lineCount, highlightedIndex, processedCache, activeFileId, setCurrentMatchRank]);
 
   // 增强版：激活文件，并确保其在后端也处于同步状态
   const handleFileActivateWithLoad = useCallback((fileId: string) => {
