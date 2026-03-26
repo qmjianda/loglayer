@@ -71,10 +71,21 @@ export function useLineFetcher({
     lastFetchRef.current = { start: -1, end: -1 };
   }, [fileId, setBridgedLines, lastFetchRef]);
 
-  // Clear last fetch range when updateTrigger changes
   useEffect(() => {
     lastFetchRef.current = { start: -1, end: -1 };
-  }, [updateTrigger, lastFetchRef]);
+  }, [updateTrigger]);
+
+  useEffect(() => {
+    setBridgedLines(prev => {
+      const next = new Map(prev);
+      for (const key of next.keys()) {
+        if (Number(key) >= totalLines) {
+          next.delete(key);
+        }
+      }
+      return next;
+    });
+  }, [totalLines]);
 
   // Fetch lines when visible range changes
   useEffect(() => {

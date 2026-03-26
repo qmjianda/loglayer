@@ -4,6 +4,7 @@ import { HelpPanel } from './HelpPanel';
 import { LogViewerPane } from './LogViewerPane';
 import { Pane, FileData, findPaneRecursive, updatePaneInTree } from '../hooks/useFileManagement';
 import { ProcessedCache, SearchConfigInput, AppSettings, ResolvedTheme, LayerType, LayerConfig } from '../types';
+import { toggleBookmark as apiToggleBookmark } from '../bridge_client';
 
 function flattenPanes(panes: Pane[]): Pane[] {
     const result: Pane[] = [];
@@ -43,7 +44,7 @@ function removePaneFromTree(panes: Pane[], targetId: string): Pane[] {
                 highlightedIndex: null,
                 scrollToIndex: null,
                 searchMatchCount: 0,
-                currentMatchNumber: 0
+                currentMatchRank: -1
             });
         }
     }
@@ -198,9 +199,7 @@ function renderPaneTree(
     handleSplitTabDown: (paneId: string, fileId: string) => void,
     setHighlightedIndex: (index: number | null) => void,
     addLayer: (type: LayerType | string, config?: Partial<LayerConfig>) => void,
-    bookmarks: Record<number, string>,
-    handleToggleBookmark: (lineIndex: number) => void,
-    handleUpdateBookmarkComment: (lineIndex: number, comment: string) => void,
+    setFiles: React.Dispatch<React.SetStateAction<FileData[]>>,
     setCanvasSelectedText: (text: string) => void,
     setActiveView: (view: string) => void,
     clearNewContent: () => void,
@@ -256,9 +255,7 @@ function renderPaneTree(
                                 handleSplitTabDown,
                                 setHighlightedIndex,
                                 addLayer,
-                                bookmarks,
-                                handleToggleBookmark,
-                                handleUpdateBookmarkComment,
+                                setFiles,
                                 setCanvasSelectedText,
                                 setActiveView,
                                 clearNewContent,
@@ -289,6 +286,27 @@ function renderPaneTree(
         const allPanes = flattenPanes(panes);
         const paneSearchMatchCount = pane.activeFileId ? (processedCache[pane.activeFileId]?.searchMatchCount || 0) : 0;
         
+        const handlePaneToggleBookmark = async (lineIndex: number) => {
+            if (!paneFileId) return;
+            try {
+                await apiToggleBookmark(paneFileId, lineIndex);
+                setFiles(prev => prev.map(f => {
+                    if (f.id === paneFileId) {
+                        const newBookmarks = { ...f.bookmarks };
+                        if (lineIndex in newBookmarks) {
+                            delete newBookmarks[lineIndex];
+                        } else {
+                            newBookmarks[lineIndex] = '';
+                        }
+                        return { ...f, bookmarks: newBookmarks };
+                    }
+                    return f;
+                }));
+            } catch (e) {
+                console.error('[toggleBookmark]', e);
+            }
+        };
+        
         return (
             <React.Fragment key={pane.id}>
                 <Panel id={pane.id} minSize={20}>
@@ -300,8 +318,8 @@ function renderPaneTree(
                         activeView={activeView}
                         searchQuery={pane.searchQuery || ''}
                         searchConfig={pane.searchConfig || { regex: false, caseSensitive: false }}
-                        searchMatchCount={pane.searchMatchCount ?? (pane.activeFileId ? (processedCache[pane.activeFileId]?.searchMatchCount || 0) : 0)}
-                        currentMatchNumber={pane.currentMatchNumber ?? currentMatchNumber}
+                        searchMatchCount={pane.activeFileId ? (processedCache[pane.activeFileId]?.searchMatchCount || 0) : 0}
+                        currentMatchNumber={pane.currentMatchRank !== undefined ? pane.currentMatchRank + 1 : 0}
                         processedCache={processedCache}
                         scrollToIndex={isPaneActive ? scrollToIndex : pane.scrollToIndex || null}
                         highlightedIndex={pane.highlightedIndex ?? null}
@@ -335,16 +353,23 @@ function renderPaneTree(
                             })));
                         }}
                         onAddLayer={addLayer}
-                        bookmarks={bookmarks}
-                        onToggleBookmark={handleToggleBookmark}
-                        onUpdateBookmarkComment={handleUpdateBookmarkComment}
+                        bookmarks={paneFile?.bookmarks || {}}
+                        onToggleBookmark={handlePaneToggleBookmark}
+                        onUpdateBookmarkComment={async (lineIndex, comment) => {
+                            if (!paneFileId) return;
+                            setFiles(prev => prev.map(f => {
+                                if (f.id === paneFileId) {
+                                    return { ...f, bookmarks: { ...f.bookmarks, [lineIndex]: comment } };
+                                }
+                                return f;
+                            }));
+                        }}
                         onSelectedTextChange={setCanvasSelectedText}
                         onScrollToNewContent={() => {
                             clearNewContent();
-                            if (activeFile?.lineCount) {
-                                const newIndex = activeFile.lineCount - 1;
+                            if (paneFile?.lineCount) {
+                                const newIndex = paneFile.lineCount - 1;
                                 setScrollToIndex(newIndex);
-                                // Also update pane-specific scroll index
                                 setPanes(prev => updatePaneInTree(prev, pane.id, (p) => ({
                                     ...p,
                                     scrollToIndex: newIndex
@@ -411,7 +436,7 @@ interface MainContentProps {
     searchConfig: { regex: boolean; caseSensitive: boolean };
     searchMatchCount: number;
     currentMatchNumber: number;
-    activeFile: { lineCount?: number } | null;
+    activeFile: { lineCount?: number };
     activeFileId: string | null;
     processedCache: Record<string, ProcessedCache>;
     setSearchQuery: (query: string) => void;
@@ -435,9 +460,7 @@ interface MainContentProps {
     hasNewContent: boolean;
     setActivePaneId: (id: string) => void;
     addLayer: (type: LayerType | string, config?: Partial<LayerConfig>) => void;
-    bookmarks: Record<number, string>;
-    handleToggleBookmark: (lineIndex: number) => void;
-    handleUpdateBookmarkComment: (lineIndex: number, comment: string) => void;
+    setFiles: React.Dispatch<React.SetStateAction<FileData[]>>;
     setCanvasSelectedText: (text: string) => void;
     setActiveView: (view: string) => void;
     clearNewContent: () => void;
@@ -484,9 +507,7 @@ export const MainContent: React.FC<MainContentProps> = ({
     hasNewContent,
     setActivePaneId,
     addLayer,
-    bookmarks,
-    handleToggleBookmark,
-    handleUpdateBookmarkComment,
+    setFiles,
     setCanvasSelectedText,
     setActiveView,
     clearNewContent,
@@ -640,9 +661,7 @@ export const MainContent: React.FC<MainContentProps> = ({
                         handleSplitTabDown,
                         setHighlightedIndex,
                         addLayer,
-                        bookmarks,
-                        handleToggleBookmark,
-                        handleUpdateBookmarkComment,
+                        setFiles,
                         setCanvasSelectedText,
                         setActiveView,
                         clearNewContent,

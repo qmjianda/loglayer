@@ -18,6 +18,7 @@ export interface FileData {
     lineCount: number;
     rawCount: number;
     layers: LogLayer[];
+    bookmarks: Record<number, string>;
     isBridged: true;
     path?: string;
     history?: {
@@ -43,6 +44,18 @@ export interface Pane {
     // Per-pane floating widget state
     findVisible?: boolean;
     goToLineVisible?: boolean;
+    // Per-pane search state
+    searchQuery?: string;
+    searchConfig?: {
+        regex: boolean;
+        caseSensitive: boolean;
+    };
+    // Per-pane highlight and navigation state
+    highlightedIndex?: number | null;
+    scrollToIndex?: number | null;
+    // Per-pane search match state
+    searchMatchCount?: number;
+    currentMatchRank?: number;  // 0-indexed, 用于导航
 }
 
 // In-memory cache for bridged file line counts
@@ -59,7 +72,12 @@ export function createPane(id?: string): Pane {
         openFileIds: [],
         activeFileId: null,
         findVisible: false,
-        goToLineVisible: false
+        goToLineVisible: false,
+        searchQuery: '',
+        searchConfig: { regex: false, caseSensitive: false },
+        highlightedIndex: null,
+        scrollToIndex: null,
+        currentMatchRank: -1
     };
 }
 
@@ -282,6 +300,7 @@ export function useFileManagement(): UseFileManagementReturn {
                 lineCount: 0,
                 rawCount: 0,
                 layers: [],
+                bookmarks: {},
                 isBridged: true,
                 path: f.path,
                 history: { past: [], future: [] }

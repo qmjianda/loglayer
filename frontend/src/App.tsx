@@ -424,6 +424,7 @@ const AppContent: React.FC = () => {
             lineCount: info.lineCount,
             rawCount: info.lineCount,
             layers: [],
+            bookmarks: {},
             isBridged: true as const,
             path: info.path || info.name,
             history: { past: [], future: [] }
@@ -793,9 +794,7 @@ const AppContent: React.FC = () => {
           hasNewContent={hasNewContent}
           setActivePaneId={setActivePaneId}
           addLayer={addLayer}
-          bookmarks={bookmarks}
-          handleToggleBookmark={handleToggleBookmark}
-          handleUpdateBookmarkComment={handleUpdateBookmarkComment}
+          setFiles={setFiles}
           setCanvasSelectedText={setCanvasSelectedText}
           setActiveView={setActiveView}
           clearNewContent={clearNewContent}

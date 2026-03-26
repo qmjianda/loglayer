@@ -250,8 +250,8 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center px-2 border-r border-white/10 text-[10px] text-gray-500 font-mono min-w-[70px] justify-center shrink-0 select-none">
-        {matchCount > 0 ? `${currentMatch} / ${matchCount}` : '无结果'}
+      <div className="flex items-center px-2 border-r border-white/10 text-[11px] text-gray-400 font-mono min-w-[80px] justify-center shrink-0 select-none">
+        {matchCount > 0 ? `${currentMatch} of ${matchCount}` : 'no results'}
       </div>
 
       <div className="flex items-center shrink-0 select-none">

@@ -48,7 +48,17 @@ function removePaneFromTree(panes: Pane[], targetId: string): Pane[] {
                 result.push({ ...pane, children: newChildren });
             }
         } else {
-            result.push(pane);
+            result.push({
+                ...pane,
+                findVisible: false,
+                goToLineVisible: false,
+                searchQuery: '',
+                searchConfig: { regex: false, caseSensitive: false },
+                highlightedIndex: null,
+                scrollToIndex: null,
+                searchMatchCount: 0,
+                currentMatchRank: -1
+            });
         }
     }
     return result;
