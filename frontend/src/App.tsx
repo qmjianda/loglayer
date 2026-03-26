@@ -410,8 +410,6 @@ const AppContent: React.FC = () => {
     setHighlightedIndex,
     setScrollToIndex
   });
-  // F2/Shift+F2 快捷键跳转到上/下一个书签
-  const [isLayerProcessing] = React.useState(false);
 
   // ===== 工作区持久化 (Workspace Config Persistence) =====
   // 自动将当前打开的文件和图层配置保存到本地磁盘（.loglayer 目录）。
@@ -723,7 +721,7 @@ const AppContent: React.FC = () => {
 
       <ProgressBar
         isProcessing={isProcessing}
-        isLayerProcessing={isLayerProcessing}
+        isLayerProcessing={false}
         loadingProgress={loadingProgress}
       />
 
@@ -837,7 +835,7 @@ const AppContent: React.FC = () => {
         totalLines={activeFile?.rawCount || 0}
         size={fileSize}
         isProcessing={isProcessing || (activeFileId ? indexingFileIds.has(activeFileId) : false)}
-        isLayerProcessing={isLayerProcessing}
+        isLayerProcessing={false}
         operationStatus={operationStatus}
         searchMatchCount={searchMatchCount}
         currentLine={(highlightedIndex !== null) ? highlightedIndex + 1 : undefined}

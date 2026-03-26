@@ -5,7 +5,6 @@
 export * from './useBridge';
 export * from './useFileManagement';
 export * from './useLayerManagement';
-export * from './useSearch';
 export * from './useUIState';
 export * from './useWorkspaceConfig';
 export * from './useRemotePathPicker';
@@ -14,7 +13,6 @@ export * from './useKeyboardShortcuts';
 export * from './useVirtualScroll';
 export * from './useResponsive';
 export * from './useSettings';
-export * from './useBookmarks';
 export * from './useBookmarkLogic';
 export * from './useDrag';
 export * from './usePaneManagement';
