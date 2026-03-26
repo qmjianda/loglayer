@@ -38,7 +38,7 @@ import { useFileManagement } from './hooks/useFileManagement';
 import { useLayerManagement } from './hooks/useLayerManagement';
 import { useSearch } from './hooks/useSearch';
 import { useBookmarkLogic } from './hooks/useBookmarkLogic';
-import { useBookmarks } from './hooks/useBookmarks';
+import { toggleBookmark as apiToggleBookmark, getBookmarks as apiGetBookmarks, clearBookmarks as apiClearBookmarks, getLinesByIndices, physicalToVisualIndex } from './bridge_client';
 import { useSettings, SettingsProvider } from './hooks/useSettings';
 import { ShortcutProvider, useShortcutContext } from './shortcuts';
 import { useResponsive } from './hooks/useResponsive';
@@ -337,16 +337,67 @@ const AppContent: React.FC = () => {
     }
   }, [isWatching, activeFileId, startWatching, stopWatching]);
 
-  // ===== 书签数据管理 (Bookmarks Data Management) =====
-  // 集中管理当前文件的书签状态、备注和预览
-  const {
-    bookmarks,
-    previews: bookmarkPreviews,
-    toggle: handleToggleBookmark,
-    updateComment: handleUpdateBookmarkComment,
-    clear: handleClearBookmarks,
-    jumpTo: handleJumpToBookmark
-  } = useBookmarks(activeFileId);
+  const bookmarks = activeFile?.bookmarks || {};
+  const [bookmarkPreviews, setBookmarkPreviews] = React.useState<Record<number, string>>({});
+  
+  const fetchBookmarkPreviews = React.useCallback(async () => {
+    if (!activeFileId || Object.keys(bookmarks).length === 0) {
+      setBookmarkPreviews({});
+      return;
+    }
+    const indices = Object.keys(bookmarks).map(Number).slice(0, 50);
+    const lines = await getLinesByIndices(activeFileId, indices);
+    const newPreviews: Record<number, string> = {};
+    if (Array.isArray(lines)) {
+      lines.forEach(l => {
+        if (l && typeof l.index === 'number' && typeof l.text === 'string') {
+          newPreviews[l.index] = l.text.length > 60 ? l.text.slice(0, 60) + '...' : l.text;
+        }
+      });
+    }
+    setBookmarkPreviews(newPreviews);
+  }, [activeFileId, bookmarks]);
+  
+  React.useEffect(() => {
+    fetchBookmarkPreviews();
+  }, [fetchBookmarkPreviews]);
+  
+  const handleToggleBookmark = React.useCallback(async (lineIndex: number) => {
+    if (!activeFileId) return;
+    try {
+      const result = await apiToggleBookmark(activeFileId, lineIndex);
+      setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, bookmarks: result } : f));
+    } catch (e) {
+      console.error('[App] toggleBookmark error:', e);
+    }
+  }, [activeFileId, setFiles]);
+  
+  const handleUpdateBookmarkComment = React.useCallback(async (lineIndex: number, comment: string) => {
+    if (!activeFileId) return;
+    try {
+      const result = await apiToggleBookmark(activeFileId, lineIndex);
+      setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, bookmarks: result } : f));
+    } catch (e) {
+      console.error('[App] updateBookmarkComment error:', e);
+    }
+  }, [activeFileId, setFiles]);
+  
+  const handleClearBookmarks = React.useCallback(async () => {
+    if (!activeFileId) return;
+    if (!window.confirm('确定要清除所有书签吗？')) return;
+    try {
+      const result = await apiClearBookmarks(activeFileId);
+      setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, bookmarks: result } : f));
+    } catch (e) {
+      console.error('[App] clearBookmarks error:', e);
+    }
+  }, [activeFileId, setFiles]);
+  
+  const handleJumpToBookmark = React.useCallback(async (lineIndex: number, onJump: (visualIdx: number) => void) => {
+    if (!activeFileId) return;
+    const visualIdx = await physicalToVisualIndex(activeFileId, lineIndex);
+    onJump(visualIdx);
+  }, [activeFileId]);
 
   // ===== 书签快捷键导航 (Bookmark Shortcuts) =====
   useBookmarkLogic({
