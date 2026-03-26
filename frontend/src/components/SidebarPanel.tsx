@@ -1,14 +1,14 @@
 import React from 'react';
 import { UnifiedPanel } from './UnifiedPanel';
+import { FileData } from '../hooks/useFileManagement';
 import { LayerType, ProcessedCache } from '../types';
-import { FileInfo } from './UnifiedPanel';
 
 type ViewType = 'main' | 'help';
 
 interface SidebarPanelProps {
   activeView: ViewType;
   workspaceRoot: { path: string; name: string } | null;
-  fileInfoList: FileInfo[];
+  files: FileData[];
   activeFileId: string | null;
   activePaneId: string | null;
   layers: any[];
@@ -45,7 +45,7 @@ interface SidebarPanelProps {
 export const SidebarPanel: React.FC<SidebarPanelProps> = ({
   activeView,
   workspaceRoot,
-  fileInfoList,
+  files,
   activeFileId,
   activePaneId,
   layers,
@@ -84,7 +84,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
         <UnifiedPanel
           workspaceRoot={workspaceRoot}
           onOpenFileByPath={onOpenFileByPath}
-          files={fileInfoList}
+          files={files}
           activeFileId={activeFileId}
           activePaneId={activePaneId}
           onOpen={onOpen}

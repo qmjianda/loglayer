@@ -80,6 +80,10 @@ export const LOG_VIEWER_COLORS = {
     LAYER_HIGHLIGHT: '#3b82f6',
     WORD_HIGHLIGHT: 'rgba(6, 182, 212, 0.35)',
     CURRENT_LINE: '#60a5fa',
+    JUMP_PULSE: 'rgba(34, 197, 94, 0.3)',
+    JUMP_PULSE_BORDER: '#22c55e',
+    CONTEXT_MENU: '#2d2d2d',
+    CONTEXT_MENU_BORDER: '#404040',
   },
   LIGHT: {
     BACKGROUND: '#ffffff',
@@ -100,6 +104,10 @@ export const LOG_VIEWER_COLORS = {
     LAYER_HIGHLIGHT: '#2563eb',
     WORD_HIGHLIGHT: 'rgba(6, 182, 212, 0.35)',
     CURRENT_LINE: '#3b82f6',
+    JUMP_PULSE: 'rgba(34, 197, 94, 0.2)',
+    JUMP_PULSE_BORDER: '#16a34a',
+    CONTEXT_MENU: '#ffffff',
+    CONTEXT_MENU_BORDER: '#d1d5db',
   },
 };
 

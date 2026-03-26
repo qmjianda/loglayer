@@ -26,6 +26,8 @@ export interface LogViewerColors {
   SEARCH_HIGHLIGHT: string;
   SEARCH_HIGHLIGHT_ACTIVE: string;
   LAYER_HIGHLIGHT: string;
+  CONTEXT_MENU: string;
+  CONTEXT_MENU_BORDER: string;
 }
 
 /**

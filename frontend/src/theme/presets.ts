@@ -55,6 +55,10 @@ export interface ThemePreset {
         LAYER_HIGHLIGHT: string;
         WORD_HIGHLIGHT: string;
         CURRENT_LINE: string;
+        JUMP_PULSE: string;
+        JUMP_PULSE_BORDER: string;
+        CONTEXT_MENU: string;
+        CONTEXT_MENU_BORDER: string;
     };
 }
 
@@ -110,6 +114,10 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
             LAYER_HIGHLIGHT: '#66D9EF',
             WORD_HIGHLIGHT: 'rgba(102, 217, 239, 0.35)',
             CURRENT_LINE: '#A6E22E',
+            JUMP_PULSE: 'rgba(166, 226, 46, 0.3)',
+            JUMP_PULSE_BORDER: '#A6E22E',
+            CONTEXT_MENU: '#3E3D32',
+            CONTEXT_MENU_BORDER: '#49483E',
         },
     },
 
@@ -164,6 +172,10 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
             LAYER_HIGHLIGHT: '#BD93F9',
             WORD_HIGHLIGHT: 'rgba(139, 233, 253, 0.35)',
             CURRENT_LINE: '#BD93F9',
+            JUMP_PULSE: 'rgba(189, 147, 249, 0.3)',
+            JUMP_PULSE_BORDER: '#BD93F9',
+            CONTEXT_MENU: '#343746',
+            CONTEXT_MENU_BORDER: '#44475A',
         },
     },
 
@@ -218,6 +230,10 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
             LAYER_HIGHLIGHT: '#88C0D0',
             WORD_HIGHLIGHT: 'rgba(136, 192, 208, 0.35)',
             CURRENT_LINE: '#88C0D0',
+            JUMP_PULSE: 'rgba(136, 192, 208, 0.3)',
+            JUMP_PULSE_BORDER: '#88C0D0',
+            CONTEXT_MENU: '#3B4252',
+            CONTEXT_MENU_BORDER: '#4C566A',
         },
     },
 
@@ -272,6 +288,10 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
             LAYER_HIGHLIGHT: '#58A6FF',
             WORD_HIGHLIGHT: 'rgba(88, 166, 255, 0.35)',
             CURRENT_LINE: '#58A6FF',
+            JUMP_PULSE: 'rgba(88, 166, 255, 0.3)',
+            JUMP_PULSE_BORDER: '#58A6FF',
+            CONTEXT_MENU: '#21262D',
+            CONTEXT_MENU_BORDER: '#30363D',
         },
     },
 };

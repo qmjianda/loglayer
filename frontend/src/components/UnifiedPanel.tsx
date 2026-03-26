@@ -1,37 +1,31 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LogLayer, LayerType, LayerPreset, LayerRegistryEntry } from '../types';
+import { LogLayer, LayerType, LayerPreset, LayerRegistryEntry, ProcessedCache } from '../types';
+import { FileData } from '../hooks/useFileManagement';
 import { LayersPanel } from './LayersPanel';
 import { FileTree } from './FileTree';
 import { useLayerRegistry } from '../hooks/useLayerRegistry';
 import { useDrag } from '../hooks/useDrag';
 import { Icon, toIconName } from './common/Icon';
 
-// 文件信息接口
-export interface FileInfo {
-    id: string;
-    name: string;
-    size: number;
-    path?: string;
-    isActive: boolean;
-    layers?: LogLayer[];
-    lineCount?: number;
-}
+export type { FileData } from '../hooks/useFileManagement';
 
 interface UnifiedPanelProps {
-    // Workspace
     workspaceRoot: { path: string, name: string } | null;
     onOpenFileByPath: (path: string, name: string) => void;
 
-    // 文件相关
-    files: FileInfo[];
+    files: FileData[];
     activeFileId: string | null;
+    panes?: unknown[];
+    activePaneId?: string | null;
     onOpen: () => void;
     onFileActivate: (fileId: string) => void;
     onFileRemove: (fileId: string) => void;
+    onFileRemoveFromPane?: (fileId: string, paneId: string) => void;
 
     // 图层相关
     layers: LogLayer[];
     layerStats: Record<string, { count: number; distribution: number[] }>;
+    processedCache: Record<string, ProcessedCache>;
     selectedLayerId: string | null;
     fileId?: string | null;
     onSelectLayer: (id: string | null) => void;

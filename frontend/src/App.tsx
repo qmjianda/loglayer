@@ -19,11 +19,10 @@ import { FileInputs } from './components/FileInputs';
 import { SidebarContainer } from './components/SidebarContainer';
 import { MainContent } from './components/MainContent';
 import { StatusBar } from './components/StatusBar';
-import { updatePaneInTree, findPaneRecursive } from './hooks/useFileManagement';
+import { updatePaneInTree, findPaneRecursive, FileData } from './hooks/useFileManagement';
 import { ProcessedCache } from './types';
 import { hasNativeDialogs } from './bridge_client';
 import { removeFromSet, basename } from './utils';
-import type { FileInfo } from './components/UnifiedPanel';
 
 // 导入自定义 Hooks
 import {
@@ -222,7 +221,6 @@ const AppContent: React.FC = () => {
     setSearchQuery: (q: string) => search.setSearchQuery(q),
     searchQuery: search.searchQuery,
     canvasSelectedText,
-    activePaneId,
     onToggleSidebar: () => {
       setTimeout(() => {
         const currentWidth = sidebarWidth;
@@ -530,39 +528,6 @@ const AppContent: React.FC = () => {
     setBridgeActiveFileId(activeFileId);
   }, [activeFileId, setBridgeActiveFileId]);
 
-  // 为侧边栏 UnifiedPanel 准备文件列表信息
-  const fileInfoList: FileInfo[] = useMemo(() => {
-    // Helper to find which pane contains a given fileId
-    const findPaneForFile = (fileId: string): string | undefined => {
-      const findInPane = (p: any): string | undefined => {
-        if (p.openFileIds?.includes(fileId)) {
-          return p.id;
-        }
-        if (p.children) {
-          for (const child of p.children) {
-            const found = findInPane(child);
-            if (found) return found;
-          }
-        }
-        return undefined;
-      };
-      for (const pane of panes) {
-        const found = findInPane(pane);
-        if (found) return found;
-      }
-      return undefined;
-    };
-
-    return files.map(f => ({
-      id: f.id,
-      name: f.name,
-      size: f.size,
-      isActive: f.id === activeFileId,
-      lineCount: f.lineCount,
-      layers: f.layers,
-      paneId: findPaneForFile(f.id)
-    }));
-  }, [files, activeFileId, panes]);
 
   
 
@@ -725,7 +690,7 @@ const AppContent: React.FC = () => {
           <SidebarPanel
             activeView={activeView}
             workspaceRoot={workspaceRoot}
-            fileInfoList={fileInfoList}
+            files={files}
             activeFileId={activeFileId}
             activePaneId={activePaneId}
             layers={layers}

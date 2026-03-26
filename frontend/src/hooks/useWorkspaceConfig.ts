@@ -109,10 +109,10 @@ export function useWorkspaceConfig({
                     id: `bridged-restored-${Date.now()}-${i}`,
                     name: cf.name,
                     size: cf.size,
-                    lineCount: 0, // Will update when loaded
+                    lineCount: 0,
                     rawCount: 0,
-                    // Force collapse all layers when loading from config
                     layers: (cf.layers || []).map(l => ({ ...l, isCollapsed: true })),
+                    bookmarks: {},
                     isBridged: true,
                     path: cf.path,
                     history: { past: [], future: [] }
