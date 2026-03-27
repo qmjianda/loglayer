@@ -12,6 +12,7 @@ import hashlib
 from pathlib import Path
 from typing import Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import MagicMock
 from loglayer.registry import LayerRegistry
 from loglayer.core import LayerStage, ProcessedLine
 from loglayer.schemas import FileLoadedPayload, WorkerConfig
@@ -25,9 +26,10 @@ from loglayer.constants import (
 from loglayer.session_manager import SessionManager, LogSession
 from loglayer.cache_manager import CacheManager
 from loglayer.worker_registry import WorkerRegistry
-from workers import IndexingWorker, PipelineWorker, StatsWorker
-from search_mixin import SearchPipeline, BookmarkPipeline
-from pipeline_mixin import LayerPipelineMixin
+from loglayer.search_delegator import SearchDelegator
+from loglayer.bookmark_delegator import BookmarkDelegator
+from loglayer.layer_pipeline_delegator import LayerPipelineDelegator
+from workers import Signal, IndexingWorker, PipelineWorker, StatsWorker
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -128,9 +130,6 @@ def get_directory_contents(folder_path):
     return items
 
 
-from workers import Signal, IndexingWorker, PipelineWorker, StatsWorker
-
-
 # ============================================================
 # Cache Invalidation Strategy
 # ============================================================
@@ -156,10 +155,9 @@ from workers import Signal, IndexingWorker, PipelineWorker, StatsWorker
 # ============================================================
 
 
-import threading
+class FileBridge:
+    """FileBridge - Uses composition over inheritance for pipeline operations."""
 
-
-class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
     fileLoaded = Signal(str, str)
     pipelineFinished = Signal(str, int, int)
     statsFinished = Signal(str, str)
@@ -193,6 +191,28 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
         # Backward compatibility - expose sessions for existing code
         self._sessions = self._session_manager.sessions
 
+        # Create delegators (composition over inheritance)
+        self._search_delegator = SearchDelegator(lambda fid: self._sessions.get(fid))
+        self._bookmark_delegator = BookmarkDelegator(
+            lambda fid: self._sessions.get(fid),
+            refresh_signal_fn=lambda fid: self.pipelineFinished.emit(fid, 0, 0),
+            save_bookmarks_fn=lambda fid: self._session_manager.save_bookmarks(fid),
+        )
+        self._layer_pipeline_delegator = LayerPipelineDelegator(
+            lambda fid: self._sessions.get(fid),
+            self._registry,
+            self._rg_path,
+            self._worker_registry.retire,
+            signals={
+                "pipelineFinished": self.pipelineFinished.emit,
+                "operationStarted": self.operationStarted.emit,
+                "operationProgress": self.operationProgress.emit,
+                "operationError": self.operationError.emit,
+                "operationStatusChanged": self.operationStatusChanged.emit,
+                "statsFinished": self.statsFinished.emit,
+            },
+        )
+
         # Backward compatibility - expose worker registry internals
         self._zombie_workers = self._worker_registry._zombie_workers
         self._zombie_cleanup_counter = 0
@@ -205,6 +225,118 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
     def _on_worker_finished(self, worker_type: str, result: Any):
         """Handle worker finished callbacks."""
         pass  # Placeholder - actual handlers are in pipeline_mixin
+
+    # Delegate methods for composition over inheritance
+    # These wrap the delegator classes for backward compatibility
+
+    def _ensure_delegators(self):
+        """Ensure delegators are initialized (for backward compatibility with tests)."""
+        if not hasattr(self, "_search_delegator"):
+            # For tests that create objects without __init__, set up minimal state
+            if not hasattr(self, "_sessions"):
+                self._sessions = {}
+            if not hasattr(self, "_registry"):
+                self._registry = MagicMock()
+            if not hasattr(self, "_rg_path"):
+                self._rg_path = "rg"
+            if not hasattr(self, "_worker_registry"):
+                self._worker_registry = MagicMock()
+                self._worker_registry.retire = MagicMock()
+
+            # Use existing sessions if available, otherwise use mock
+            get_session_fn = (
+                lambda fid: self._sessions.get(fid) if hasattr(self, "_sessions") else None
+            )
+
+            self._search_delegator = SearchDelegator(get_session_fn)
+            self._bookmark_delegator = BookmarkDelegator(
+                get_session_fn,
+                refresh_signal_fn=lambda fid: None,
+                save_bookmarks_fn=lambda fid: None,
+            )
+            self._layer_pipeline_delegator = LayerPipelineDelegator(
+                get_session_fn,
+                self._registry,
+                self._rg_path,
+                self._worker_registry.retire,
+                signals={},
+            )
+            self._layer_pipeline_delegator = LayerPipelineDelegator(
+                lambda fid: self._sessions.get(fid),
+                self._registry,
+                self._rg_path,
+                self._worker_registry.retire,
+                signals={
+                    "pipelineFinished": self.pipelineFinished.emit,
+                    "operationStarted": self.operationStarted.emit,
+                    "operationProgress": self.operationProgress.emit,
+                    "operationError": self.operationError.emit,
+                    "operationStatusChanged": self.operationStatusChanged.emit,
+                    "statsFinished": self.statsFinished.emit,
+                },
+            )
+
+    def get_search_match_index(self, file_id: str, rank: int) -> int:
+        self._ensure_delegators()
+        return self._search_delegator.get_search_match_index(file_id, rank)
+
+    def is_search_match(self, file_id: str, index: int) -> bool:
+        self._ensure_delegators()
+        return self._search_delegator.is_search_match(file_id, index)
+
+    def get_search_rank_for_index(self, file_id: str, index: int) -> int:
+        self._ensure_delegators()
+        return self._search_delegator.get_search_rank_for_index(file_id, index)
+
+    def get_nearest_search_rank(self, file_id: str, current_index: int, direction: str) -> int:
+        self._ensure_delegators()
+        return self._search_delegator.get_nearest_search_rank(file_id, current_index, direction)
+
+    def get_next_search_match(self, file_id: str, current_index: int, direction: str) -> str:
+        self._ensure_delegators()
+        return self._search_delegator.get_next_search_match(file_id, current_index, direction)
+
+    def get_search_matches_range(self, file_id: str, start_rank: int, count: int) -> str:
+        self._ensure_delegators()
+        return self._search_delegator.get_search_matches_range(file_id, start_rank, count)
+
+    def physical_to_visual_index(self, file_id: str, physical_index: int) -> int:
+        self._ensure_delegators()
+        return self._search_delegator.physical_to_visual_index(file_id, physical_index)
+
+    def toggle_bookmark(self, file_id: str, line_index: int) -> str:
+        self._ensure_delegators()
+        return self._bookmark_delegator.toggle_bookmark(file_id, line_index)
+
+    def get_bookmarks(self, file_id: str) -> str:
+        self._ensure_delegators()
+        return self._bookmark_delegator.get_bookmarks(file_id)
+
+    def update_bookmark_comment(self, file_id: str, line_index: int, comment: str) -> str:
+        self._ensure_delegators()
+        return self._bookmark_delegator.update_bookmark_comment(file_id, line_index, comment)
+
+    def get_nearest_bookmark_index(self, file_id: str, current_index: int, direction: str) -> int:
+        self._ensure_delegators()
+        return self._bookmark_delegator.get_nearest_bookmark_index(
+            file_id, current_index, direction
+        )
+
+    def clear_bookmarks(self, file_id: str) -> str:
+        self._ensure_delegators()
+        return self._bookmark_delegator.clear_bookmarks(file_id)
+
+    def sync_all(self, file_id: str, layers_json: str, search_json: str) -> bool:
+        self._ensure_delegators()
+        return self._layer_pipeline_delegator.sync_all(file_id, layers_json, search_json)
+
+    def sync_layers(self, file_id: str, layers_json: str, search_json: str) -> bool:
+        self._ensure_delegators()
+        return self._layer_pipeline_delegator.sync_layers(file_id, layers_json, search_json)
+
+    def sync_decorations(self, file_id: str, layers_json: str) -> bool:
+        self._ensure_delegators()
+        return self._layer_pipeline_delegator.sync_decorations(file_id, layers_json)
 
     def get_worker_config(self) -> str:
         """Returns current worker pool configuration."""
