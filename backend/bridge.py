@@ -22,6 +22,9 @@ from loglayer.constants import (
     CHUNK_TRUNCATE_LIMIT,
     LRU_CACHE_DEFAULT_SIZE,
 )
+from loglayer.session_manager import SessionManager, LogSession
+from loglayer.cache_manager import CacheManager
+from loglayer.worker_registry import WorkerRegistry
 from workers import IndexingWorker, PipelineWorker, StatsWorker
 from search_mixin import SearchPipeline, BookmarkPipeline
 from pipeline_mixin import LayerPipelineMixin
@@ -67,49 +70,6 @@ def resolve_file_path(file_path: str) -> str:
 
     # 返回规范化后的原始路径
     return str(normalized_path)
-
-
-class LRUCache:
-    def __init__(self, max_size: int = LRU_CACHE_DEFAULT_SIZE):
-        self.max_size = max_size
-        self._cache = {}
-        self._access_order = []
-
-    def __setitem__(self, key, value):
-        if key in self._cache:
-            self._access_order.remove(key)
-        elif len(self._cache) >= self.max_size:
-            lru_key = self._access_order.pop(0)
-            del self._cache[lru_key]
-        self._cache[key] = value
-        self._access_order.append(key)
-
-    def __getitem__(self, key):
-        if key in self._cache:
-            self._access_order.remove(key)
-            self._access_order.append(key)
-            return self._cache[key]
-        raise KeyError(key)
-
-    def __contains__(self, key):
-        return key in self._cache
-
-    def __len__(self):
-        return len(self._cache)
-
-    def get(self, key, default=None):
-        if key in self._cache:
-            self._access_order.remove(key)
-            self._access_order.append(key)
-            return self._cache[key]
-        return default
-
-    def put(self, key, value):
-        self[key] = value
-
-    def clear(self):
-        self._cache.clear()
-        self._access_order.clear()
 
 
 # Constants
@@ -199,68 +159,6 @@ from workers import Signal, IndexingWorker, PipelineWorker, StatsWorker
 import threading
 
 
-class LogSession:
-    def __init__(self, file_id, path, provider=None):
-        self.id = file_id
-        self.path = str(path)
-        self.provider = provider
-        self.file_obj = None
-        self.mmap = None
-        self._mmap_lock = threading.RLock()  # 线程安全锁
-        self.size = 0
-        self.line_offsets = array.array("Q")
-        self.visible_indices = None
-        self.search_matches = None
-        self.layers = []
-        self.layer_instances = []
-        self.rendering_instances = []
-        self.search_config = None
-        self.sparse_index = False
-        self.sparse_interval = 1
-        self.sparse_cache = {}
-        self.processing_cache = {}
-        self.rendering_cache = LRUCache(max_size=5000)
-        self.workers = {}
-
-        # 统计结果缓存 - 避免重复计算
-        self.stats_cache: Dict[str, Any] = {}
-        self.stats_config_hash: str = ""  # 用于判断配置是否变化
-
-        # 独立于图层系统的书签存储 (line_index -> comment)
-        self.bookmarks = {}
-
-    @property
-    def cache(self):
-        """Backward compatibility - combined view of both caches."""
-        return {**self.processing_cache, **self.rendering_cache._cache}
-
-    def close(self, bridge=None):
-        # 先停止所有worker
-        for name, worker in list(self.workers.items()):
-            if bridge:
-                bridge._retire_worker(worker)
-            else:
-                if worker.isRunning():
-                    worker.stop()
-                    worker.wait()
-        self.workers.clear()
-
-        # 使用锁保护mmap关闭
-        with self._mmap_lock:
-            if self.mmap:
-                try:
-                    self.mmap.close()
-                except (OSError, ValueError):
-                    pass
-                self.mmap = None
-            if self.file_obj:
-                try:
-                    self.file_obj.close()
-                except (OSError, ValueError):
-                    pass
-                self.file_obj = None
-
-
 class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
     fileLoaded = Signal(str, str)
     pipelineFinished = Signal(str, int, int)
@@ -275,16 +173,38 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
 
     def __init__(self):
         super().__init__()
-        self._sessions = {}
         self._rg_path = self._get_rg_path()
-        # Dynamic worker pool sizing
         self._executor_max_workers = 4
         self.executor = ThreadPoolExecutor(max_workers=self._executor_max_workers)
-        self._zombie_workers = []
-        self._zombie_cleanup_counter = 0  # 清理计数器
+
+        # Create registry first
         plugin_dir = os.path.join(os.getcwd(), "backend", "plugins")
         self._registry = LayerRegistry(plugin_dir)
         self._registry.discover_plugins()
+
+        # Use new OOP components
+        self._cache_manager = CacheManager(max_size=LRU_CACHE_DEFAULT_SIZE)
+        self._session_manager = SessionManager(self._registry)
+        self._session_manager.set_cache_manager(self._cache_manager)
+
+        self._worker_registry = WorkerRegistry(self.executor)
+        self._worker_registry.set_finished_callback(self._on_worker_finished)
+
+        # Backward compatibility - expose sessions for existing code
+        self._sessions = self._session_manager.sessions
+
+        # Backward compatibility - expose worker registry internals
+        self._zombie_workers = self._worker_registry._zombie_workers
+        self._zombie_cleanup_counter = 0
+
+    @property
+    def _retire_worker(self):
+        """Backward compatibility - delegate to worker registry."""
+        return self._worker_registry.retire
+
+    def _on_worker_finished(self, worker_type: str, result: Any):
+        """Handle worker finished callbacks."""
+        pass  # Placeholder - actual handlers are in pipeline_mixin
 
     def get_worker_config(self) -> str:
         """Returns current worker pool configuration."""
@@ -376,20 +296,17 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
     def open_file(self, file_id: str, file_path: str) -> bool:
         try:
             if file_id in self._sessions:
-                self._sessions[file_id].close(self)
+                self._session_manager.close_session(file_id, self._worker_registry.retire)
 
-            # 解析文件路径（处理 Windows -> Linux 路径转换）
             resolved_path = resolve_file_path(file_path)
 
             provider = self._registry.storage.get_provider(resolved_path)
-            session = LogSession(file_id, resolved_path, provider)
+            size = provider.get_size(resolved_path)
+            session = self._session_manager.create_session(file_id, resolved_path, provider, size)
 
-            session.size = provider.get_size(resolved_path)
-            session.file_obj = provider.open(resolved_path)
-            if session.size == 0:
+            if size == 0:
                 session.line_offsets = array.array("Q")
-                self._sessions[file_id] = session
-                session.bookmarks = self._load_bookmarks_from_file(file_id)
+                session.bookmarks = self._session_manager.load_bookmarks(file_id)
                 payload = FileLoadedPayload(
                     name=provider.get_name(resolved_path),
                     size=0,
@@ -398,13 +315,14 @@ class FileBridge(SearchPipeline, BookmarkPipeline, LayerPipelineMixin):
                 self.fileLoaded.emit(file_id, payload.model_dump_json())
                 return True
 
+            session.file_obj = provider.open(resolved_path)
             session.mmap = provider.get_mmap(resolved_path)
-            self._sessions[file_id] = session
-            session.bookmarks = self._load_bookmarks_from_file(file_id)
+            session.bookmarks = self._session_manager.load_bookmarks(file_id)
             self.operationStarted.emit(file_id, "indexing")
 
-            # TODO: Handle non-mmap workers for remote providers
-            worker = IndexingWorker(session.mmap or session.file_obj, session.size, resolved_path)
+            worker = self._worker_registry.create_indexing_worker(
+                session.mmap or session.file_obj, session.size, resolved_path
+            )
             session.workers["indexing"] = worker
             worker.finished.connect(lambda offsets: self._on_indexing_finished(file_id, offsets))
             worker.progress.connect(lambda p: self.operationProgress.emit(file_id, "indexing", p))
