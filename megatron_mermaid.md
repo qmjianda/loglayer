@@ -604,10 +604,7 @@ classDiagram
         +boolean isBridged
         +string path?
         -- 文件内容状态 --
-        +number highlightedIndex    -- ⚡ 高亮行（文件级别）
-        +string searchQuery         -- 搜索关键词
-        +SearchConfig searchConfig  -- 搜索配置
-        +boolean findVisible        -- 搜索框显隐
+        +number highlightedIndex    -- ⚡ 高亮行（文件级别，跨 Pane 共享）
     }
     
     class Pane {
@@ -616,6 +613,10 @@ classDiagram
         +string activeFileId         -- ⚡ 当前激活的文件（标签页切换用）
         +string direction?           -- 分割方向
         +Pane[] children?            -- 嵌套分割
+        -- LogViewer 视图状态 --
+        +number scrollToIndex       -- 滚动位置（Pane 级别独立）
+        +boolean findVisible        -- 搜索框显隐
+        +boolean goToLineVisible    -- 跳转行对话框显隐
     }
     
     useFileManagement --> FileData
@@ -624,10 +625,17 @@ classDiagram
     Pane --> FileData : references via activeFileId
 ```
 
-**设计原则**：
-- **Pane（面板）**：仅管理布局和文件列表，不存储文件内容状态
-- **FileData（文件数据）**：存储文件内容相关状态，如高亮行、搜索、书签等
-- **同一文件多开**：同一文件在多个 Pane 中打开时，共享 `FileData`，状态同步
+**状态分层原则**：
+
+| 状态类型 | 存储位置 | 说明 |
+|:---------|:---------|:-----|
+| **文件内容状态** | `FileData` | highlightedIndex（跨 Pane 共享） |
+| **视图状态** | `Pane` | scrollToIndex（每个 Pane 独立）、findVisible、goToLineVisible |
+| **搜索状态** | `Pane` | searchQuery、searchConfig（每个 Pane 独立） |
+
+- **Pane（面板）**：管理布局、文件列表、LogViewer 视图状态
+- **FileData（文件数据）**：存储文件内容相关状态（高亮行、书签等）
+- **同一文件多开**：高亮行在所有 Pane 中共享（因为是文件内容），滚动位置独立（因为是视图状态）
 
 ### 4.3 自定义 Hooks 依赖图
 

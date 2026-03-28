@@ -320,7 +320,7 @@ function renderPaneTree(
                         searchMatchCount={pane.activeFileId ? (processedCache[pane.activeFileId]?.searchMatchCount || 0) : 0}
                         currentMatchNumber={pane.currentMatchRank !== undefined ? pane.currentMatchRank + 1 : 0}
                         processedCache={processedCache}
-                        scrollToIndex={isPaneActive ? scrollToIndex : pane.scrollToIndex || null}
+                        scrollToIndex={pane.scrollToIndex || null}
                         highlightedIndex={paneFile?.highlightedIndex ?? null}
                         indexingFileIds={indexingFileIds}
                         pendingCliFiles={pendingCliFiles}
@@ -367,7 +367,6 @@ function renderPaneTree(
                             clearNewContent();
                             if (paneFile?.lineCount) {
                                 const newIndex = paneFile.lineCount - 1;
-                                setScrollToIndex(newIndex);
                                 setPanes(prev => updatePaneInTree(prev, pane.id, (p) => ({
                                     ...p,
                                     scrollToIndex: newIndex
