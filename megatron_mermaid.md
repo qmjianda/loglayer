@@ -622,17 +622,17 @@ classDiagram
     }
     
     class FileTree {
-        +files: FileData[]
-        +activeFileId: string
-        +onOpenFile()
-        +onFileActivate()
-        +onFileRemove()
+        +rootPath
+        +rootName
+        +activeFilePath
+        +openedFiles
+        +onFileClick()
     }
     
     class LayerPreset {
-        +id: string
-        +name: string
-        +layers: LogLayer[]
+        +id
+        +name
+        +layers
     }
     
     UnifiedPanel --> LayersPanel
@@ -650,8 +650,15 @@ classDiagram
 | `LayersPanel` | 图层列表渲染、拖拽排序、增删改查 |
 | `LayerItem` | 单个图层项，显示名称、类型、启用状态 |
 | `DynamicForm` | 根据图层类型动态渲染配置表单 |
-| `FileTree` | 文件浏览器，管理打开的文件列表 |
+| `FileTree` | 文件树浏览，仅接收 openedFiles 作为已打开文件指示器 |
 | `LayerPreset` | 图层预设，保存/加载图层配置 |
+
+**数据来源说明**：
+
+| 数据 | 存储位置 | 使用者 |
+|:-----|:---------|:-------|
+| `FileData[]` | `useFileManagement.files` | MainContent, LayersPanel |
+| `openedFiles` | 仅列表 | FileTree（仅用于 UI 指示） |
 
 ### 4.3 状态管理：Hooks 组合模式
 
