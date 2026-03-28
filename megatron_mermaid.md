@@ -285,8 +285,6 @@ graph TB
         L3[POST /sync_decorations]
         L4[GET /read_processed_lines]
         L5[POST /get_lines_by_indices]
-        L6[GET /get_layer_registry]
-        L7[POST /reload_plugins]
     end
     
     subgraph "搜索操作"
@@ -321,19 +319,28 @@ graph TB
     
     subgraph "系统"
         SYS1[GET /platform]
-        SYS2[GET /worker_config]
-        SYS3[POST /worker_config]
-        SYS4[GET /system_metrics]
-        SYS5[GET /physical_to_visual_index]
+        SYS2[GET /has_native_dialogs]
+        SYS3[GET /worker_config]
+        SYS4[POST /worker_config]
+        SYS5[GET /system_metrics]
+        SYS6[GET /physical_to_visual_index]
+    end
+    
+    subgraph "插件/挂件"
+        P1[GET /get_layer_registry]
+        P2[GET /get_ui_widgets]
+        P3[GET /get_widget_data]
+        P4[POST /reload_plugins]
     end
     
     API --> F1 & F2 & F3 & F4 & F5 & F6
-    API --> L1 & L2 & L3 & L4 & L5 & L6 & L7
+    API --> L1 & L2 & L3 & L4 & L5
     API --> S1 & S2 & S3 & S4 & S5 & S6
     API --> B1 & B2 & B3 & B4 & B5
     API --> W1 & W2 & W3
     API --> A1 & A2 & A3 & A4
-    API --> SYS1 & SYS2 & SYS3 & SYS4 & SYS5
+    API --> SYS1 & SYS2 & SYS3 & SYS4 & SYS5 & SYS6
+    API --> P1 & P2 & P3 & P4
 ```
 
 ### 3.4 FileBridge 核心类（重构后）
@@ -496,7 +503,6 @@ graph TB
     subgraph "Provider 层"
         SETTINGS[SettingsProvider]
         SHORTCUTS[ShortcutProvider]
-        WORKSPACE[WorkspaceContext<br/>新增]
     end
     
     subgraph "布局层"
@@ -536,11 +542,10 @@ graph TB
     
     APP --> SETTINGS
     SETTINGS --> SHORTCUTS
-    SHORTCUTS --> WORKSPACE
-    WORKSPACE --> HEADER
-    WORKSPACE --> SIDEBAR
-    WORKSPACE --> SIDEBAR_PANEL
-    WORKSPACE --> MAIN
+    SHORTCUTS --> HEADER
+    SHORTCUTS --> SIDEBAR
+    SHORTCUTS --> SIDEBAR_PANEL
+    SHORTCUTS --> MAIN
     
     SIDEBAR_PANEL --> UNIFIED
     UNIFIED --> FILE_TREE
@@ -563,19 +568,24 @@ graph TB
     MODALS --> PLUGIN
 ```
 
-### 4.2 新增：WorkspaceContext
+### 4.2 状态管理：Hooks 组合模式
+
+> **注意**: 文档早期版本曾描述 WorkspaceContext Provider，但当前实现使用 **Hooks 组合模式** 替代了 Context Provider。状态通过 `useFileManagement` 和 `usePaneManagement` 管理，通过 props 传递到子组件。
 
 ```mermaid
 classDiagram
-    class WorkspaceProvider {
+    class useFileManagement {
         +files: FileData[]
-        +panes: Pane[]
         +activeFileId: string | null
-        +activePaneId: string | null
+        +panes: Pane[]
         +setFiles()
-        +setPanes()
         +setActiveFileId()
-        +setActivePaneId()
+        +setPanes()
+    }
+    
+    class usePaneManagement {
+        +splitPane()
+        +removePane()
     }
     
     class FileData {
@@ -601,8 +611,9 @@ classDiagram
         +number searchMatchCount?
     }
     
-    WorkspaceProvider --> FileData
-    WorkspaceProvider --> Pane
+    useFileManagement --> FileData
+    useFileManagement --> Pane
+    usePaneManagement ..> useFileManagement : uses panes
 ```
 
 ### 4.3 自定义 Hooks 依赖图
@@ -797,7 +808,6 @@ classDiagram
     class HighlightLayer {
         +LayerCategory HIGHLIGHT
         +LayerStage RENDERING
-        +get_highlights(content) List~Highlight~
         +highlight_line(content) List~Highlight~
     }
     
