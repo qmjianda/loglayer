@@ -785,36 +785,36 @@ graph TB
 ```mermaid
 graph TB
     subgraph "Context Providers"
-        SETTINGS_CTX[SettingsContext<br/>21 settings]
-        SHORTCUT_CTX[ShortcutContext<br/>keybindings]
+        SETTINGS_CTX[SettingsContext]
+        SHORTCUT_CTX[ShortcutContext]
     end
     
-    subgraph "File State - useFileManagement"
-        FILES_STATE[files: FileData[]]
-        PANES_STATE[panes: Pane[]]
+    subgraph "File State"
+        FILES_STATE[files]
+        PANES_STATE[panes]
         ACTIVE_PANE[activePaneId]
-        INDEXING[indexingFileIds: Set]
+        INDEXING[indexingFileIds]
     end
     
-    subgraph "Pane View State - Pane"
+    subgraph "Pane View State"
         PANE_SCROLL[scrollToIndex]
         PANE_FIND[findVisible]
         PANE_SEARCH[searchQuery]
     end
     
-    subgraph "Layer State - useLayerManagement"
-        LAYERS_STATE[layers: LogLayer[]]
-        UNDO_REDO[past/future]
+    subgraph "Layer State"
+        LAYERS_STATE[layers]
+        UNDO_REDO[past future]
         PRESETS_STATE[presets]
     end
     
-    subgraph "Search State - useSearch"
+    subgraph "Search State"
         SEARCH_QUERY[searchQuery]
         SEARCH_CONFIG[searchConfig]
         SEARCH_RANK[currentMatchRank]
     end
     
-    subgraph "UI State - useUIState"
+    subgraph "UI State"
         VIEW[activeView]
         SIDEBAR_WIDTH[sidebarWidth]
         PROCESSING[isProcessing]
