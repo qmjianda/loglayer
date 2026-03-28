@@ -344,7 +344,6 @@ const AppContent: React.FC = () => {
   
   const fetchBookmarkPreviews = React.useCallback(async () => {
     if (!activeFileId || Object.keys(bookmarks).length === 0) {
-      setBookmarkPreviews({});
       return;
     }
     const indices = Object.keys(bookmarks).map(Number).slice(0, 50);
@@ -358,7 +357,7 @@ const AppContent: React.FC = () => {
       });
     }
     setBookmarkPreviews(newPreviews);
-  }, [activeFileId, bookmarks]);
+  }, [activeFileId]);
   
   React.useEffect(() => {
     fetchBookmarkPreviews();
@@ -578,7 +577,8 @@ const AppContent: React.FC = () => {
   // 保持 bridge 层的引用与当前激活文件一致
   useEffect(() => {
     setBridgeActiveFileId(activeFileId);
-  }, [activeFileId, setBridgeActiveFileId]);
+  }, [activeFileId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 
 
   
