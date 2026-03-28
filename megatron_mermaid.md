@@ -780,44 +780,44 @@ graph TB
 
 ### 4.5 状态管理架构
 
-> **注意**：文档早期版本曾描述 `WorkspaceContext`，但当前实现使用 **Hooks 组合模式**，无独立 Context Provider。
+> Note: Earlier versions described WorkspaceContext, but current implementation uses Hooks composition without independent Context Provider.
 
 ```mermaid
 graph TB
     subgraph "Context Providers"
-        SETTINGS_CTX[SettingsContext<br/>21 个设置项]
-        SHORTCUT_CTX[ShortcutContext<br/>快捷键映射]
+        SETTINGS_CTX[SettingsContext<br/>21 settings]
+        SHORTCUT_CTX[ShortcutContext<br/>keybindings]
     end
     
-    subgraph "文件状态 - useFileManagement"
-        FILES_STATE[files: FileData[]<br/>打开的文件列表]
-        PANES_STATE[panes: Pane[]<br/>分割面板树]
-        ACTIVE_PANE[activePaneId<br/>当前聚焦面板]
-        INDEXING[indexingFileIds: Set<br/>加载中文件]
+    subgraph "File State - useFileManagement"
+        FILES_STATE[files: FileData[]]
+        PANES_STATE[panes: Pane[]]
+        ACTIVE_PANE[activePaneId]
+        INDEXING[indexingFileIds: Set]
     end
     
-    subgraph "Pane 视图状态 - Pane"
-        PANE_SCROLL[scrollToIndex<br/>滚动位置]
-        PANE_FIND[findVisible<br/>搜索框显隐]
-        PANE_SEARCH[searchQuery<br/>搜索关键词]
+    subgraph "Pane View State - Pane"
+        PANE_SCROLL[scrollToIndex]
+        PANE_FIND[findVisible]
+        PANE_SEARCH[searchQuery]
     end
     
-    subgraph "图层状态 - useLayerManagement"
-        LAYERS_STATE[layers: LogLayer[]<br/>当前文件图层]
-        UNDO_REDO[past/future: LogLayer[][]<br/>撤销重做历史]
-        PRESETS_STATE[presets: LayerPreset[]<br/>保存的预设]
+    subgraph "Layer State - useLayerManagement"
+        LAYERS_STATE[layers: LogLayer[]]
+        UNDO_REDO[past/future]
+        PRESETS_STATE[presets]
     end
     
-    subgraph "搜索状态 - useSearch"
-        SEARCH_QUERY[searchQuery: string]
-        SEARCH_CONFIG[searchConfig<br/>{regex, caseSensitive}]
-        SEARCH_RANK[currentMatchRank<br/>当前匹配排名]
+    subgraph "Search State - useSearch"
+        SEARCH_QUERY[searchQuery]
+        SEARCH_CONFIG[searchConfig]
+        SEARCH_RANK[currentMatchRank]
     end
     
-    subgraph "UI 状态 - useUIState"
-        VIEW[activeView<br/>main/help]
-        SIDEBAR_WIDTH[sidebarWidth<br/>侧边栏宽度]
-        PROCESSING[isProcessing<br/>处理中标志]
+    subgraph "UI State - useUIState"
+        VIEW[activeView]
+        SIDEBAR_WIDTH[sidebarWidth]
+        PROCESSING[isProcessing]
     end
     
     SETTINGS_CTX --> FILES_STATE
