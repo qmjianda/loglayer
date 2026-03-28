@@ -1,6 +1,7 @@
 # LogLayer 系统架构全景图
 
 > 本文档使用 Mermaid 图表清晰描述 LogLayer 项目的完整架构，帮助首次接触代码的开发者快速理解系统结构。
+> **注意**: 本文档已更新以反映 OOP 重构后的新架构（2026-03）
 
 ---
 
@@ -138,6 +139,7 @@ graph TB
         F_HOOKS[hooks/<br/>状态管理]
         F_COMP[components/<br/>UI 组件]
         F_BRIDGE[bridge_client.ts<br/>通信层]
+        F_CTX[contexts/<br/>React Contexts]
     end
     
     subgraph "文档与测试"
@@ -163,13 +165,14 @@ graph TB
     F_SRC --> F_HOOKS
     F_SRC --> F_COMP
     F_SRC --> F_BRIDGE
+    F_SRC --> F_CTX
 ```
 
 ---
 
 ## 3. 后端架构
 
-### 3.1 模块依赖关系
+### 3.1 模块依赖关系（重构后）
 
 ```mermaid
 graph TB
@@ -178,15 +181,20 @@ graph TB
         WS_MGR[websocket_manager.py<br/>WebSocket 管理]
     end
     
-    subgraph "核心层"
+    subgraph "核心层 - FileBridge"
         BRIDGE[bridge.py<br/>FileBridge]
-        WORKERS[workers.py<br/>后台工作线程]
     end
     
-    subgraph "混合层"
-        SEARCH[search_mixin.py<br/>搜索功能]
-        BOOKMARK[BookmarkPipeline<br/>书签功能]
-        PIPELINE[pipeline_mixin.py<br/>图层流水线]
+    subgraph "OOP 组件层（组合模式）"
+        SESSION_MGR[session_manager.py<br/>会话生命周期]
+        CACHE_MGR[cache_manager.py<br/>LRU+TTL 缓存]
+        WORKER_REG[worker_registry.py<br/>工作线程注册]
+    end
+    
+    subgraph "Delegator 组合层"
+        SEARCH_DEL[search_delegator.py<br/>搜索操作]
+        BOOKMARK_DEL[bookmark_delegator.py<br/>书签操作]
+        PIPELINE_DEL[layer_pipeline_delegator.py<br/>图层流水线]
     end
     
     subgraph "图层引擎"
@@ -215,13 +223,19 @@ graph TB
     MAIN --> WS_MGR
     WS_MGR --> BRIDGE
     
-    BRIDGE --> WORKERS
-    BRIDGE --> SEARCH
-    BRIDGE --> BOOKMARK
-    BRIDGE --> PIPELINE
+    BRIDGE --> SESSION_MGR
+    BRIDGE --> CACHE_MGR
+    BRIDGE --> WORKER_REG
+    BRIDGE --> SEARCH_DEL
+    BRIDGE --> BOOKMARK_DEL
+    BRIDGE --> PIPELINE_DEL
     
-    PIPELINE --> CORE
-    PIPELINE --> REGISTRY
+    SESSION_MGR --> CORE
+    CACHE_MGR --> CORE
+    WORKER_REG --> CORE
+    
+    PIPELINE_DEL --> CORE
+    PIPELINE_DEL --> REGISTRY
     
     REGISTRY --> CORE
     REGISTRY --> FILTER
@@ -238,7 +252,16 @@ graph TB
     CORE --> UI
 ```
 
-### 3.2 API 端点分类
+### 3.2 OOP 重构说明
+
+| 重构前（Mixin 继承） | 重构后（组合模式） |
+|:---------------------|:-------------------|
+| `FileBridge --|> SearchPipeline` | `SearchDelegator` 通过构造函数注入依赖 |
+| `FileBridge --|> BookmarkPipeline` | `BookmarkDelegator` 组合到 FileBridge |
+| `FileBridge --|> LayerPipelineMixin` | `LayerPipelineDelegator` 负责流水线 |
+| 内部状态分散在 FileBridge | 新增 `SessionManager`, `CacheManager`, `WorkerRegistry` |
+
+### 3.3 API 端点分类
 
 ```mermaid
 graph TB
@@ -313,15 +336,20 @@ graph TB
     API --> SYS1 & SYS2 & SYS3 & SYS4 & SYS5
 ```
 
-### 3.3 FileBridge 核心类
+### 3.4 FileBridge 核心类（重构后）
 
 ```mermaid
 classDiagram
     class FileBridge {
-        -Dict _sessions
+        -Dict~str, LogSession~ _sessions
         -LayerRegistry _registry
         -ThreadPoolExecutor executor
-        -int _executor_max_workers
+        -SessionManager session_manager
+        -CacheManager cache_manager
+        -WorkerRegistry worker_registry
+        -SearchDelegator search_delegator
+        -BookmarkDelegator bookmark_delegator
+        -LayerPipelineDelegator layer_pipeline_delegator
         +fileLoaded: Signal
         +pipelineFinished: Signal
         +statsFinished: Signal
@@ -331,6 +359,49 @@ classDiagram
         +read_processed_lines(file_id, start, count) str
         +search_ripgrep(file_id, query, regex, case_sensitive)
         +get_layer_registry() str
+        +_ensure_delegators()
+    }
+    
+    class SessionManager {
+        +create_session(file_id, path) LogSession
+        +get_session(file_id) LogSession
+        +close_session(file_id)
+        +sessions: Dict~str, LogSession~
+    }
+    
+    class CacheManager {
+        +create_rendering_cache() RenderingCache
+        +get_stats(config_hash) Optional~Dict~
+        +put_stats(config_hash, stats)
+        +invalidate_stats(config_hash)
+    }
+    
+    class WorkerRegistry {
+        +register_worker(file_id, worker)
+        +unregister_worker(file_id)
+        +get_worker(file_id, type) Optional~Worker~
+    }
+    
+    class SearchDelegator {
+        -_get_session: Callable
+        -_pipeline_finished: Optional~Callable~
+        +get_search_match_index(file_id, rank) int
+        +is_search_match(file_id, index) bool
+        +get_search_rank_for_index(file_id, index) int
+    }
+    
+    class BookmarkDelegator {
+        -_get_session: Callable
+        +toggle_bookmark(file_id, line_index) Dict
+        +get_bookmarks(file_id) Dict
+    }
+    
+    class LayerPipelineDelegator {
+        -_get_session: Callable
+        -_registry: LayerRegistry
+        -_worker_registry: WorkerRegistry
+        +sync_layers(file_id, layers_json) bool
+        +sync_decorations(file_id, layers_json) bool
     }
     
     class LogSession {
@@ -347,39 +418,16 @@ classDiagram
         +close()
     }
     
-    class SearchPipeline {
-        +get_search_match_index()
-        +is_search_match()
-        +get_search_rank_for_index()
-        +get_nearest_search_rank()
-        +get_next_search_match()
-        +get_search_matches_range()
-        +physical_to_visual_index()
-    }
-    
-    class BookmarkPipeline {
-        +toggle_bookmark()
-        +get_bookmarks()
-        +update_bookmark_comment()
-        +get_nearest_bookmark_index()
-        +clear_bookmarks()
-    }
-    
-    class LayerPipelineMixin {
-        +sync_layers()
-        +sync_decorations()
-        -_start_pipeline()
-        -_start_stats_worker()
-        -_on_pipeline_finished()
-    }
-    
-    FileBridge --|> SearchPipeline
-    FileBridge --|> BookmarkPipeline
-    FileBridge --|> LayerPipelineMixin
+    FileBridge --> SessionManager
+    FileBridge --> CacheManager
+    FileBridge --> WorkerRegistry
+    FileBridge --> SearchDelegator
+    FileBridge --> BookmarkDelegator
+    FileBridge --> LayerPipelineDelegator
     FileBridge --> LogSession : manages
 ```
 
-### 3.4 后台工作线程
+### 3.5 后台工作线程
 
 ```mermaid
 classDiagram
@@ -448,6 +496,7 @@ graph TB
     subgraph "Provider 层"
         SETTINGS[SettingsProvider]
         SHORTCUTS[ShortcutProvider]
+        WORKSPACE[WorkspaceContext<br/>新增]
     end
     
     subgraph "布局层"
@@ -487,10 +536,11 @@ graph TB
     
     APP --> SETTINGS
     SETTINGS --> SHORTCUTS
-    SHORTCUTS --> HEADER
-    SHORTCUTS --> SIDEBAR
-    SHORTCUTS --> SIDEBAR_PANEL
-    SHORTCUTS --> MAIN
+    SHORTCUTS --> WORKSPACE
+    WORKSPACE --> HEADER
+    WORKSPACE --> SIDEBAR
+    WORKSPACE --> SIDEBAR_PANEL
+    WORKSPACE --> MAIN
     
     SIDEBAR_PANEL --> UNIFIED
     UNIFIED --> FILE_TREE
@@ -513,7 +563,49 @@ graph TB
     MODALS --> PLUGIN
 ```
 
-### 4.2 自定义 Hooks 依赖图
+### 4.2 新增：WorkspaceContext
+
+```mermaid
+classDiagram
+    class WorkspaceProvider {
+        +files: FileData[]
+        +panes: Pane[]
+        +activeFileId: string | null
+        +activePaneId: string | null
+        +setFiles()
+        +setPanes()
+        +setActiveFileId()
+        +setActivePaneId()
+    }
+    
+    class FileData {
+        +string id
+        +string name
+        +number size
+        +number lineCount
+        +number rawCount
+        +LogLayer[] layers
+        +Record~number, string~ bookmarks
+        +boolean isBridged
+        +string path?
+    }
+    
+    class Pane {
+        +string id
+        +string[] openFileIds
+        +string activeFileId
+        +string direction?
+        +Pane[] children?
+        +boolean findVisible
+        +string searchQuery?
+        +number searchMatchCount?
+    }
+    
+    WorkspaceProvider --> FileData
+    WorkspaceProvider --> Pane
+```
+
+### 4.3 自定义 Hooks 依赖图
 
 ```mermaid
 graph TB
@@ -574,13 +666,14 @@ graph TB
     UI_STATE --> SHORTCUTS
 ```
 
-### 4.3 状态管理架构
+### 4.4 状态管理架构
 
 ```mermaid
 graph TB
     subgraph "Context Providers"
         SETTINGS_CTX[SettingsContext<br/>21 个设置项]
         SHORTCUT_CTX[ShortcutContext<br/>快捷键映射]
+        WORKSPACE_CTX[WorkspaceContext<br/>新增 - 文件/面板状态]
     end
     
     subgraph "文件状态 - useFileManagement"
@@ -610,14 +703,15 @@ graph TB
         PROCESSING[isProcessing: boolean]
     end
     
-    SETTINGS_CTX --> FILES_STATE
+    SETTINGS_CTX --> WORKSPACE_CTX
+    WORKSPACE_CTX --> FILES_STATE
     FILES_STATE --> LAYERS_STATE
     FILES_STATE --> PANES_STATE
     LAYERS_STATE --> SEARCH
     UI_STATE --> VIEW
 ```
 
-### 4.4 Bridge Client 通信架构
+### 4.5 Bridge Client 通信架构
 
 ```mermaid
 sequenceDiagram
@@ -645,6 +739,7 @@ sequenceDiagram
     FE->>BC: sync_layers(fileId, layers)
     BC->>API: POST /api/sync_layers
     API->>BE: bridge.sync_layers()
+    BE->>BE: LayerPipelineDelegator.sync_layers()
     BE->>BE: PipelineWorker.start()
     BE->>WS: broadcast_signal("pipelineFinished")
     WS-->>BC: onmessage → pipelineFinished.emit()
@@ -907,7 +1002,7 @@ sequenceDiagram
     BC->>API: POST /api/open_file
     API->>BR: bridge.open_file()
     
-    BR->>BR: 创建 LogSession
+    BR->>BR: SessionManager.create_session()
     BR->>BR: mmap 映射文件
     BR->>IW: 启动 IndexingWorker
     
@@ -967,7 +1062,7 @@ sequenceDiagram
     LV->>LV: Canvas 渲染
 ```
 
-### 6.3 图层同步流程
+### 6.3 图层同步流程（重构后）
 
 ```mermaid
 sequenceDiagram
@@ -976,6 +1071,7 @@ sequenceDiagram
     participant BC as bridge_client
     participant API as FastAPI
     participant BR as FileBridge
+    participant DELEGATOR[LayerPipelineDelegator]
     participant PW as PipelineWorker
     participant SW as StatsWorker
     participant WS as WebSocket
@@ -985,23 +1081,24 @@ sequenceDiagram
     BC->>API: POST /api/sync_layers
     API->>BR: bridge.sync_layers()
     
-    BR->>BR: 解析 layers JSON
-    BR->>BR: 创建图层实例
-    BR->>BR: 分离 layer/rendering instances
-    BR->>PW: 启动 PipelineWorker
+    BR->>DELEGATOR: sync_layers(file_id, layers_json)
+    DELEGATOR->>DELEGATOR: 解析 layers JSON
+    DELEGATOR->>DELEGATOR: 创建图层实例
+    DELEGATOR->>DELEGATOR: 分离 layer/rendering instances
+    DELEGATOR->>PW: 启动 PipelineWorker
     
     PW->>PW: 构建 ripgrep 命令链
     PW->>PW: 执行 NATIVE 阶段
     PW->>PW: 执行 LOGIC 阶段
-    PW->>BR: finished(indices, matches)
+    PW->>DELEGATOR: finished(indices, matches)
     
-    BR->>WS: pipelineFinished 信号
+    DELEGATOR->>WS: pipelineFinished 信号
     WS->>FE: 更新 visible_indices
     
-    BR->>SW: 启动 StatsWorker
+    DELEGATOR->>SW: 启动 StatsWorker
     SW->>SW: 并行计算图层统计
-    SW->>BR: finished(stats)
-    BR->>WS: statsFinished 信号
+    SW->>DELEGATOR: finished(stats)
+    DELEGATOR->>WS: statsFinished 信号
     WS->>FE: 更新图层统计
 ```
 
@@ -1214,6 +1311,18 @@ flowchart TB
         REGISTRY[LayerRegistry]
     end
     
+    subgraph "OOP 组件层（新增）"
+        SESSION_MGR[SessionManager]
+        CACHE_MGR[CacheManager]
+        WORKER_REG[WorkerRegistry]
+    end
+    
+    subgraph "Delegator 层（新增）"
+        SEARCH_DEL[SearchDelegator]
+        BOOKMARK_DEL[BookmarkDelegator]
+        PIPELINE_DEL[LayerPipelineDelegator]
+    end
+    
     subgraph "处理引擎层"
         WORKERS[ThreadPoolExecutor]
         INDEXING[IndexingWorker]
@@ -1242,14 +1351,22 @@ flowchart TB
     WS --> FASTAPI
     FASTAPI --> FILEBRIDGE
     FILEBRIDGE --> REGISTRY
-    FILEBRIDGE --> WORKERS
+    FILEBRIDGE --> SESSION_MGR
+    FILEBRIDGE --> CACHE_MGR
+    FILEBRIDGE --> WORKER_REG
+    FILEBRIDGE --> SEARCH_DEL
+    FILEBRIDGE --> BOOKMARK_DEL
+    FILEBRIDGE --> PIPELINE_DEL
+    
+    SESSION_MGR --> WORKERS
+    WORKER_REG --> WORKERS
     
     WORKERS --> INDEXING
     WORKERS --> PIPELINE
     WORKERS --> STATS
     
-    PIPELINE --> NATIVE
-    PIPELINE --> LOGIC
+    PIPELINE_DEL --> NATIVE
+    PIPELINE_DEL --> LOGIC
     FILEBRIDGE --> RENDERING
     
     INDEXING --> MMAP
@@ -1270,6 +1387,8 @@ flowchart TB
 | 图层流水线 | 3 阶段分离 | NATIVE 最快，LOGIC 灵活，RENDERING 按需 |
 | 状态管理 | 纯 Hooks + Context | 避免 Redux 复杂性，保持代码简洁 |
 | 类型同步 | 手动 Mirror 注释 | 灵活可控，适合中小型项目 |
+| OOP 重构 | 组合 > 继承 | 消除 Mixin 依赖，更清晰的责任分离 |
+| 新增组件 | WorkspaceContext | 统一管理文件/面板状态，避免 prop drilling |
 
 ---
 
@@ -1277,8 +1396,10 @@ flowchart TB
 
 | 想了解... | 请阅读 |
 |:----------|:-------|
-| 后端 API 端点 | [第 3.2 节](#32-api-端点分类) |
+| 后端 API 端点 | [第 3.3 节](#33-api-端点分类) |
 | 前端组件层级 | [第 4.1 节](#41-组件层级结构) |
+| OOP 重构说明 | [第 3.2 节](#32-oop-重构说明) |
+| 新增 WorkspaceContext | [第 4.2 节](#42-新增workspacecontext) |
 | 图层类继承 | [第 5.1 节](#51-图层类继承层次) |
 | 三阶段流水线 | [第 5.2 节](#52-三阶段流水线) |
 | 文件打开流程 | [第 6.1 节](#61-文件打开流程) |
@@ -1287,5 +1408,5 @@ flowchart TB
 
 ---
 
-*文档生成时间: 2026-03-23*
-*基于 LogLayer 项目架构分析*
+*文档生成时间: 2026-03-28*
+*基于 LogLayer 项目 OOP 重构后架构分析*
