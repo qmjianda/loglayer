@@ -572,15 +572,20 @@ graph TB
 
 > **注意**: 文档早期版本曾描述 WorkspaceContext Provider，但当前实现使用 **Hooks 组合模式** 替代了 Context Provider。状态通过 `useFileManagement` 和 `usePaneManagement` 管理，通过 props 传递到子组件。
 
+**核心概念**：
+- `activeFileId` 是 **Pane（面板）级别** 的属性，不是全局状态
+- 每个 Pane 维护自己的 `openFileIds[]` 和 `activeFileId`
+- 支持多窗口分割，每个窗口独立跟踪激活文件
+
 ```mermaid
 classDiagram
     class useFileManagement {
         +files: FileData[]
-        +activeFileId: string | null
         +panes: Pane[]
+        +activePaneId: string | null
         +setFiles()
-        +setActiveFileId()
         +setPanes()
+        +setActivePaneId()
     }
     
     class usePaneManagement {
@@ -602,10 +607,10 @@ classDiagram
     
     class Pane {
         +string id
-        +string[] openFileIds
-        +string activeFileId
-        +string direction?
-        +Pane[] children?
+        +string[] openFileIds        // 该面板中打开的文件列表
+        +string activeFileId         // ⚡ 当前激活的文件（标签页切换用）
+        +string direction?           // 分割方向
+        +Pane[] children?            // 嵌套分割
         +boolean findVisible
         +string searchQuery?
         +number searchMatchCount?
@@ -615,6 +620,11 @@ classDiagram
     useFileManagement --> Pane
     usePaneManagement ..> useFileManagement : uses panes
 ```
+
+**activeFileId 的作用**：
+1. **标签页切换**：用户点击不同标签时，更新当前 Pane 的 `activeFileId`
+2. **状态隔离**：搜索、过滤、书签等状态按 `activeFileId` 隔离存储
+3. **UI 显示**：状态栏、行号等信息来自当前 `activeFileId` 对应的文件
 
 ### 4.3 自定义 Hooks 依赖图
 
