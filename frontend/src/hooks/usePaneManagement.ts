@@ -1,7 +1,40 @@
 import React, { useCallback } from 'react';
-import { Pane, FileData } from './useFileManagement';
+import { FileData } from './useFileManagement';
 
 export const MAX_PANES = 99;
+
+// Pane interface - defining it here for clarity
+export interface Pane {
+    id: string;
+    openFileIds: string[];
+    activeFileId: string | null;
+    direction?: 'horizontal' | 'vertical';
+    children?: Pane[];
+    findVisible?: boolean;
+    goToLineVisible?: boolean;
+    searchQuery?: string;
+    searchConfig?: {
+        regex: boolean;
+        caseSensitive: boolean;
+    };
+    scrollToIndex?: number | null;
+    searchMatchCount?: number;
+    currentMatchRank?: number;
+}
+
+export function createPane(id?: string): Pane {
+    return {
+        id: id || `pane-${Date.now()}`,
+        openFileIds: [],
+        activeFileId: null,
+        findVisible: false,
+        goToLineVisible: false,
+        searchQuery: '',
+        searchConfig: { regex: false, caseSensitive: false },
+        scrollToIndex: null,
+        currentMatchRank: -1
+    };
+}
 
 export interface UsePaneManagementReturn {
     splitPane: (sourcePaneId: string, fileId?: string, position?: 'left' | 'right' | 'top' | 'bottom') => void;

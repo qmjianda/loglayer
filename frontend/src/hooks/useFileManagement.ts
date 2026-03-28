@@ -9,6 +9,10 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { LogLayer, ProcessedCache } from '../types';
 import { openFile, closeFile, selectFiles, selectFolder, hasNativeDialogs } from '../bridge_client';
 import { basename, removeFromSet } from '../utils';
+import { Pane, createPane } from './usePaneManagement';
+
+// Re-export Pane for backward compatibility
+export type { Pane } from './usePaneManagement';
 
 // File data interface - exported for use in other modules
 export interface FileData {
@@ -32,52 +36,11 @@ interface FileWithPath extends File {
     path?: string;
 }
 
-// Pane interface for split view support
-// Can be either a leaf node (has files) or a container node (has split children)
-export interface Pane {
-    id: string;
-    // Leaf node properties
-    openFileIds: string[];
-    activeFileId: string | null;
-    // Container node properties (for nested splits)
-    direction?: 'horizontal' | 'vertical';
-    children?: Pane[];
-    // Per-pane floating widget state
-    findVisible?: boolean;
-    goToLineVisible?: boolean;
-    // Per-pane search state
-    searchQuery?: string;
-    searchConfig?: {
-        regex: boolean;
-        caseSensitive: boolean;
-    };
-    // Navigation state
-    scrollToIndex?: number | null;
-    // Per-pane search match state
-    searchMatchCount?: number;
-    currentMatchRank?: number;
-}
-
 // In-memory cache for bridged file line counts
 const bridgedCounts: Record<string, number> = {};
 
 function getBridgedCount(fileId: string): number | undefined {
     return bridgedCounts[fileId];
-}
-
-// Helper to create a new pane with empty tabs
-export function createPane(id?: string): Pane {
-    return {
-        id: id || `pane-${Date.now()}`,
-        openFileIds: [],
-        activeFileId: null,
-        findVisible: false,
-        goToLineVisible: false,
-        searchQuery: '',
-        searchConfig: { regex: false, caseSensitive: false },
-        scrollToIndex: null,
-        currentMatchRank: -1
-    };
 }
 
 export function findPaneRecursive(panes: Pane[], id: string): Pane | undefined {
