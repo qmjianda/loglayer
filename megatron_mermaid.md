@@ -575,45 +575,50 @@ graph TB
 ```mermaid
 classDiagram
     class UnifiedPanel {
-        +workspaceRoot: {path, name}
-        +files: FileData[]
-        +layers: LogLayer[]
-        +layerStats: Record
-        +selectedLayerId: string
-        +bookmarks: Record
-        +presets: LayerPreset[]
+        +workspaceRoot
+        +files
+        +layers
+        +layerStats
+        +selectedLayerId
+        +bookmarks
+        +presets
         +onOpenFileByPath()
-        +onLayerDrop/dRemove/dToggle/dUpdate()
+        +onLayerDrop()
+        +onLayerRemove()
+        +onLayerToggle()
+        +onLayerUpdate()
         +onAddLayer()
-        +onPresetApply/dDelete/dSave()
+        +onPresetApply()
+        +onPresetDelete()
+        +onPresetSave()
     }
     
     class LayersPanel {
-        +layers: LogLayer[]
-        +stats: Record
-        +selectedId: string
-        +onSelect(id)
-        +onRemove(id)
-        +onToggle(id)
-        +onUpdate(id, config)
-        +onDrop(draggedId, targetId, position)
-        +onJumpToLine(index)
+        +layers
+        +stats
+        +selectedId
+        +onSelect()
+        +onRemove()
+        +onToggle()
+        +onUpdate()
+        +onDrop()
+        +onJumpToLine()
     }
     
     class LayerItem {
-        +id: string
-        +name: string
-        +type: LayerType
-        +enabled: boolean
-        +isLocked?: boolean
-        +isCollapsed?: boolean
-        +config: LayerConfig
+        +id
+        +name
+        +type
+        +enabled
+        +isLocked
+        +isCollapsed
+        +config
     }
     
     class DynamicForm {
-        +uiSchema: LayerUIField[]
-        +values: Record
-        +onChange(field, value)
+        +uiSchema
+        +values
+        +onChange()
     }
     
     class FileTree {
