@@ -303,7 +303,7 @@ export async function readProcessedLines(fileId: string, start: number, count: n
 
 export async function syncAll(fileId: string, layers: LogLayer[], search: SyncSearchConfig): Promise<void> {
     if (!fileBridge) return;
-    fileBridge.sync_all(fileId, JSON.stringify(layers), JSON.stringify(search));
+    await fileBridge.sync_all(fileId, JSON.stringify(layers), JSON.stringify(search));
 }
 
 /**
