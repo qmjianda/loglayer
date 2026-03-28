@@ -284,38 +284,35 @@ const AppContent: React.FC = () => {
   const highlightedIndexRef = useRef(highlightedIndex);
   highlightedIndexRef.current = highlightedIndex;
 
+  const lineCount = activeFile?.lineCount ?? 0;
   useEffect(() => {
     if (!searchQuery || !activeFileId || searchMatchCount === 0) return;
     
     const currentHighlighted = highlightedIndexRef.current;
     if (currentHighlighted === null || currentHighlighted < 0) return;
     
-    const checkAndNavigate = async () => {
+    const timer = setTimeout(async () => {
       const { getSearchRankForIndex, getNearestSearchRank, getSearchMatchIndex } = await import('./bridge_client');
       
       const currentRank = await getSearchRankForIndex(activeFileId, currentHighlighted);
       
-      console.log('[AutoJump] searchMatchCount:', searchMatchCount, 'highlightedIndex:', currentHighlighted, 'currentRank:', currentRank);
-      
       if (currentRank >= 0) {
-        console.log('[AutoJump] Current line is match, staying at rank:', currentRank);
         setCurrentMatchRank(currentRank);
       } else {
-        console.log('[AutoJump] Current line is not match, finding nearest...');
         const nearestRank = await getNearestSearchRank(activeFileId, currentHighlighted, 'next');
         if (nearestRank >= 0) {
           const nearestIndex = await getSearchMatchIndex(activeFileId, nearestRank);
           if (nearestIndex >= 0) {
-            console.log('[AutoJump] Jumping to nearest rank:', nearestRank, 'index:', nearestIndex);
             setCurrentMatchRank(nearestRank);
-            handleJumpToLine(nearestIndex, activeFile?.lineCount || 0);
+            handleJumpToLine(nearestIndex, lineCount);
           }
         }
       }
-    };
+    }, 100);
     
-    checkAndNavigate();
-  }, [searchMatchCount, searchQuery, activeFileId, setCurrentMatchRank, handleJumpToLine, activeFile?.lineCount]);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchMatchCount, searchQuery, activeFileId]);
 
   // ===== 文件监视 (File Watch) =====
   const {
