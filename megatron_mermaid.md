@@ -780,12 +780,13 @@ graph TB
 
 ### 4.5 状态管理架构
 
+> **注意**：文档早期版本曾描述 `WorkspaceContext`，但当前实现使用 **Hooks 组合模式**，无独立 Context Provider。
+
 ```mermaid
 graph TB
     subgraph "Context Providers"
         SETTINGS_CTX[SettingsContext<br/>21 个设置项]
         SHORTCUT_CTX[ShortcutContext<br/>快捷键映射]
-        WORKSPACE_CTX[WorkspaceContext<br/>新增 - 文件/面板状态]
     end
     
     subgraph "文件状态 - useFileManagement"
@@ -795,6 +796,12 @@ graph TB
         INDEXING[indexingFileIds: Set<br/>加载中文件]
     end
     
+    subgraph "Pane 视图状态 - Pane"
+        PANE_SCROLL[scrollToIndex<br/>滚动位置]
+        PANE_FIND[findVisible<br/>搜索框显隐]
+        PANE_SEARCH[searchQuery<br/>搜索关键词]
+    end
+    
     subgraph "图层状态 - useLayerManagement"
         LAYERS_STATE[layers: LogLayer[]<br/>当前文件图层]
         UNDO_REDO[past/future: LogLayer[][]<br/>撤销重做历史]
@@ -802,25 +809,24 @@ graph TB
     end
     
     subgraph "搜索状态 - useSearch"
-        QUERY[searchQuery: string]
-        CONFIG[searchConfig: {regex, caseSensitive}]
-        RANK[currentMatchRank: number]
-        HISTORY[searchHistory: string[]]
+        SEARCH_QUERY[searchQuery: string]
+        SEARCH_CONFIG[searchConfig<br/>{regex, caseSensitive}]
+        SEARCH_RANK[currentMatchRank<br/>当前匹配排名]
     end
     
     subgraph "UI 状态 - useUIState"
-        VIEW[activeView: main/help]
-        WIDTH[sidebarWidth: number]
-        SCROLL[scrollToIndex: number?]
-        PROCESSING[isProcessing: boolean]
+        VIEW[activeView<br/>main/help]
+        SIDEBAR_WIDTH[sidebarWidth<br/>侧边栏宽度]
+        PROCESSING[isProcessing<br/>处理中标志]
     end
     
-    SETTINGS_CTX --> WORKSPACE_CTX
-    WORKSPACE_CTX --> FILES_STATE
-    FILES_STATE --> LAYERS_STATE
+    SETTINGS_CTX --> FILES_STATE
     FILES_STATE --> PANES_STATE
-    LAYERS_STATE --> SEARCH
-    UI_STATE --> VIEW
+    FILES_STATE --> LAYERS_STATE
+    PANES_STATE --> PANE_SCROLL
+    PANES_STATE --> PANE_FIND
+    PANES_STATE --> PANE_SEARCH
+    LAYERS_STATE --> SEARCH_QUERY
 ```
 
 ### 4.6 Bridge Client 通信架构
