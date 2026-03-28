@@ -573,9 +573,9 @@ graph TB
 > **注意**: 文档早期版本曾描述 WorkspaceContext Provider，但当前实现使用 **Hooks 组合模式** 替代了 Context Provider。状态通过 `useFileManagement` 和 `usePaneManagement` 管理，通过 props 传递到子组件。
 
 **核心概念**：
-- `activeFileId` 是 **Pane（面板）级别** 的属性，不是全局状态
-- 每个 Pane 维护自己的 `openFileIds[]` 和 `activeFileId`
-- 支持多窗口分割，每个窗口独立跟踪激活文件
+- `activeFileId` 是 **Pane（面板）级别** 的属性，用于标签页切换
+- **文件内容状态**（如高亮行、搜索）存储在 `FileData` 中，而非 `Pane`
+- 支持多窗口分割，同一文件在不同 Pane 中共享内容状态
 
 ```mermaid
 classDiagram
@@ -603,28 +603,31 @@ classDiagram
         +Record~number, string~ bookmarks
         +boolean isBridged
         +string path?
+        -- 文件内容状态 --
+        +number highlightedIndex    -- ⚡ 高亮行（文件级别）
+        +string searchQuery         -- 搜索关键词
+        +SearchConfig searchConfig  -- 搜索配置
+        +boolean findVisible        -- 搜索框显隐
     }
     
     class Pane {
         +string id
-        +string[] openFileIds        // 该面板中打开的文件列表
-        +string activeFileId         // ⚡ 当前激活的文件（标签页切换用）
-        +string direction?           // 分割方向
-        +Pane[] children?            // 嵌套分割
-        +boolean findVisible
-        +string searchQuery?
-        +number searchMatchCount?
+        +string[] openFileIds        -- 该面板中打开的文件列表
+        +string activeFileId         -- ⚡ 当前激活的文件（标签页切换用）
+        +string direction?           -- 分割方向
+        +Pane[] children?            -- 嵌套分割
     }
     
     useFileManagement --> FileData
     useFileManagement --> Pane
     usePaneManagement ..> useFileManagement : uses panes
+    Pane --> FileData : references via activeFileId
 ```
 
-**activeFileId 的作用**：
-1. **标签页切换**：用户点击不同标签时，更新当前 Pane 的 `activeFileId`
-2. **状态隔离**：搜索、过滤、书签等状态按 `activeFileId` 隔离存储
-3. **UI 显示**：状态栏、行号等信息来自当前 `activeFileId` 对应的文件
+**设计原则**：
+- **Pane（面板）**：仅管理布局和文件列表，不存储文件内容状态
+- **FileData（文件数据）**：存储文件内容相关状态，如高亮行、搜索、书签等
+- **同一文件多开**：同一文件在多个 Pane 中打开时，共享 `FileData`，状态同步
 
 ### 4.3 自定义 Hooks 依赖图
 

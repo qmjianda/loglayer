@@ -41,7 +41,6 @@ function removePaneFromTree(panes: Pane[], targetId: string): Pane[] {
                 goToLineVisible: false,
                 searchQuery: '',
                 searchConfig: { regex: false, caseSensitive: false },
-                highlightedIndex: null,
                 scrollToIndex: null,
                 searchMatchCount: 0,
                 currentMatchRank: -1
@@ -322,7 +321,7 @@ function renderPaneTree(
                         currentMatchNumber={pane.currentMatchRank !== undefined ? pane.currentMatchRank + 1 : 0}
                         processedCache={processedCache}
                         scrollToIndex={isPaneActive ? scrollToIndex : pane.scrollToIndex || null}
-                        highlightedIndex={pane.highlightedIndex ?? null}
+                        highlightedIndex={paneFile?.highlightedIndex ?? null}
                         indexingFileIds={indexingFileIds}
                         pendingCliFiles={pendingCliFiles}
                         bridgedUpdateTrigger={bridgedUpdateTrigger}
@@ -345,12 +344,11 @@ function renderPaneTree(
                         onSplitTabDown={(fileId: string) => handleSplitTabDown(pane.id, fileId)}
                         onLineClick={(idx) => {
                             if (!isPaneActive) setActivePaneId(pane.id);
-                            setHighlightedIndex(idx);
-                            // Also update pane-specific index for cross-pane context retention
-                            setPanes(prev => updatePaneInTree(prev, pane.id, (p) => ({
-                                ...p,
-                                highlightedIndex: idx
-                            })));
+                            if (paneFileId) {
+                                setFiles(prev => prev.map(f => 
+                                    f.id === paneFileId ? { ...f, highlightedIndex: idx } : f
+                                ));
+                            }
                         }}
                         onAddLayer={addLayer}
                         bookmarks={paneFile?.bookmarks || {}}

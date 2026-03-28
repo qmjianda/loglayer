@@ -30,8 +30,6 @@ export interface UseUIStateReturn {
 
     scrollToIndex: number | null;
     setScrollToIndex: (index: number | null) => void;
-    highlightedIndex: number | null;
-    setHighlightedIndex: (index: number | null) => void;
 
     isProcessing: boolean;
     setIsProcessing: (processing: boolean) => void;
@@ -75,7 +73,6 @@ export function useUIState({
     const [sidebarWidth, setSidebarWidth] = useState(288);
 
     const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
-    const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [loadingProgress, setLoadingProgress] = useState(0);
@@ -144,7 +141,6 @@ export function useUIState({
         const boundedIndex = Math.max(0, Math.min(index, totalLines - 1));
 
         setScrollToIndex(boundedIndex);
-        setHighlightedIndex(boundedIndex);
 
         setTimeout(() => {
             setScrollToIndex(null);
@@ -152,23 +148,18 @@ export function useUIState({
     }, []);
 
     const handleLogViewerInteraction = useCallback(() => {
-        if (highlightedIndex !== null) {
-            setHighlightedIndex(null);
-        }
         if (!isFindVisible && searchQuery) {
             setSearchQuery('');
         }
-    }, [highlightedIndex, isFindVisible, searchQuery, setSearchQuery]);
+    }, [isFindVisible, searchQuery, setSearchQuery]);
 
-return {
+    return {
         activeView,
         setActiveView,
         sidebarWidth,
         setSidebarWidth,
         scrollToIndex,
         setScrollToIndex,
-        highlightedIndex,
-        setHighlightedIndex,
         isProcessing,
         setIsProcessing,
         loadingProgress,

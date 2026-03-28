@@ -268,8 +268,6 @@ const AppContent: React.FC = () => {
     setSidebarWidth,
     scrollToIndex,
     setScrollToIndex,
-    highlightedIndex,
-    setHighlightedIndex,
     isProcessing,
     setIsProcessing,
     loadingProgress,
@@ -277,18 +275,33 @@ const AppContent: React.FC = () => {
     operationStatus,
     setOperationStatus,
     workspaceRoot,
-    setWorkspaceRoot,
-    handleJumpToLine
+    setWorkspaceRoot
   } = uiState;
 
-  const highlightedIndexRef = useRef(highlightedIndex);
-  highlightedIndexRef.current = highlightedIndex;
+  const handleJumpToLine = useCallback((index: number, totalLines: number) => {
+    if (totalLines === 0 || !activeFileId) return;
+    const boundedIndex = Math.max(0, Math.min(index, totalLines - 1));
+    setScrollToIndex(boundedIndex);
+    setFiles(prev => prev.map(f => 
+      f.id === activeFileId ? { ...f, highlightedIndex: boundedIndex } : f
+    ));
+    setTimeout(() => setScrollToIndex(null), 150);
+  }, [activeFileId, setScrollToIndex, setFiles]);
+
+  const handleLineClick = useCallback((index: number) => {
+    if (!activeFileId) return;
+    setFiles(prev => prev.map(f => 
+      f.id === activeFileId ? { ...f, highlightedIndex: index } : f
+    ));
+  }, [activeFileId, setFiles]);
+
+  const activeHighlightedIndex = activeFile?.highlightedIndex ?? null;
 
   const lineCount = activeFile?.lineCount ?? 0;
   useEffect(() => {
     if (!searchQuery || !activeFileId || searchMatchCount === 0) return;
     
-    const currentHighlighted = highlightedIndexRef.current;
+    const currentHighlighted = activeHighlightedIndex;
     if (currentHighlighted === null || currentHighlighted < 0) return;
     
     const timer = setTimeout(async () => {
@@ -405,8 +418,13 @@ const AppContent: React.FC = () => {
   // ===== 书签快捷键导航 (Bookmark Shortcuts) =====
   useBookmarkLogic({
     activeFileId,
-    highlightedIndex,
-    setHighlightedIndex,
+    highlightedIndex: activeHighlightedIndex,
+    setHighlightedIndex: (idx) => {
+      if (!activeFileId) return;
+      setFiles(prev => prev.map(f => 
+        f.id === activeFileId ? { ...f, highlightedIndex: idx } : f
+      ));
+    },
     setScrollToIndex
   });
 
@@ -425,13 +443,13 @@ const AppContent: React.FC = () => {
   const findNextSearchMatchWithJump = useCallback(async (direction: 'next' | 'prev', overrideMatchCount?: number) => {
     const matchCount = overrideMatchCount ?? processedCache[activeFileId ?? '']?.searchMatchCount ?? 0;
     if (matchCount === 0) return;
-    const startIndex = highlightedIndex !== null ? highlightedIndex : null;
+    const startIndex = activeHighlightedIndex !== null ? activeHighlightedIndex : null;
     const result = await getNextSearchMatch(activeFileId!, startIndex ?? -1, direction);
     if (result.index !== -1) {
       handleJumpToLine(result.index, activeFile?.lineCount || 0);
       setCurrentMatchRank(result.rank);
     }
-  }, [handleJumpToLine, activeFile?.lineCount, highlightedIndex, processedCache, activeFileId, setCurrentMatchRank]);
+  }, [handleJumpToLine, activeFile?.lineCount, activeHighlightedIndex, processedCache, activeFileId, setCurrentMatchRank]);
 
   // 增强版：激活文件，并确保其在后端也处于同步状态
   const handleFileActivateWithLoad = useCallback((fileId: string) => {
@@ -803,8 +821,13 @@ const AppContent: React.FC = () => {
           files={files}
           activePaneId={activePaneId}
           scrollToIndex={scrollToIndex}
-          highlightedIndex={highlightedIndex}
-          setHighlightedIndex={setHighlightedIndex}
+          highlightedIndex={activeHighlightedIndex}
+          setHighlightedIndex={(idx) => {
+            if (!activeFileId) return;
+            setFiles(prev => prev.map(f => 
+              f.id === activeFileId ? { ...f, highlightedIndex: idx } : f
+            ));
+          }}
           indexingFileIds={indexingFileIds}
           pendingCliFiles={pendingCliFiles}
           bridgedUpdateTrigger={bridgedUpdateTrigger}
@@ -838,7 +861,7 @@ const AppContent: React.FC = () => {
         isLayerProcessing={false}
         operationStatus={operationStatus}
         searchMatchCount={searchMatchCount}
-        currentLine={(highlightedIndex !== null) ? highlightedIndex + 1 : undefined}
+        currentLine={(activeHighlightedIndex !== null) ? activeHighlightedIndex + 1 : undefined}
         pendingCliFiles={pendingCliFiles}
         performanceMetrics={{
           fps: 60,

@@ -54,7 +54,6 @@ function removePaneFromTree(panes: Pane[], targetId: string): Pane[] {
                 goToLineVisible: false,
                 searchQuery: '',
                 searchConfig: { regex: false, caseSensitive: false },
-                highlightedIndex: null,
                 scrollToIndex: null,
                 searchMatchCount: 0,
                 currentMatchRank: -1

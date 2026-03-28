@@ -25,6 +25,7 @@ export interface FileData {
         past: LogLayer[][];
         future: LogLayer[][];
     };
+    highlightedIndex?: number | null;
 }
 
 interface FileWithPath extends File {
@@ -50,12 +51,11 @@ export interface Pane {
         regex: boolean;
         caseSensitive: boolean;
     };
-    // Per-pane highlight and navigation state
-    highlightedIndex?: number | null;
+    // Navigation state
     scrollToIndex?: number | null;
     // Per-pane search match state
     searchMatchCount?: number;
-    currentMatchRank?: number;  // 0-indexed, 用于导航
+    currentMatchRank?: number;
 }
 
 // In-memory cache for bridged file line counts
@@ -75,7 +75,6 @@ export function createPane(id?: string): Pane {
         goToLineVisible: false,
         searchQuery: '',
         searchConfig: { regex: false, caseSensitive: false },
-        highlightedIndex: null,
         scrollToIndex: null,
         currentMatchRank: -1
     };
