@@ -568,7 +568,87 @@ graph TB
     MODALS --> PLUGIN
 ```
 
-### 4.2 状态管理：Hooks 组合模式
+### 4.2 侧边栏与图层面板架构
+
+侧边栏采用 **UnifiedPanel** 容器模式，整合文件树、图层管理、预设等功能。
+
+```mermaid
+classDiagram
+    class UnifiedPanel {
+        +workspaceRoot: {path, name}
+        +files: FileData[]
+        +layers: LogLayer[]
+        +layerStats: Record
+        +selectedLayerId: string
+        +bookmarks: Record
+        +presets: LayerPreset[]
+        +onOpenFileByPath()
+        +onLayerDrop/dRemove/dToggle/dUpdate()
+        +onAddLayer()
+        +onPresetApply/dDelete/dSave()
+    }
+    
+    class LayersPanel {
+        +layers: LogLayer[]
+        +stats: Record
+        +selectedId: string
+        +onSelect(id)
+        +onRemove(id)
+        +onToggle(id)
+        +onUpdate(id, config)
+        +onDrop(draggedId, targetId, position)
+        +onJumpToLine(index)
+    }
+    
+    class LayerItem {
+        +id: string
+        +name: string
+        +type: LayerType
+        +enabled: boolean
+        +isLocked?: boolean
+        +isCollapsed?: boolean
+        +config: LayerConfig
+    }
+    
+    class DynamicForm {
+        +uiSchema: LayerUIField[]
+        +values: Record
+        +onChange(field, value)
+    }
+    
+    class FileTree {
+        +files: FileData[]
+        +activeFileId: string
+        +onOpenFile()
+        +onFileActivate()
+        +onFileRemove()
+    }
+    
+    class LayerPreset {
+        +id: string
+        +name: string
+        +layers: LogLayer[]
+    }
+    
+    UnifiedPanel --> LayersPanel
+    UnifiedPanel --> FileTree
+    UnifiedPanel --> LayerPreset
+    LayersPanel --> LayerItem
+    LayersPanel --> DynamicForm
+```
+
+**组件职责**：
+
+| 组件 | 职责 |
+|:-----|:-----|
+| `UnifiedPanel` | 侧边栏容器，管理文件/图层/预设切换 |
+| `LayersPanel` | 图层列表渲染、拖拽排序、增删改查 |
+| `LayerItem` | 单个图层项，显示名称、类型、启用状态 |
+| `DynamicForm` | 根据图层类型动态渲染配置表单 |
+| `FileTree` | 文件浏览器，管理打开的文件列表 |
+| `LayerPreset` | 图层预设，保存/加载图层配置 |
+
+### 4.3 状态管理：Hooks 组合模式
 
 > **注意**: 文档早期版本曾描述 WorkspaceContext Provider，但当前实现使用 **Hooks 组合模式** 替代了 Context Provider。状态通过 `useFileManagement` 和 `usePaneManagement` 管理，通过 props 传递到子组件。
 
@@ -637,7 +717,7 @@ classDiagram
 - **FileData（文件数据）**：存储文件内容相关状态（高亮行、书签等）
 - **同一文件多开**：高亮行在所有 Pane 中共享（因为是文件内容），滚动位置独立（因为是视图状态）
 
-### 4.3 自定义 Hooks 依赖图
+### 4.4 自定义 Hooks 依赖图
 
 ```mermaid
 graph TB
@@ -698,7 +778,7 @@ graph TB
     UI_STATE --> SHORTCUTS
 ```
 
-### 4.4 状态管理架构
+### 4.5 状态管理架构
 
 ```mermaid
 graph TB
@@ -743,7 +823,7 @@ graph TB
     UI_STATE --> VIEW
 ```
 
-### 4.5 Bridge Client 通信架构
+### 4.6 Bridge Client 通信架构
 
 ```mermaid
 sequenceDiagram
