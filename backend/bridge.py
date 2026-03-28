@@ -829,6 +829,7 @@ class FileBridge:
         regex: bool = False,
         case_sensitive: bool = False,
     ) -> bool:
+        self._ensure_delegators()
         if file_id not in self._sessions:
             return False
         session = self._sessions[file_id]
@@ -840,7 +841,7 @@ class FileBridge:
                 "regex": regex,
                 "caseSensitive": case_sensitive,
             }
-        self._start_pipeline(file_id, session.layer_instances)
+        self._layer_pipeline_delegator._start_pipeline(file_id, session.layer_instances)
         return True
 
     def close_file(self, file_id: str):

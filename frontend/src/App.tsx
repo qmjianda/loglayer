@@ -213,7 +213,8 @@ const AppContent: React.FC = () => {
         caseSensitive: settings.searchCaseSensitiveDefault
       });
     }
-  }, [settings.searchRegexDefault, settings.searchCaseSensitiveDefault, searchConfig.regex, searchConfig.caseSensitive, setSearchConfig]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.searchRegexDefault, settings.searchCaseSensitiveDefault]);
 
   // ===== UI 状态控制 (UI State) =====
   // 处理各种面板显隐、滚动定位、进度条、工作区根目录等。
