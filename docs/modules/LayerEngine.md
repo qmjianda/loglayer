@@ -109,4 +109,4 @@ class PipelineContext:
 - `backend/loglayer/core.py` - 基类定义
 - `backend/loglayer/registry.py` - 图层注册
 - `backend/loglayer/builtin/` - 内置图层
-- `backend/pipeline_mixin.py` - 流水线执行
+- `backend/bridge.py` - 流水线执行 (LayerPipelineDelegator)

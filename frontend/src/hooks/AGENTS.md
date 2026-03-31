@@ -13,7 +13,7 @@
 ## Hook Patterns
 
 ### Naming
-- `use{Noun}`: `useFileManagement`, `useSearch`
+- `use{Noun}`: `useFileManagement`
 - `use{Noun}State`: `useUIState`, `usePaneManagement`
 - Test files: `use{Noun}.test.ts`
 
@@ -50,11 +50,24 @@ export function useFeature(): UseFeatureReturn {
 
 | Hook | Purpose | Location |
 |------|---------|----------|
-| `useFileManagement` | File CRUD operations | `useFileManagement.ts` |
+| `useFileManagement` | File CRUD (no Pane) | `useFileManagement.ts` |
+| `usePaneManagement` | Pane state + split/remove + search | `usePaneManagement.ts` |
 | `useLayerManagement` | Layer CRUD + pipeline | `useLayerManagement.ts` |
-| `useSearch` | Search state + ripgrep | `useSearch.ts` |
 | `useBridge` | WebSocket + REST bridge | `useBridge.ts` |
-| `usePaneManagement` | Split pane operations | `usePaneManagement.ts` |
+
+## Architecture
+
+```
+App.tsx
+├── usePaneManagement() → panes, activePaneId, splitPane, removePane
+├── useFileManagement() → files, file operations
+└── useLayerManagement() → layers for active file
+```
+
+**Pane 接口和工具函数**: 从 `usePaneManagement` 导入
+```typescript
+import { Pane, createPane, findPaneRecursive, updatePaneInTree } from './usePaneManagement';
+```
 
 ---
 

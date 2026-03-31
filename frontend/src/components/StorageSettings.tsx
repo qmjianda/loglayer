@@ -60,8 +60,8 @@ export const StorageSettings: React.FC<StorageSettingsProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-[#1e1e1e] border border-[#3a3a3a] rounded-lg w-[560px] max-h-[90vh] overflow-auto">
-        <div className="flex items-center justify-between p-4 border-b border-[#3a3a3a]">
+      <div className="bg-secondary border-default rounded-lg w-[560px] max-h-[90vh] overflow-auto">
+        <div className="flex items-center justify-between p-4 border-b border-default">
           <h2 className="text-lg font-medium text-white">存储设置</h2>
           <button
             onClick={onClose}
@@ -97,7 +97,7 @@ export const StorageSettings: React.FC<StorageSettingsProps> = ({
             </div>
 
             {connections.length === 0 && !showAddConnection && (
-              <div className="text-sm text-gray-500 py-4 text-center border border-dashed border-[#3a3a3a] rounded">
+              <div className="text-sm text-muted py-4 text-center border border-dashed border-default rounded">
                 暂无远程连接
               </div>
             )}
@@ -105,7 +105,7 @@ export const StorageSettings: React.FC<StorageSettingsProps> = ({
             {connections.map((conn) => (
               <div
                 key={conn.id}
-                className="flex items-center justify-between p-3 bg-[#2a2a2a] rounded mb-2"
+                className="flex items-center justify-between p-3 bg-tertiary rounded mb-2"
               >
                 <div>
                   <div className="text-white font-medium">{conn.name}</div>
@@ -125,7 +125,7 @@ export const StorageSettings: React.FC<StorageSettingsProps> = ({
             ))}
 
             {showAddConnection && (
-              <div className="p-4 bg-[#2a2a2a] rounded border border-[#3a3a3a] space-y-3">
+              <div className="p-4 bg-tertiary rounded border-default space-y-3">
                 <Input
                   value={newConnection.name || ''}
                   onChange={(e) => setNewConnection({ ...newConnection, name: e.target.value })}
@@ -135,7 +135,7 @@ export const StorageSettings: React.FC<StorageSettingsProps> = ({
                   <select
                     value={newConnection.type}
                     onChange={(e) => setNewConnection({ ...newConnection, type: e.target.value as 'sftp' | 'smb' })}
-                    className="px-3 py-2 bg-[#1e1e1e] border border-[#3a3a3a] rounded text-white"
+                    className="px-3 py-2 bg-secondary border-default rounded text-primary"
                   >
                     <option value="sftp">SFTP</option>
                     <option value="smb">SMB</option>
@@ -172,7 +172,7 @@ export const StorageSettings: React.FC<StorageSettingsProps> = ({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 p-4 border-t border-[#3a3a3a]">
+        <div className="flex justify-end gap-2 p-4 border-t border-default">
           <Button variant="secondary" onClick={onClose}>
             取消
           </Button>

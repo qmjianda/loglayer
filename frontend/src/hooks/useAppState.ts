@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { useWorkspace, useActiveFile, useActivePane } from '../contexts/WorkspaceContext';
-import { FileData, Pane } from '../hooks/useFileManagement';
-import { findPaneRecursive, updatePaneInTree } from '../hooks/useFileManagement';
+import { FileData } from '../hooks/useFileManagement';
+import { Pane, findPaneRecursive, updatePaneInTree } from '../hooks/usePaneManagement';
 
 export interface AppStateReturn {
     files: FileData[];

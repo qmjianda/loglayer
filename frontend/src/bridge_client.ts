@@ -198,8 +198,8 @@ class WebBridge implements FileBridgeAPI {
         const res = await this.get('read_processed_lines', { file_id: fileId, start_line: start, count: count });
         return JSON.stringify(res);
     }
-    async search_ripgrep(fileId: string, query: string, regex: boolean, caseSensitive: boolean) {
-        return this.post('search_ripgrep', { file_id: fileId, query, regex, case_sensitive: caseSensitive });
+    async search_ripgrep(fileId: string, query: string, regex: boolean, caseSensitive: boolean, wholeWord: boolean = false) {
+        return this.post('search_ripgrep', { file_id: fileId, query, regex, case_sensitive: caseSensitive, whole_word: wholeWord });
     }
     async get_search_match_index(fileId: string, rank: number) {
         return this.get('get_search_match_index', { file_id: fileId, rank });
@@ -314,9 +314,9 @@ export async function syncDecorations(fileId: string, layers: LogLayer[]): Promi
     await fileBridge.sync_decorations(fileId, JSON.stringify(layers));
 }
 
-export async function searchRipgrep(fileId: string, query: string, regex: boolean = false, caseSensitive: boolean = false): Promise<boolean> {
+export async function searchRipgrep(fileId: string, query: string, regex: boolean = false, caseSensitive: boolean = false, wholeWord: boolean = false): Promise<boolean> {
     if (!fileBridge) return false;
-    return fileBridge.search_ripgrep(fileId, query, regex, caseSensitive);
+    return fileBridge.search_ripgrep(fileId, query, regex, caseSensitive, wholeWord);
 }
 
 export async function getSearchMatchIndex(fileId: string, rank: number): Promise<number> {

@@ -5,7 +5,8 @@ import { EmptyState } from './EmptyState';
 import { TabBar } from './TabBar';
 import { FloatingWidgets } from './FloatingWidgets';
 import { LayerType, ProcessedCache, AppSettings, ResolvedTheme, SearchConfigInput, LayerConfig } from '../types';
-import { Pane, FileData } from '../hooks/useFileManagement';
+import { FileData } from '../hooks/useFileManagement';
+import { Pane } from '../hooks/usePaneManagement';
 
 interface LogViewerPaneProps {
   pane: Pane;

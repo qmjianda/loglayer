@@ -45,12 +45,17 @@ backend/loglayer/
 - **基类**: `TransformLayer`
 - **方法**: `process_line(content) -> ProcessedLine`
 
-### 3. 渲染层 (RenderingLayer)
-- **职责**: 添加视觉装饰（高亮、颜色等）
-- **基类**: `RenderingLayer`
+### 3. 高亮层 (HighlightLayer)
+- **职责**: 添加文本级高亮
+- **基类**: `HighlightLayer`
 - **方法**: 
   - `highlight_line(content) -> list` - 高亮区域
-  - `get_row_style(content) -> dict` - 整行样式
+
+### 4. 装饰层 (DecorationLayer)
+- **职责**: 添加整行视觉装饰
+- **基类**: `DecorationLayer`
+- **方法**: 
+  - `get_row_style(content, index) -> dict` - 整行样式
 
 ### 4. 原生处理层 (NativeProcessingLayer)
 - **职责**: 使用 ripgrep 进行高性能过滤
@@ -166,15 +171,15 @@ class KeywordFilterLayer(NativeProcessingLayer):
         return ["-v", "-e", pattern]
 ```
 
-### 示例 2: 渲染图层 (高亮)
+### 示例 2: 高亮图层 (HighlightLayer)
 
 ```python
 # backend/loglayer/builtin/error_highlight.py
 import re
 from loglayer.ui import ColorInput
-from loglayer.core import RenderingLayer
+from loglayer.core import HighlightLayer
 
-class ErrorHighlightLayer(RenderingLayer):
+class ErrorHighlightLayer(HighlightLayer):
     """错误高亮图层"""
     display_name = "错误高亮"
     description = "高亮显示错误日志"

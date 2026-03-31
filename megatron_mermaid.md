@@ -11,10 +11,12 @@
 2. [技术栈分层](#2-技术栈分层)
 3. [后端架构](#3-后端架构)
 4. [前端架构](#4-前端架构)
+   4.2 [浮动搜索组件 EditorFindWidget](#42-浮动搜索组件editorfindwidget)
 5. [图层系统核心](#5-图层系统核心)
 6. [数据流与交互](#6-数据流与交互)
 7. [类型同步机制](#7-类型同步机制)
 8. [模块交互总览](#8-模块交互总览)
+   8.3 [已知问题与技术债务](#83-已知问题与技术债务)
 
 ---
 
@@ -364,7 +366,7 @@ classDiagram
         +close_file(file_id)
         +sync_layers(file_id, layers_json)
         +read_processed_lines(file_id, start, count) str
-        +search_ripgrep(file_id, query, regex, case_sensitive)
+        +search_ripgrep(file_id, query, regex, case_sensitive, whole_word)
         +get_layer_registry() str
         +_ensure_delegators()
     }
@@ -420,7 +422,9 @@ classDiagram
         +array search_matches
         +List layer_instances
         +List rendering_instances
-        +LRUCache rendering_cache
+        +RenderingCache rendering_cache
+        +Dict processing_cache  ⚠️ 三重缓存增加复杂度
+        +Dict stats_cache
         +Dict bookmarks
         +close()
     }
@@ -433,6 +437,8 @@ classDiagram
     FileBridge --> LayerPipelineDelegator
     FileBridge --> LogSession : manages
 ```
+
+> **⚠️ 技术债务**: `FileBridge` 当前约 1000 行，承担过多职责（文件 I/O、缓存、Worker 管理、流水线编排）。`_ensure_delegators()` 是为测试兼容性保留的防御式编程。
 
 ### 3.5 后台工作线程
 
@@ -568,7 +574,134 @@ graph TB
     MODALS --> PLUGIN
 ```
 
-### 4.2 侧边栏与图层面板架构
+### 4.2 浮动搜索组件：EditorFindWidget
+
+`EditorFindWidget` 是浮动搜索组件，嵌入在每个 `LogViewerPane` 内部，支持全文搜索、搜索历史、正则表达式等功能。
+
+```mermaid
+classDiagram
+    class EditorFindWidget {
+        <<props>>
+        +query: string
+        +matchCount: number
+        +currentMatch: number
+        -- callbacks --
+        +onQueryChange(q: string)
+        +onConfigChange(config)
+        +onNavigate(direction)
+        +onClose()
+    }
+    
+    class EditorFindWidgetConfig {
+        <<props>>
+        +regex: boolean
+        +caseSensitive: boolean
+        +wholeWord: boolean
+    }
+    
+    class EditorFindWidgetState {
+        <<internal>>
+        +width: number
+        +history: string[]
+        +historyIndex: number
+        +showHistory: boolean
+        +isResizing: boolean
+    }
+    
+    EditorFindWidget --> EditorFindWidgetConfig
+    EditorFindWidget --> EditorFindWidgetState
+```
+
+**组件特性**：
+
+| 特性 | 说明 |
+|:-----|:-----|
+| 搜索历史 | 上下箭头切换历史记录，Tab 补全 |
+| 正则支持 | 支持正则表达式搜索 |
+| 大小写 | 区分大小写搜索 |
+| 整词匹配 | wholeWord 模式 |
+| 宽度调整 | 左侧拖拽调整搜索框宽度 |
+| 快捷键 | Enter 搜索, Shift+Enter 上一个, Escape 关闭 |
+
+**搜索历史存储**：
+- 本地存储：`localStorage` → `loglayer_find_history`
+- 最多保存 20 条历史记录
+
+**数据流**：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant FW as EditorFindWidget
+    participant VP as LogViewerPane
+    participant PM as usePaneManagement
+    participant BC as bridge_client
+    participant API as FastAPI
+    participant BR as FileBridge
+    participant PD as LayerPipelineDelegator
+    participant PW as PipelineWorker
+    participant WS as WebSocket
+    
+    Note over U,WS: 搜索流程
+    
+    U->>FW: 输入搜索词
+    FW->>VP: onQueryChange(query)
+    VP->>PM: 更新 Pane.searchQuery
+    PM-->>VP: 更新后的 panes
+    
+    U->>FW: 切换配置 (regex/caseSensitive/wholeWord)
+    FW->>VP: onConfigChange(config)
+    VP->>PM: 更新 Pane.searchConfig
+    PM-->>VP: 更新后的 panes
+    
+    Note over VP,BC: 触发后端搜索
+    VP->>BC: search_ripgrep(fileId, query, regex, caseSensitive, wholeWord)
+    BC->>API: POST /api/search_ripgrep
+    API->>BR: bridge.search_ripgrep()
+    BR->>PD: _start_pipeline()
+    
+    PD->>PW: PipelineWorker.run()
+    
+    alt 纯搜索 (无图层)
+        PW->>PW: 构建 ripgrep 命令
+        PW->>PW: -F 固定字符串 / -e 正则
+        PW->>PW: -i 不区分大小写
+        Note over PW: 构建 ripgrep 命令 (含 -w 全字匹配参数)
+        PW->>PW: 执行 subprocess
+        PW->>PW: 收集匹配行号 → search_matches
+    end
+    
+    PW-->>PD: finished(visible_indices, search_matches)
+    PD-->>BR: _on_pipeline_finished()
+    
+    BR->>WS: pipelineFinished(matchCount)
+    WS-->>VP: WebSocket signal
+    VP->>PM: 查找当前 Pane
+    PM-->>VP: searchMatchCount, currentMatchRank
+    VP->>FW: matchCount, currentMatch 更新
+    FW-->>U: 显示 "1 of 100"
+```
+
+**后端 ripgrep 命令构建** (PipelineWorker):
+
+| 配置 | ripgrep 参数 | 说明 |
+|:-----|:------------|:-----|
+| regex=false | `-F` | 固定字符串搜索 |
+| regex=true | `-e` | 正则表达式搜索 |
+| caseSensitive=false | `-i` | 不区分大小写 |
+| caseSensitive=true | (无) | 区分大小写 |
+| wholeWord | `-w` | 全字匹配 |
+
+**架构说明 (现状)**:
+
+| 问题 | 位置 | 状态 |
+|:-----|:-----|:-----|
+| wholeWord 参数传递 | bridge_client.ts → search_ripgrep() | ✅ 已修复 |
+| useSearch hook 未使用 | App.tsx | ✅ 已修复 - 已删除未使用的 hook |
+| matchCount 存储在 Pane | usePaneManagement.ts | 正常 - 每个面板独立搜索计数 |
+| searchQuery 存储在 Pane | usePaneManagement.ts | 正常 - 面板切换时保留搜索状态 |
+
+### 4.3 侧边栏与图层面板架构
 
 侧边栏采用 **UnifiedPanel** 容器模式，整合文件树、图层管理、预设等功能。
 
@@ -660,7 +793,7 @@ classDiagram
 | `FileData[]` | `useFileManagement.files` | MainContent, LayersPanel |
 | `openedFiles` | 仅列表 | FileTree（仅用于 UI 指示） |
 
-### 4.3 状态管理：Hooks 组合模式
+### 4.4 状态管理：Hooks 组合模式
 
 > **注意**: 文档早期版本曾描述 WorkspaceContext Provider，但当前实现使用 **Hooks 组合模式** 替代了 Context Provider。状态通过 `useFileManagement` 和 `usePaneManagement` 管理，通过 props 传递到子组件。
 
@@ -669,18 +802,35 @@ classDiagram
 - **文件内容状态**（如高亮行、搜索）存储在 `FileData` 中，而非 `Pane`
 - 支持多窗口分割，同一文件在不同 Pane 中共享内容状态
 
+**职责分离**：
+- `useFileManagement`: 文件状态管理 + Pane 状态（引用）+ 文件操作
+- `usePaneManagement`: `Pane` 接口定义 + 分屏操作（splitPane, removePane）
+
 ```mermaid
 classDiagram
     class useFileManagement {
         +files: FileData[]
-        +panes: Pane[]
-        +activePaneId: string | null
         +setFiles()
-        +setPanes()
-        +setActivePaneId()
+        -- 文件操作 --
+        +handleFileActivate()
+        +handleFileRemove()
+        +addNewFiles()
+        +markFileLoaded()
     }
     
     class usePaneManagement {
+        <<state holder>>
+        +panes: Pane[]
+        +activePaneId: string
+        +setPanes()
+        +setActivePaneId()
+        -- Pane 接口 --
+        +Pane
+        +createPane()
+        -- 工具函数 --
+        +findPaneRecursive()
+        +updatePaneInTree()
+        -- 分屏操作 --
         +splitPane()
         +removePane()
     }
@@ -700,6 +850,7 @@ classDiagram
     }
     
     class Pane {
+        <<interface defined in usePaneManagement>>
         +string id
         +string[] openFileIds        -- 该面板中打开的文件列表
         +string activeFileId         -- ⚡ 当前激活的文件（标签页切换用）
@@ -713,6 +864,7 @@ classDiagram
     
     useFileManagement --> FileData
     useFileManagement --> Pane
+    usePaneManagement --> Pane
     usePaneManagement ..> useFileManagement : uses panes
     Pane --> FileData : references via activeFileId
 ```
@@ -729,7 +881,16 @@ classDiagram
 - **FileData（文件数据）**：存储文件内容相关状态（高亮行、书签等）
 - **同一文件多开**：高亮行在所有 Pane 中共享（因为是文件内容），滚动位置独立（因为是视图状态）
 
-### 4.4 自定义 Hooks 依赖图
+**导入路径**：
+```typescript
+// Pane 类型 - 从 usePaneManagement 导入
+import { Pane, createPane } from './hooks/usePaneManagement';
+
+// 文件状态 - 从 useFileManagement 导入
+import { FileData, useFileManagement } from './hooks/useFileManagement';
+```
+
+### 4.5 自定义 Hooks 依赖图
 
 ```mermaid
 graph TB
@@ -738,8 +899,8 @@ graph TB
     end
     
     subgraph "文件管理"
-        FILE_MGMT[useFileManagement<br/>文件 CRUD + 面板状态]
-        PANE_MGMT[usePaneManagement<br/>分割面板操作]
+        FILE_MGMT[useFileManagement<br/>文件 CRUD]
+        PANE_MGMT[usePaneManagement<br/>Pane 状态 + 分屏操作]
     end
     
     subgraph "图层管理"
@@ -748,7 +909,7 @@ graph TB
     end
     
     subgraph "搜索"
-        SEARCH[useSearch<br/>搜索状态 + ripgrep]
+        SEARCH[搜索状态<br/>直接在 App.tsx 管理]
     end
     
     subgraph "UI 状态"
@@ -779,7 +940,7 @@ graph TB
     BRIDGE --> PLATFORM
     BRIDGE --> LAYER_REG
     
-    FILE_MGMT --> PANE_MGMT
+    PANE_MGMT --> FILE_MGMT
     FILE_MGMT --> LAYER_MGMT
     
     LAYER_REG --> LAYER_MGMT
@@ -790,7 +951,7 @@ graph TB
     UI_STATE --> SHORTCUTS
 ```
 
-### 4.5 状态管理架构
+### 4.6 状态管理架构
 
 > Note: Earlier versions described WorkspaceContext, but current implementation uses Hooks composition without independent Context Provider.
 
@@ -841,7 +1002,7 @@ graph TB
     LAYERS_STATE --> SEARCH_QUERY
 ```
 
-### 4.6 Bridge Client 通信架构
+### 4.7 Bridge Client 通信架构
 
 ```mermaid
 sequenceDiagram
@@ -950,7 +1111,8 @@ classDiagram
     Layer <|-- HighlightLayer
     Layer <|-- DecorationLayer
     Layer <|-- Widget
-```
+
+> **✅ 已清理**: Legacy Aliases 已移除 (`RenderingLayer`, `UIWidget`, `Component`)
 
 ### 5.2 三阶段流水线
 
@@ -1160,7 +1322,7 @@ sequenceDiagram
     participant BC as bridge_client
     participant API as FastAPI
     participant BR as FileBridge
-    participant CACHE as LRUCache
+    participant CACHE as RenderingCache
     participant MM as mmap
     
     U->>LV: 滚动事件
@@ -1402,6 +1564,7 @@ classDiagram
     }
     
     class Pane {
+        <<interface defined in usePaneManagement>>
         +string id
         +string[] openFileIds
         +string activeFileId?
@@ -1468,7 +1631,7 @@ flowchart TB
     subgraph "数据访问层"
         MMAP[mmap<br/>内存映射]
         STORAGE[.loglayer/<br/>持久化]
-        CACHE[LRUCache<br/>渲染缓存]
+        CACHE[RenderingCache<br/>渲染缓存]
     end
     
     UI --> HOOKS
@@ -1517,7 +1680,38 @@ flowchart TB
 | 状态管理 | 纯 Hooks + Context | 避免 Redux 复杂性，保持代码简洁 |
 | 类型同步 | 手动 Mirror 注释 | 灵活可控，适合中小型项目 |
 | OOP 重构 | 组合 > 继承 | 消除 Mixin 依赖，更清晰的责任分离 |
-| 新增组件 | WorkspaceContext | 统一管理文件/面板状态，避免 prop drilling |
+| Hooks 分离 | useFileManagement / usePaneManagement | Pane 接口和分屏操作在 usePaneManagement，文件状态在 useFileManagement |
+
+### 8.3 已知问题与技术债务
+
+#### 后端架构问题
+
+| 问题 | 严重程度 | 说明 |
+|:-----|:---------|:-----|
+| **FileBridge God Class** | 🟡 中 | FileBridge 仍承担过多职责（~1000行），建议进一步拆分 |
+| **Legacy Aliases** | ✅ 已修复 | 已移除 `RenderingLayer`, `UIWidget`, `Component` |
+| **双重缓存** | 🟢 轻 | `processing_cache` + `rendering_cache` + `stats_cache` 三层缓存增加复杂度 |
+| **Worker 生命周期分散** | 🟢 轻 | 创建在 `WorkerRegistry`，销毁在 `FileBridge._retire_worker` 和 `Session.close` |
+| **_ensure_delegators() 防御式编程** | ✅ 已修复 | 已移除防御式代码，delegators 在 `__init__` 中直接初始化 |
+| **Legacy Mixin 文件** | ✅ 已修复 | 已删除 `search_mixin.py` 和 `pipeline_mixin.py` |
+
+#### 前端架构问题
+
+| 问题 | 严重程度 | 说明 |
+|:-----|:---------|:-----|
+| **useSearch Hook 未集成** | ✅ 已修复 | 已删除未使用的 useSearch hook |
+| **App.tsx 过于臃肿** | 🟡 中 | 根组件 ~900 行，承担过多职责，建议拆分 |
+| **类型同步风险** | 🟢 轻 | 手动 Mirror 注释依赖开发者自觉，有同步失效风险 |
+
+#### 优化建议
+
+```
+优化优先级:
+1. [中] 拆分 App.tsx 为更小的子组件
+2. [中] 合并三重缓存为统一的 Cache 层
+3. [低] 提取 Worker 生命周期管理到统一类
+4. [低] 进一步拆分 FileBridge
+```
 
 ---
 
@@ -1527,8 +1721,9 @@ flowchart TB
 |:----------|:-------|
 | 后端 API 端点 | [第 3.3 节](#33-api-端点分类) |
 | 前端组件层级 | [第 4.1 节](#41-组件层级结构) |
+| 浮动搜索组件 | [第 4.2 节](#42-浮动搜索组件editorfindwidget) |
 | OOP 重构说明 | [第 3.2 节](#32-oop-重构说明) |
-| 新增 WorkspaceContext | [第 4.2 节](#42-新增workspacecontext) |
+| Hooks 职责分离 | [第 4.4 节](#44-状态管理hooks-组合模式) |
 | 图层类继承 | [第 5.1 节](#51-图层类继承层次) |
 | 三阶段流水线 | [第 5.2 节](#52-三阶段流水线) |
 | 文件打开流程 | [第 6.1 节](#61-文件打开流程) |

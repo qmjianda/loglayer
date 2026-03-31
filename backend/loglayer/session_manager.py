@@ -45,7 +45,7 @@ class LogSession:
         self.sparse_interval = 1
         self.sparse_cache: Dict[int, int] = {}
         self.processing_cache: Dict[str, Any] = {}
-        self.rendering_cache: "LRUCache" = None  # Set by CacheManager
+        self.rendering_cache: Any = None
         self.workers: Dict[str, Any] = {}
 
         # Statistics cache - avoid recalculation
@@ -93,60 +93,6 @@ class LogSession:
                 except (OSError, ValueError):
                     pass
                 self.file_obj = None
-
-
-class LRUCache:
-    """
-    LRU Cache implementation for rendering cache.
-
-    Replaces custom implementation in bridge.py with standard library pattern.
-    """
-
-    def __init__(self, max_size: int = 5000):
-        self.max_size = max_size
-        self._cache: Dict[str, Any] = {}
-        self._access_order: List[str] = []
-
-    def __setitem__(self, key: str, value: Any):
-        if key in self._cache:
-            self._access_order.remove(key)
-        elif len(self._cache) >= self.max_size:
-            lru_key = self._access_order.pop(0)
-            del self._cache[lru_key]
-        self._cache[key] = value
-        self._access_order.append(key)
-
-    def __getitem__(self, key: str) -> Any:
-        if key in self._cache:
-            self._access_order.remove(key)
-            self._access_order.append(key)
-            return self._cache[key]
-        raise KeyError(key)
-
-    def __contains__(self, key: str) -> bool:
-        return key in self._cache
-
-    def __len__(self) -> int:
-        return len(self._cache)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        if key in self._cache:
-            self._access_order.remove(key)
-            self._access_order.append(key)
-            return self._cache[key]
-        return default
-
-    def put(self, key: str, value: Any):
-        self[key] = value
-
-    def clear(self):
-        self._cache.clear()
-        self._access_order.clear()
-
-    @property
-    def _cache_dict(self):
-        """Expose cache dict for backward compatibility"""
-        return self._cache
 
 
 class SessionManager:
@@ -328,4 +274,4 @@ class SessionManager:
 
 
 # Backward compatibility: expose LRUCache at module level
-__all__ = ["LogSession", "SessionManager", "LRUCache"]
+__all__ = ["LogSession", "SessionManager"]

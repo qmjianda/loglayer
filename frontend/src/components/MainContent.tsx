@@ -2,7 +2,8 @@ import React from 'react';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { HelpPanel } from './HelpPanel';
 import { LogViewerPane } from './LogViewerPane';
-import { Pane, FileData, findPaneRecursive, updatePaneInTree } from '../hooks/useFileManagement';
+import { FileData } from '../hooks/useFileManagement';
+import { Pane, findPaneRecursive, updatePaneInTree } from '../hooks/usePaneManagement';
 import { ProcessedCache, SearchConfigInput, AppSettings, ResolvedTheme, LayerType, LayerConfig } from '../types';
 import { toggleBookmark as apiToggleBookmark } from '../bridge_client';
 

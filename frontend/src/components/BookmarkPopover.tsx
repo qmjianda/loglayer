@@ -35,7 +35,7 @@ export const BookmarkPopover: React.FC<BookmarkPopoverProps> = ({
                 left: x,
                 zIndex: 1001,
             }}
-            className="bookmark-popover bg-[#1e1e1e] border border-[#454545] shadow-2xl rounded-lg p-3 min-w-[280px] flex flex-col"
+            className="bookmark-popover bg-secondary border border-default shadow-2xl rounded-lg p-3 min-w-[280px] flex flex-col"
             onMouseDown={e => e.stopPropagation()}
         >
             <div className="flex items-center justify-between mb-3">
@@ -55,7 +55,7 @@ export const BookmarkPopover: React.FC<BookmarkPopoverProps> = ({
 
             <textarea
                 autoFocus
-                className="bg-[#2a2d2e] border border-[#454545] text-gray-200 p-2.5 text-xs rounded-md outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition-all resize-none h-28 mb-3 placeholder:text-gray-600"
+                className="bg-tertiary border border-default text-primary p-2.5 text-xs rounded-md outline-none focus:border-warning/50 focus:ring-1 focus:ring-warning/20 transition-all resize-none h-28 mb-3 placeholder:text-muted"
                 placeholder="在此输入您的书签说明（Markdown 支持）..."
                 value={comment}
                 onChange={e => setComment(e.target.value)}
@@ -91,8 +91,8 @@ export const BookmarkPopover: React.FC<BookmarkPopoverProps> = ({
                     </button>
                 </div>
             </div>
-            <div className="mt-2.5 pt-2 border-t border-[#333] flex justify-end">
-                <span className="text-[9px] text-gray-600">Ctrl + Enter 快速保存</span>
+            <div className="mt-2.5 pt-2 border-t border-subtle flex justify-end">
+                <span className="text-[9px] text-muted">Ctrl + Enter 快速保存</span>
             </div>
         </div>
     );

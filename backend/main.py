@@ -73,6 +73,7 @@ app.add_middleware(
 # Import WebSocket manager
 from websocket_manager import manager
 
+
 # Setup Bridge Signals to WebSocket
 def broadcast_signal(signal_name, *args):
     """
@@ -91,23 +92,15 @@ def broadcast_signal(signal_name, *args):
 
 # Connect signals
 bridge.fileLoaded.connect(lambda *args: broadcast_signal("fileLoaded", *args))
-bridge.pipelineFinished.connect(
-    lambda *args: broadcast_signal("pipelineFinished", *args)
-)
+bridge.pipelineFinished.connect(lambda *args: broadcast_signal("pipelineFinished", *args))
 bridge.statsFinished.connect(lambda *args: broadcast_signal("statsFinished", *args))
-bridge.operationStarted.connect(
-    lambda *args: broadcast_signal("operationStarted", *args)
-)
-bridge.operationProgress.connect(
-    lambda *args: broadcast_signal("operationProgress", *args)
-)
+bridge.operationStarted.connect(lambda *args: broadcast_signal("operationStarted", *args))
+bridge.operationProgress.connect(lambda *args: broadcast_signal("operationProgress", *args))
 bridge.operationError.connect(lambda *args: broadcast_signal("operationError", *args))
 bridge.operationStatusChanged.connect(
     lambda *args: broadcast_signal("operationStatusChanged", *args)
 )
-bridge.pendingFilesCount.connect(
-    lambda *args: broadcast_signal("pendingFilesCount", *args)
-)
+bridge.pendingFilesCount.connect(lambda *args: broadcast_signal("pendingFilesCount", *args))
 bridge.frontendReady.connect(lambda *args: broadcast_signal("frontendReady", *args))
 bridge.workspaceOpened.connect(lambda *args: broadcast_signal("workspaceOpened", *args))
 
@@ -151,9 +144,7 @@ def sync_all(data: dict = Body(...)):
 
 @app.post("/api/sync_layers")
 def sync_layers(data: dict = Body(...)):
-    return bridge.sync_layers(
-        data["file_id"], data["layers_json"], data.get("search_json")
-    )
+    return bridge.sync_layers(data["file_id"], data["layers_json"], data.get("search_json"))
 
 
 @app.post("/api/sync_decorations")
@@ -244,6 +235,7 @@ def search_ripgrep(data: dict = Body(...)):
         data["query"],
         data.get("regex", False),
         data.get("case_sensitive", False),
+        data.get("whole_word", False),
     )
 
 
@@ -346,9 +338,7 @@ def clear_bookmarks(data: dict = Body(...)):
 def update_bookmark_comment(data: dict = Body(...)):
     """更新书签注释"""
     return json.loads(
-        bridge.update_bookmark_comment(
-            data["file_id"], data["line_index"], data["comment"]
-        )
+        bridge.update_bookmark_comment(data["file_id"], data["line_index"], data["comment"])
     )
 
 
@@ -390,28 +380,32 @@ def get_system_metrics():
     """获取系统性能指标（磁盘I/O、CPU等）"""
     try:
         import psutil
-        
+
         disk_io = psutil.disk_io_counters()
         cpu_percent = psutil.cpu_percent(interval=0.1)
         memory = psutil.virtual_memory()
-        
+
         result = {
             "cpu_percent": cpu_percent,
             "memory_percent": memory.percent,
             "memory_used_mb": memory.used // (1024 * 1024),
             "memory_total_mb": memory.total // (1024 * 1024),
         }
-        
+
         if disk_io:
-            result.update({
-                "disk_read_bytes": disk_io.read_bytes,
-                "disk_write_bytes": disk_io.write_bytes,
-                "disk_read_count": disk_io.read_count,
-                "disk_write_count": disk_io.write_count,
-                "disk_read_time_ms": disk_io.read_time if hasattr(disk_io, 'read_time') else 0,
-                "disk_write_time_ms": disk_io.write_time if hasattr(disk_io, 'write_time') else 0,
-            })
-        
+            result.update(
+                {
+                    "disk_read_bytes": disk_io.read_bytes,
+                    "disk_write_bytes": disk_io.write_bytes,
+                    "disk_read_count": disk_io.read_count,
+                    "disk_write_count": disk_io.write_count,
+                    "disk_read_time_ms": disk_io.read_time if hasattr(disk_io, "read_time") else 0,
+                    "disk_write_time_ms": disk_io.write_time
+                    if hasattr(disk_io, "write_time")
+                    else 0,
+                }
+            )
+
         return result
     except Exception as e:
         logger.error(f"[SystemMetrics] Error: {e}")
@@ -451,9 +445,7 @@ def export_logs(data: dict = Body(...)):
     session = bridge._sessions[file_id]
     exporter = LogExporter(file_id, session.path)
 
-    success = exporter.export_visible_lines(
-        bridge, output_path, format, include_line_numbers
-    )
+    success = exporter.export_visible_lines(bridge, output_path, format, include_line_numbers)
 
     return {"success": success, "path": output_path if success else None}
 
@@ -485,9 +477,7 @@ def run_server(host, port):
             import subprocess
 
             try:
-                result = subprocess.run(
-                    ["netstat", "-ano"], capture_output=True, text=True
-                )
+                result = subprocess.run(["netstat", "-ano"], capture_output=True, text=True)
                 for line in result.stdout.split("\n"):
                     if f":{port}" in line and "LISTENING" in line:
                         parts = line.split()
@@ -495,9 +485,7 @@ def run_server(host, port):
                             pid = parts[-1]
                             logger.info(f"[Server] Found process on port {port}, PID: {pid}")
                             try:
-                                subprocess.run(
-                                    ["taskkill", "/PID", pid, "/F"], check=True
-                                )
+                                subprocess.run(["taskkill", "/PID", pid, "/F"], check=True)
                                 logger.info(f"[Server] Killed process {pid}, retrying...")
                                 time.sleep(1)
                                 uvicorn.run(
@@ -527,9 +515,7 @@ def start_app():
         default="127.0.0.1",
         help="Backend server host (use 0.0.0.0 for external access)",
     )
-    parser.add_argument(
-        "--no-ui", action="store_true", help="Start server only, no UI window"
-    )
+    parser.add_argument("--no-ui", action="store_true", help="Start server only, no UI window")
     args = parser.parse_args()
 
     port = args.port
@@ -540,9 +526,7 @@ def start_app():
         try:
             import ctypes
 
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-                "qmjianda.loglayer.v1"
-            )
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("qmjianda.loglayer.v1")
         except (ImportError, AttributeError, OSError):
             # Icon setting is optional, fail silently
             pass
@@ -586,9 +570,7 @@ def start_app():
                 # Just open the single file
                 try:
                     stats = os.stat(abs_path)
-                    file_id = (
-                        f"cli-{int(stats.st_mtime)}-{stats.st_size}-{hash(abs_path)}"
-                    )
+                    file_id = f"cli-{int(stats.st_mtime)}-{stats.st_size}-{hash(abs_path)}"
                     bridge.open_file(file_id, abs_path)
                 except Exception as e:
                     logger.error(f"[Main] CLI open_file error: {e}")

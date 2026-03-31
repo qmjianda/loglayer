@@ -27,12 +27,11 @@ App.tsx
 ├── useSettings()          # 用户设置 (持久化)
 ├── useFileManagement()    # 文件列表、激活文件
 ├── useLayerManagement()   # 图层 CRUD、撤销重做
-├── useSearch()            # 搜索逻辑、匹配导航
+├── usePaneManagement()    # 分屏管理、搜索状态
 ├── useBridge()            # 后端信号监听
 ├── useBookmarks()         # 书签管理
 ├── useFileWatch()         # 文件变化监控
-├── usePaneManagement()    # 分屏管理
-├── useAppModals()         # 弹窗状态
+├── useAppModals()        # 弹窗状态
 └── useSystemMetrics()     # 系统资源监控
 ```
 
@@ -77,16 +76,20 @@ LogViewer re-renders with new highlights
 ```
 用户输入搜索
     ↓
-useSearch.setSearchQuery()
+EditorFindWidget.onQueryChange()
     ↓
-syncAll() → Backend
+更新 Pane.searchQuery
     ↓
-更新 searchMatchCount
+search_ripgrep() → Backend
+    ↓
+更新 searchMatchCount (存储在 Pane)
     ↓
 用户按 F3 导航
     ↓
-findNextSearchMatch()
+getNextSearchMatch()
 ```
+
+> **注意**: 搜索状态已集成到 `usePaneManagement` 中，每个 Pane 独立管理自己的搜索状态
 
 ---
 
@@ -94,15 +97,63 @@ findNextSearchMatch()
 
 ### useFileManagement
 
-**职责**: 管理文件列表和激活文件
+**职责**: 管理文件列表、文件操作（不涉及 Pane）
 
 ```typescript
 interface UseFileManagementReturn {
+  // 文件状态
   files: FileData[];
-  activeFileId: string | null;
-  openFile: (path: string) => Promise<void>;
-  closeFile: (fileId: string) => void;
+  
+  // 加载状态
+  indexingFileIds: Set<string>;
+  pendingCliFiles: number;
+  
+  // 缓存
   processedCache: Record<string, ProcessedCache>;
+  bridgedUpdateTrigger: number;
+  
+  // 文件操作
+  setActiveFileId: (fileId: string | null) => void;
+  handleFileActivate: (fileId: string) => void;
+  handleFileRemove: (fileId: string) => void;
+  addNewFiles: (files: any[], autoActivateFirst?: boolean) => void;
+  handleNativeFileSelect: () => Promise<void>;
+  handleNativeFolderSelect: () => Promise<{ path: string; name: string } | null>;
+  handleOpenFileByPath: (path: string, name: string) => void;
+  markFileLoaded: (fileId: string) => void;
+}
+```
+
+> **注意**: Pane 状态已移至 `usePaneManagement`
+
+### usePaneManagement
+
+**职责**: 管理分屏操作（分割、删除 Pane）
+
+```typescript
+interface UsePaneManagementReturn {
+  splitPane: (
+    sourcePaneId: string, 
+    fileId?: string, 
+    position?: 'left' | 'right' | 'top' | 'bottom'
+  ) => void;
+  removePane: (paneId: string) => void;
+}
+
+// Pane 接口定义
+interface Pane {
+  id: string;
+  openFileIds: string[];
+  activeFileId: string | null;
+  direction?: 'horizontal' | 'vertical';
+  children?: Pane[];
+  findVisible?: boolean;
+  goToLineVisible?: boolean;
+  searchQuery?: string;
+  searchConfig?: { regex: boolean; caseSensitive: boolean };
+  scrollToIndex?: number | null;
+  searchMatchCount?: number;
+  currentMatchRank?: number;
 }
 ```
 
@@ -159,7 +210,7 @@ operationError → 显示错误
 ## 相关文件
 
 - `frontend/src/App.tsx` - 状态协调
-- `frontend/src/hooks/useFileManagement.ts`
+- `frontend/src/hooks/useFileManagement.ts` - 文件状态 + Pane 引用
+- `frontend/src/hooks/usePaneManagement.ts` - Pane 接口 + 分屏操作 + 搜索状态
 - `frontend/src/hooks/useLayerManagement.ts`
-- `frontend/src/hooks/useSearch.ts`
 - `frontend/src/hooks/useBridge.ts`

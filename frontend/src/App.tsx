@@ -19,7 +19,8 @@ import { FileInputs } from './components/FileInputs';
 import { SidebarContainer } from './components/SidebarContainer';
 import { MainContent } from './components/MainContent';
 import { StatusBar } from './components/StatusBar';
-import { updatePaneInTree, findPaneRecursive, FileData } from './hooks/useFileManagement';
+import { FileData } from './hooks/useFileManagement';
+import { Pane, updatePaneInTree, findPaneRecursive } from './hooks/usePaneManagement';
 import { ProcessedCache } from './types';
 import { hasNativeDialogs } from './bridge_client';
 import { removeFromSet, basename } from './utils';
@@ -55,18 +56,22 @@ const AppContent: React.FC = () => {
 
   const responsive = useResponsive();
 
-  // ===== 文件管理 (File Management) =====
-  // 负责维护当前打开的文件列表、激活的文件、分栏状态等。
-  const fileManagement = useFileManagement();
+  // ===== Pane Management =====
+  const paneManagement = usePaneManagement();
   const {
-    files,
-    setFiles,
-    activeFileId,
-    activeFile,
     panes,
     setPanes,
     activePaneId,
     setActivePaneId,
+    splitPane,
+    removePane
+  } = paneManagement;
+
+  // ===== 文件管理 (File Management) =====
+  const fileManagement = useFileManagement();
+  const {
+    files,
+    setFiles,
     indexingFileIds,
     setIndexingFileIds,
     pendingCliFiles,
@@ -88,26 +93,16 @@ const AppContent: React.FC = () => {
     markFileLoaded
   } = fileManagement;
 
+  // Derive active file from active pane
+  const activePane = activePaneId ? findPaneRecursive(panes, activePaneId) : null;
+  const activeFileId = activePane?.activeFileId || null;
+  const activeFile = activeFileId ? files.find(f => f.id === activeFileId) : undefined;
+
   // 便捷访问器：获取当前激活文件的基础统计信息
   const fileName = activeFile?.name || '';
   const fileSize = activeFile?.size || 0;
   const activeProcessed = activeFileId ? processedCache[activeFileId] : null;
   const layerStats = activeProcessed?.layerStats || {};
-
-  // ===== 分屏管理 (Pane Management) =====
-  // 负责管理分屏创建、关闭
-  const paneManagement = usePaneManagement(
-    panes,
-    setPanes,
-    activePaneId,
-    setActivePaneId,
-    files,
-    setActiveFileId
-  );
-  const {
-    splitPane,
-    removePane
-  } = paneManagement;
 
   // ===== 图层管理 (Layer Management) =====
   // 负责管理针对每个文件的图层流水线配置。
@@ -152,7 +147,6 @@ const AppContent: React.FC = () => {
   // 处理各种面板显隐、滚动定位、进度条、工作区根目录等。
   // Note: 书签导航将在 uiState 返回后定义，使用 useEffect 注册
   
-  const activePane = activePaneId ? findPaneRecursive(panes, activePaneId) : null;
   const searchQuery = activePane?.searchQuery || '';
   const searchConfig = activePane?.searchConfig || { regex: false, caseSensitive: false };
   const currentMatchRank = activePane?.currentMatchRank ?? -1;

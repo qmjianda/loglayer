@@ -74,9 +74,9 @@ export const PluginManager: React.FC<PluginManagerProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-[#1e1e1e] border border-[#3a3a3a] rounded-lg w-[600px] max-h-[80vh] overflow-auto">
-        <div className="flex items-center justify-between p-4 border-b border-[#3a3a3a]">
-          <h2 className="text-lg font-medium text-white">插件管理</h2>
+      <div className="bg-secondary border-default rounded-lg w-[600px] max-h-[80vh] overflow-auto">
+        <div className="flex items-center justify-between p-4 border-b border-default">
+          <h2 className="text-lg font-medium text-primary">插件管理</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors"
@@ -100,13 +100,13 @@ export const PluginManager: React.FC<PluginManagerProps> = ({
           </div>
 
           {isLoading ? (
-            <div className="text-center text-gray-500 py-8">加载中...</div>
+            <div className="text-center text-muted py-8">加载中...</div>
           ) : (
             <>
               <div className="mb-6">
-                <h3 className="text-sm font-medium text-gray-400 mb-3">图层插件 ({layers.length})</h3>
+                <h3 className="text-sm font-medium text-secondary mb-3">图层插件 ({layers.length})</h3>
                 {layers.length === 0 ? (
-                  <div className="text-sm text-gray-500 py-4 text-center border border-dashed border-[#3a3a3a] rounded">
+                  <div className="text-sm text-muted py-4 text-center border border-dashed border-default rounded">
                     暂无图层插件
                   </div>
                 ) : (
@@ -114,15 +114,15 @@ export const PluginManager: React.FC<PluginManagerProps> = ({
                     {layers.map((layer) => (
                       <div
                         key={layer.name}
-                        className="flex items-center justify-between p-3 bg-[#2a2a2a] rounded"
+                        className="flex items-center justify-between p-3 bg-tertiary rounded"
                       >
                         <div>
-                          <div className="text-white font-medium">{layer.name}</div>
+                          <div className="text-primary font-medium">{layer.name}</div>
                           {layer.description && (
-                            <div className="text-xs text-gray-500">{layer.description}</div>
+                            <div className="text-xs text-muted">{layer.description}</div>
                           )}
                         </div>
-                        <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded">
+                        <span className="px-2 py-1 text-xs bg-primary-color/20 text-primary-color rounded">
                           图层
                         </span>
                       </div>
@@ -132,9 +132,9 @@ export const PluginManager: React.FC<PluginManagerProps> = ({
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-3">挂件插件 ({widgets.length})</h3>
+                <h3 className="text-sm font-medium text-secondary mb-3">挂件插件 ({widgets.length})</h3>
                 {widgets.length === 0 ? (
-                  <div className="text-sm text-gray-500 py-4 text-center border border-dashed border-[#3a3a3a] rounded">
+                  <div className="text-sm text-muted py-4 text-center border border-dashed border-default rounded">
                     暂无挂件插件
                   </div>
                 ) : (
@@ -142,12 +142,12 @@ export const PluginManager: React.FC<PluginManagerProps> = ({
                     {widgets.map((widget) => (
                       <div
                         key={widget.name}
-                        className="flex items-center justify-between p-3 bg-[#2a2a2a] rounded"
+                        className="flex items-center justify-between p-3 bg-tertiary rounded"
                       >
                         <div>
-                          <div className="text-white font-medium">{widget.name}</div>
+                          <div className="text-primary font-medium">{widget.name}</div>
                           {widget.description && (
-                            <div className="text-xs text-gray-500">{widget.description}</div>
+                            <div className="text-xs text-muted">{widget.description}</div>
                           )}
                         </div>
                         <span className="px-2 py-1 text-xs bg-purple-500/20 text-purple-400 rounded">
@@ -162,7 +162,7 @@ export const PluginManager: React.FC<PluginManagerProps> = ({
           )}
         </div>
 
-        <div className="flex justify-end p-4 border-t border-[#3a3a3a]">
+        <div className="flex justify-end p-4 border-t border-default">
           <Button variant="secondary" onClick={onClose}>
             关闭
           </Button>

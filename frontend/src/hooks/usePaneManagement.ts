@@ -1,9 +1,14 @@
-import React, { useCallback } from 'react';
-import { FileData } from './useFileManagement';
+/**
+ * usePaneManagement - Pane state and split view operations
+ * 
+ * Manages pane list, active pane, and pane split/remove operations.
+ */
+
+import React, { useState, useCallback } from 'react';
 
 export const MAX_PANES = 99;
 
-// Pane interface - defining it here for clarity
+// Pane interface
 export interface Pane {
     id: string;
     openFileIds: string[];
@@ -36,7 +41,45 @@ export function createPane(id?: string): Pane {
     };
 }
 
+// Utility functions for pane tree manipulation
+export function findPaneRecursive(panes: Pane[], id: string): Pane | undefined {
+    for (const pane of panes) {
+        if (pane.id === id) return pane;
+        if (pane.children) {
+            const found = findPaneRecursive(pane.children, id);
+            if (found) return found;
+        }
+    }
+    return undefined;
+}
+
+export function updatePaneInTree(
+    panes: Pane[],
+    targetId: string,
+    updateFn: (pane: Pane) => Pane
+): Pane[] {
+    return panes.map(pane => {
+        if (pane.id === targetId) {
+            return updateFn(pane);
+        }
+        if (pane.children) {
+            return {
+                ...pane,
+                children: updatePaneInTree(pane.children, targetId, updateFn)
+            };
+        }
+        return pane;
+    });
+}
+
 export interface UsePaneManagementReturn {
+    // Pane state
+    panes: Pane[];
+    setPanes: React.Dispatch<React.SetStateAction<Pane[]>>;
+    activePaneId: string;
+    setActivePaneId: (id: string) => void;
+
+    // Pane operations
     splitPane: (sourcePaneId: string, fileId?: string, position?: 'left' | 'right' | 'top' | 'bottom') => void;
     removePane: (paneId: string) => void;
 }
@@ -159,14 +202,11 @@ function splitPaneInTree(
     return splitInTree(panes);
 }
 
-export function usePaneManagement(
-    panes: Pane[],
-    setPanes: React.Dispatch<React.SetStateAction<Pane[]>>,
-    _activePaneId: string,
-    setActivePaneId: (id: string) => void,
-    _files: FileData[],
-    _setActiveFileId: (fileId: string | null) => void
-): UsePaneManagementReturn {
+export function usePaneManagement(): UsePaneManagementReturn {
+    // Pane state
+    const [panes, setPanes] = useState<Pane[]>([createPane('pane-1')]);
+    const [activePaneId, setActivePaneId] = useState<string>('pane-1');
+
     const generatePaneId = useCallback(() => {
         return `pane-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
     }, []);
@@ -177,12 +217,12 @@ export function usePaneManagement(
             if (flattened.length <= 1) return prev;
             const newPanes = removePaneFromTree(prev, paneId);
             const newFlattened = flattenPanes(newPanes);
-            if (newFlattened.length > 0 && paneId === _activePaneId) {
+            if (newFlattened.length > 0 && paneId === activePaneId) {
                 setActivePaneId(newFlattened[0].id);
             }
             return newPanes;
         });
-    }, [setPanes, _activePaneId, setActivePaneId]);
+    }, [activePaneId]);
 
     const splitPane = useCallback((sourcePaneId: string, fileId?: string, position?: 'left' | 'right' | 'top' | 'bottom') => {
         const newPaneId = generatePaneId();
@@ -202,9 +242,13 @@ export function usePaneManagement(
         });
         
         setActivePaneId(newPaneId);
-    }, [panes, generatePaneId, setActivePaneId, setPanes]);
+    }, [panes, generatePaneId]);
 
     return {
+        panes,
+        setPanes,
+        activePaneId,
+        setActivePaneId,
         splitPane,
         removePane
     };

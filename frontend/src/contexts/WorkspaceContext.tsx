@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useMemo } from 'react';
-import { FileData, Pane } from '../hooks/useFileManagement';
+import { FileData } from '../hooks/useFileManagement';
+import { Pane } from '../hooks/usePaneManagement';
+
+export type { Pane };
 
 interface WorkspaceState {
     files: FileData[];

@@ -58,9 +58,9 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-theme-surface border border-theme-default rounded-lg w-[480px] max-h-[90vh] overflow-auto">
-        <div className="flex items-center justify-between p-4 border-b border-theme-default">
-          <h2 className="text-lg font-medium text-white">导出日志</h2>
+      <div className="bg-secondary border-default rounded-lg w-[480px] max-h-[90vh] overflow-auto">
+        <div className="flex items-center justify-between p-4 border-b border-default">
+          <h2 className="text-lg font-medium text-primary">导出日志</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors"
@@ -73,12 +73,12 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
         <div className="p-4 space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-2">文件</label>
-            <div className="px-3 py-2 bg-[#2a2a2a] rounded text-white">{fileName}</div>
+            <label className="block text-sm text-secondary mb-2">文件</label>
+            <div className="px-3 py-2 bg-tertiary rounded text-primary">{fileName}</div>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-2">导出格式</label>
+            <label className="block text-sm text-secondary mb-2">导出格式</label>
             <div className="grid grid-cols-3 gap-2">
               {formatOptions.map((opt) => (
                 <button
@@ -86,19 +86,19 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                   onClick={() => setFormat(opt.value as ExportFormat)}
                   className={`p-3 rounded border text-left transition-colors ${
                     format === opt.value
-                      ? 'border-blue-500 bg-blue-500/10 text-white'
-                      : 'border-[#3a3a3a] hover:border-gray-500 text-gray-300'
+                      ? 'border-primary-color bg-primary-color/10 text-primary'
+                      : 'border-default hover:border-primary-color text-secondary'
                   }`}
                 >
                   <div className="font-medium">{opt.label}</div>
-                  <div className="text-xs text-gray-500 mt-1">{opt.desc}</div>
+                  <div className="text-xs text-muted mt-1">{opt.desc}</div>
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-2">输出路径</label>
+            <label className="block text-sm text-secondary mb-2">输出路径</label>
             <Input
               value={outputPath}
               onChange={(e) => setOutputPath(e.target.value)}
@@ -112,9 +112,9 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                 type="checkbox"
                 checked={includeLineNumbers}
                 onChange={(e) => setIncludeLineNumbers(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-500 bg-[#2a2a2a] text-blue-500"
+                className="w-4 h-4 rounded border-default bg-tertiary text-primary-color"
               />
-              <span className="text-sm text-gray-300">包含行号</span>
+              <span className="text-sm text-secondary">包含行号</span>
             </label>
 
             {format === 'json' && (
@@ -123,9 +123,9 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                   type="checkbox"
                   checked={includeTimestamps}
                   onChange={(e) => setIncludeTimestamps(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-500 bg-[#2a2a2a] text-blue-500"
+                  className="w-4 h-4 rounded border-default bg-tertiary text-primary-color"
                 />
-                <span className="text-sm text-gray-300">包含时间戳</span>
+                <span className="text-sm text-secondary">包含时间戳</span>
               </label>
             )}
           </div>

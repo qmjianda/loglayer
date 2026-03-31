@@ -56,9 +56,9 @@ export const WorkerConfigPanel: React.FC<WorkerConfigPanelProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-[#1e1e1e] border border-[#3a3a3a] rounded-lg w-[400px]">
-        <div className="flex items-center justify-between p-4 border-b border-[#3a3a3a]">
-          <h2 className="text-lg font-medium text-white">Worker 配置</h2>
+      <div className="bg-secondary border-default rounded-lg w-[400px]">
+        <div className="flex items-center justify-between p-4 border-b border-default">
+          <h2 className="text-lg font-medium text-primary">Worker 配置</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors"
@@ -83,8 +83,8 @@ export const WorkerConfigPanel: React.FC<WorkerConfigPanelProps> = ({
                       onClick={() => setMaxWorkers(n)}
                       className={`p-2 rounded border text-center transition-colors ${
                         maxWorkers === n
-                          ? 'border-blue-500 bg-blue-500/10 text-white'
-                          : 'border-[#3a3a3a] hover:border-gray-500 text-gray-300'
+                          ? 'border-primary-color bg-primary-color/10 text-primary'
+                          : 'border-default hover:border-primary-color text-secondary'
                       }`}
                     >
                       {n}
@@ -96,10 +96,10 @@ export const WorkerConfigPanel: React.FC<WorkerConfigPanelProps> = ({
                 </p>
               </div>
 
-              <div className="p-3 bg-[#2a2a2a] rounded">
+              <div className="p-3 bg-tertiary rounded">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">当前活跃 Worker</span>
-                  <span className="text-white">{currentWorkers}</span>
+                  <span className="text-secondary">当前活跃 Worker</span>
+                  <span className="text-primary">{currentWorkers}</span>
                 </div>
               </div>
 
@@ -112,7 +112,7 @@ export const WorkerConfigPanel: React.FC<WorkerConfigPanelProps> = ({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 p-4 border-t border-[#3a3a3a]">
+        <div className="flex justify-end gap-2 p-4 border-t border-default">
           <Button variant="secondary" onClick={onClose}>
             取消
           </Button>

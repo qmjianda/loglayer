@@ -117,7 +117,9 @@ class IndexingWorker(CustomThread):
             scanned = 0
 
             preview_bytes = min(self.size, self.FAST_PREVIEW_BYTES)
-            logger.info(f"[Indexing] Starting: file_size={self.size}, preview_bytes={preview_bytes}")
+            logger.info(
+                f"[Indexing] Starting: file_size={self.size}, preview_bytes={preview_bytes}"
+            )
 
             # Phase 1: Quick preview (first N MB) - show content immediately
             preview_bytes = min(self.size, self.FAST_PREVIEW_BYTES)
@@ -225,8 +227,10 @@ class PipelineWorker(CustomThread):
 
     def run(self):
         from loglayer.core import LayerStage, ProcessedLine
-        
-        logger.info(f"[PipelineWorker] Starting pipeline for {self.file_path}, native_layers={len([l for l in self.layers if l.stage == LayerStage.NATIVE])}, logic_layers={len([l for l in self.layers if l.stage == LayerStage.LOGIC])}")
+
+        logger.info(
+            f"[PipelineWorker] Starting pipeline for {self.file_path}, native_layers={len([l for l in self.layers if l.stage == LayerStage.NATIVE])}, logic_layers={len([l for l in self.layers if l.stage == LayerStage.LOGIC])}"
+        )
 
         try:
             native_layers = [l for l in self.layers if l.stage == LayerStage.NATIVE]
@@ -266,9 +270,7 @@ class PipelineWorker(CustomThread):
                         for match_line_bytes in sp.stdout:
                             if self.is_cancelled():
                                 break
-                            match_line = match_line_bytes.decode(
-                                "utf-8", errors="replace"
-                            )
+                            match_line = match_line_bytes.decode("utf-8", errors="replace")
                             parts = match_line.split(":", 1)
                             if parts[0].isdigit():
                                 matching_physicals.add(int(parts[0]) - 1)
@@ -359,13 +361,11 @@ class PipelineWorker(CustomThread):
                     if logic_layers:
                         for layer in logic_layers:
                             # Only call process_line if the layer has this method (TransformLayer, etc.)
-                            if hasattr(layer, 'process_line'):
+                            if hasattr(layer, "process_line"):
                                 res = layer.process_line(content)
-                                content = (
-                                    res.content if isinstance(res, ProcessedLine) else res
-                                )
+                                content = res.content if isinstance(res, ProcessedLine) else res
                             # Only call filter_line if the layer has this method (FilterLayer, RangeLayer, TimeLayer, etc.)
-                            if hasattr(layer, 'filter_line'):
+                            if hasattr(layer, "filter_line"):
                                 if not layer.filter_line(content, index=physical_idx):
                                     is_visible = False
                                     break
@@ -378,10 +378,14 @@ class PipelineWorker(CustomThread):
 
                     line_count += 1
                     if line_count % 10000 == 0:
-                        self.progress.emit(float(line_count))  # Emit actual line count for progress tracking
+                        self.progress.emit(
+                            float(line_count)
+                        )  # Emit actual line count for progress tracking
 
             if self._is_running:
-                logger.info(f"[PipelineWorker] Pipeline completed: {len(visible_indices)} visible lines, {len(search_matches)} search matches")
+                logger.info(
+                    f"[PipelineWorker] Pipeline completed: {len(visible_indices)} visible lines, {len(search_matches)} search matches"
+                )
                 self.finished.emit(visible_indices, search_matches)
 
         except Exception as e:
@@ -462,14 +466,12 @@ class StatsWorker(CustomThread):
             if self.search_config and self.search_config.get("query"):
                 tasks.append((None, "search", self.search_config, []))
 
-            with ThreadPoolExecutor(
-                max_workers=min(2, os.cpu_count() or 4)
-            ) as executor:
+            with ThreadPoolExecutor(max_workers=min(2, os.cpu_count() or 4)) as executor:
                 future_to_lid = {}
                 for layer, l_id, q_conf, filters in tasks:
-                    future_to_lid[
-                        executor.submit(self._run_layer_stats, l_id, q_conf, filters)
-                    ] = l_id
+                    future_to_lid[executor.submit(self._run_layer_stats, l_id, q_conf, filters)] = (
+                        l_id
+                    )
                 for future in future_to_lid:
                     if self.is_cancelled():
                         break
@@ -495,6 +497,8 @@ class StatsWorker(CustomThread):
                 c.append("-i")
             if not f.get("regex"):
                 c.append("-F")
+            if f.get("wholeWord"):
+                c.append("-w")
             c.append(f["query"])
             cmd_chain.append(c)
         final_cmd = [
@@ -509,6 +513,8 @@ class StatsWorker(CustomThread):
             final_cmd.append("-i")
         if not q_conf.get("regex"):
             final_cmd.append("-F")
+        if q_conf.get("wholeWord"):
+            final_cmd.append("-w")
         final_cmd.append(q_conf["query"])
         count = 0
         distribution = [0] * 20

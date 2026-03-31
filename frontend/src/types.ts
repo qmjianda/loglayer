@@ -186,7 +186,7 @@ export interface FileBridgeAPI {
   has_native_dialogs(): Promise<boolean>;
 
   // Search operations
-  search_ripgrep(fileId: string, query: string, regex: boolean, caseSensitive: boolean): Promise<boolean>;
+  search_ripgrep(fileId: string, query: string, regex: boolean, caseSensitive: boolean, wholeWord?: boolean): Promise<boolean>;
   get_search_match_index(fileId: string, rank: number): Promise<number>;
   get_nearest_search_rank(fileId: string, currentIndex: number, direction: string): Promise<number>;
   get_next_search_match(fileId: string, currentIndex: number, direction: string): Promise<{ rank: number; index: number }>;
