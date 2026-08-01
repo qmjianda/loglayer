@@ -1,6 +1,6 @@
 # LogLayer 技术决策记录
 
-> AI 助手必读：本文件记录项目的关键技术决策及其理由，便于理解代码演进和未来维护。
+> **已冻结**：本文件为历史 ADR，只读，不再追加新决策。新决策一律通过 OpenSpec 变更流程记录（见 `openspec/changes/<name>/design.md`）。
 
 ---
 
@@ -243,32 +243,6 @@ export const COLORS = {
 - [ ] SearchConfig 类型兼容
 - [ ] Toast.tsx 属性缺失
 - [ ] UnifiedPanel.tsx 类型错误
-
----
-
-## 待决策
-
-### TD-009: 主题系统设计
-
-**状态**: 待讨论
-**类别**: UX
-
-#### 选项
-- **方案 A**: 纯 CSS 变量
-- **方案 B**: React Context
-- **方案 C**: CSS-in-JS (styled-components)
-
----
-
-### TD-010: 插件系统架构
-
-**状态**: 待讨论
-**类别**: 扩展性
-
-#### 选项
-- **方案 A**: Python 插件 (同内置图层)
-- **方案 B**: JavaScript 插件
-- **方案 C**: WebAssembly 插件
 
 ---
 
