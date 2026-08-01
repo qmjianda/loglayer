@@ -15,6 +15,7 @@ export interface FileInfo {
     isActive: boolean;
     layers?: LogLayer[];
     lineCount?: number;
+    wasOpen?: boolean;  // 文件当前是否在编辑区（false = 历史文件）
 }
 
 interface UnifiedPanelProps {
@@ -112,6 +113,10 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     // Resize State
     const [openedHeight, setOpenedHeight] = useState(200);
     const [presetHeight, setPresetHeight] = useState(200);
+
+    // 已打开文件与历史文件（wasOpen=false）
+    const openFiles = files.filter(f => f.wasOpen !== false);
+    const historyFiles = files.filter(f => f.wasOpen === false);
 
     // Track expanded files for tree view
     const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
@@ -315,10 +320,11 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                         className="overflow-y-auto custom-scrollbar bg-theme-surface"
                         style={collapsedSections.explorer ? { flex: 1 } : { height: openedHeight }}
                     >
-                        {files.length === 0 ? (
-                            <div className="p-4 text-center text-[10px] text-theme-muted italic">暂无文件 (从资源管理器中选取)</div>
-                        ) : (
-                            files.map(file => {
+                        {(() => {
+                            if (openFiles.length === 0) {
+                                return <div className="p-4 text-center text-[10px] text-theme-muted italic">暂无文件 (从资源管理器中选取)</div>;
+                            }
+                            return openFiles.map(file => {
                                 const isExpanded = expandedFiles[file.id] === true;
                                 const isActive = file.id === activeFileId;
                                 // Filter out system-managed layers unless debug mode is on
@@ -498,10 +504,31 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                         )}
                                     </div>
                                 );
-                            })
-                        )}
+                            });
+                        })()}
                     </div>
                 )}
+
+            {/* 历史文件（wasOpen=false，仅列表，点击重新打开） */}
+            {!collapsedSections.openFiles && historyFiles.length > 0 && (
+                <div className="overflow-y-auto custom-scrollbar bg-theme-surface border-t border-theme-subtle">
+                    <div className="flex items-center px-3 py-1.5 bg-header/50">
+                        <span className="text-[10px] uppercase font-black tracking-wider opacity-50">历史文件</span>
+                        <span className="ml-auto text-[9px] text-theme-muted">{historyFiles.length}</span>
+                    </div>
+                    {historyFiles.map(file => (
+                        <div
+                            key={file.id}
+                            className="flex items-center py-1 px-2 cursor-pointer select-none group transition-colors hover:bg-theme-hover text-theme-muted"
+                            onClick={() => onFileActivate(file.id)}
+                            title="点击重新打开"
+                        >
+                            <svg className="w-3 h-3 mr-2 shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span className="text-[11px] truncate flex-1">{file.name}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
             </div>
 
             {/* 2. 资源管理器 (Pure Tree) */}

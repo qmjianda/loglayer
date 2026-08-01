@@ -9,8 +9,9 @@
  */
 
 import React, { useMemo, useCallback, useEffect, useState, useRef } from 'react';
+import { DockviewApi } from 'dockview-react';
 import { Sidebar } from './components/Sidebar';
-import { LogViewer } from './components/LogViewer';
+import { EditorArea } from './components/EditorArea';
 import { SearchPanel } from './components/SearchPanel';
 import { EditorFindWidget } from './components/EditorFindWidget';
 import { EditorGoToLineWidget } from './components/EditorGoToLineWidget';
@@ -20,13 +21,13 @@ import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';
 import { UnifiedPanel, FileInfo } from './components/UnifiedPanel';
 import { HelpPanel } from './components/HelpPanel';
 import { StatusBar } from './components/StatusBar';
-import { IndexingOverlay, FileLoadingSkeleton, PendingFilesWall } from './components/LoadingOverlays';
+import { IndexingOverlay } from './components/LoadingOverlays';
 import { RemotePathPicker } from './components/RemotePathPicker';
 import { AIChatPanel } from './components/AIChatPanel';
 import { StatsPanel, LogLevelStats } from './components/StatsPanel';
 import { LayerType, LogLine } from './types';
 import { ProcessedCache } from './hooks/useFileManagement';
-import { openFile, syncAll, hasNativeDialogs, toggleBookmark, getNearestBookmarkIndex, getLinesByIndices, getLogLevelStats } from './bridge_client';
+import { openFile, syncAll, hasNativeDialogs, toggleBookmark, getNearestBookmarkIndex, getLinesByIndices, getLogLevelStats, setCacheConfig } from './bridge_client';
 import { removeFromSet, basename } from './utils';
 
 // 导入自定义 Hooks
@@ -63,9 +64,6 @@ const AppContent: React.FC = () => {
     setFiles,
     activeFileId,
     activeFile,
-    panes,
-    activePaneId,
-    setActivePaneId,
     loadingFileIds,
     indexingFileIds,
     setIndexingFileIds,
@@ -78,6 +76,7 @@ const AppContent: React.FC = () => {
     setActiveFileId,
     handleFileActivate,
     handleFileRemove,
+    handleFileClosed,
     addNewFiles,
     handleNativeFileSelect,
     handleNativeFolderSelect,
@@ -88,6 +87,9 @@ const AppContent: React.FC = () => {
     handleFolderUpload,
     markFileLoaded
   } = fileManagement;
+
+  // dockview API ref（由 EditorArea onReady 注入）
+  const dockApiRef = useRef<DockviewApi | null>(null);
 
   // 便捷访问器：获取当前激活文件的基础统计信息
   const fileName = activeFile?.name || '';
@@ -212,6 +214,11 @@ const AppContent: React.FC = () => {
     }
   }, [settings.searchRegexDefault, settings.searchCaseSensitiveDefault]);
 
+  // 同步缓存大小配置到后端（启动时让持久化设置生效）
+  useEffect(() => {
+    setCacheConfig(settings.cacheSizeMB);
+  }, [settings.cacheSizeMB]);
+
   // ===== UI 状态控制 (UI State) =====
   // 处理各种面板显隐、滚动定位、进度条、工作区根目录等。
   // Note: 书签导航将在 uiState 返回后定义，使用 useEffect 注册
@@ -325,10 +332,32 @@ const AppContent: React.FC = () => {
     }
   }, [findNextSearchMatch, handleJumpToLine, activeFile?.lineCount, highlightedIndex]);
 
+  // 统一打开文件入口：已打开则激活面板，否则 addPanel（经 dockview API）
+  const openFileInEditor = useCallback((fileId: string) => {
+    const api = dockApiRef.current;
+    if (!api) return;
+
+    const file = files.find(f => f.id === fileId);
+    const existing = api.panels.find(p =>
+      p.params?.fileId === fileId || (file?.path && p.params?.uri === file.path)
+    );
+    if (existing) {
+      existing.api.setActive();
+    } else {
+      api.addPanel({
+        id: `log-${fileId}`,
+        component: 'logViewer',
+        title: file?.name || fileId,
+        params: { fileId, uri: file?.path }
+      });
+    }
+    handleFileActivate(fileId);
+  }, [files, handleFileActivate]);
+
   // 增强版：激活文件，并确保其在后端也处于同步状态
   const handleFileActivateWithLoad = useCallback((fileId: string) => {
-    handleFileActivate(fileId);
-  }, [handleFileActivate]);
+    openFileInEditor(fileId);
+  }, [openFileInEditor]);
 
   // ===== 桥接层集成 (Bridge Integration) =====
   // 监听来自 Python 后端的信号（文件加载完成、搜索完成、统计完成等）。
@@ -370,6 +399,7 @@ const AppContent: React.FC = () => {
             layers: [],
             isBridged: true as const,
             path: info.path || info.name,
+            wasOpen: true as const,
             history: { past: [], future: [] }
           };
           setTimeout(() => setActiveFileId(fileId), 0);
@@ -377,18 +407,12 @@ const AppContent: React.FC = () => {
         }
       });
 
-      // Only clear loading state when NOT a partial load
-      if (!info.partial) {
-        triggerUpdate();
-        setIsProcessing(false);
-        setOperationStatus(null);
-        markFileLoaded(fileId);
-        setIndexingFileIds(prev => removeFromSet(prev, fileId));
-      } else {
-        // Partial load: keep indexing in progress, but allow viewing
-        triggerUpdate();
-        setLoadingProgress(10);  // Show some progress
-      }
+      // 单阶段完整索引：fileLoaded 只在完整索引完成后发出一次
+      triggerUpdate();
+      setIsProcessing(false);
+      setOperationStatus(null);
+      markFileLoaded(fileId);
+      setIndexingFileIds(prev => removeFromSet(prev, fileId));
     },
 
     // 当后端 Pipeline 运行结束（过滤/搜索合并）后触发
@@ -490,7 +514,8 @@ const AppContent: React.FC = () => {
       size: f.size,
       isActive: f.id === activeFileId,
       lineCount: f.lineCount,
-      layers: f.layers
+      layers: f.layers,
+      wasOpen: f.wasOpen !== false
     })), [files, activeFileId]);
 
   // 导航到下一个搜索匹配项，并自动滚动到底部/指定行已被移动到上方
@@ -858,91 +883,42 @@ const AppContent: React.FC = () => {
                 />
               )}
 
-              {/* 中间编辑器区域（支持分栏，目前主要实现单栏） */}
-              <div className="flex-1 flex overflow-hidden min-w-0 min-h-0">
-                {panes.map((pane) => {
-                  const paneFileId = pane.fileId;
-                  const processedData = paneFileId ? processedCache[paneFileId] : null;
-                  const paneStats = processedData?.layerStats || {};
-
-                  return (
-                    <div key={pane.id} className="flex-1 flex flex-col min-w-0 min-h-0 bg-primary relative border-r border-subtle overflow-hidden">
-                      <div
-                        className={`flex-1 flex flex-col min-h-0 relative ${activePaneId === pane.id ? 'ring-1 ring-blue-500/30' : ''}`}
-                        onClick={() => setActivePaneId(pane.id)}
-                      >
-                        {/* 标签栏（目前显示当前文件名） */}
-                        <div className="h-8 bg-secondary flex items-center px-4 text-xs text-muted border-b border-subtle shrink-0 select-none">
-                          <span className="truncate">{paneFileId ? (files.find(f => f.id === paneFileId)?.name || 'Unknown File') : 'Empty Pane'}</span>
-                          <div className="ml-auto flex gap-2">
-                            {panes.length > 1 && (
-                              <button onClick={(e) => {
-                                e.stopPropagation();
-                                const newPanes = panes.filter(p => p.id !== pane.id);
-                              }} className="hover:text-white">✕</button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* 核心组件：Monaco 编辑器封装的日志查看器 */}
-                        {paneFileId ? (
-                          <div className="flex-1 flex flex-col relative min-h-0 overflow-hidden">
-                            {/* [BUG FIX] Mutually exclusive rendering and state reset:
-                                1. Use loadingFileIds and indexingFileIds for this SPECIFIC pane's file.
-                                2. Add key={paneFileId} to force remount on file switch. 
-                                   This resets LogViewer internal states like scrolling and cache. */}
-                            {(loadingFileIds.has(paneFileId) || indexingFileIds.has(paneFileId)) ? (
-                              <FileLoadingSkeleton fileName={files.find(f => f.id === paneFileId)?.name} />
-                            ) : (
-                              <LogViewer
-                                key={paneFileId}
-                                totalLines={files.find(f => f.id === pane.fileId)?.lineCount || 0}
-                                fileId={pane.fileId}
-                                searchQuery={(isFindVisible || activeView === 'search') ? searchQuery : ''}
-                                searchConfig={searchConfig}
-                                scrollToIndex={activePaneId === pane.id ? scrollToIndex : null}
-                                highlightedIndex={activePaneId === pane.id ? highlightedIndex : null}
-                                onLineClick={(idx) => {
-                                  if (activePaneId !== pane.id) setActivePaneId(pane.id);
-                                  setHighlightedIndex(idx);
-                                }}
-                                onAddLayer={(type, config) => addLayer(type, config)}
-                                onToggleBookmark={handleToggleBookmark}
-                                onUpdateBookmarkComment={handleUpdateBookmarkComment}
-                                onSelectedTextChange={setCanvasSelectedText}
-                                onSendToAI={(text) => { setAiPanelInitialContent(text); setActiveView('ai'); }}
-                                updateTrigger={bridgedUpdateTrigger}
-                                settings={settings}
-                                resolvedTheme={resolvedTheme}
-                                hasNewContent={hasNewContent}
-                                onScrollToNewContent={() => {
-                                  clearNewContent();
-                                  if (activeFile?.lineCount) {
-                                    setScrollToIndex(activeFile.lineCount - 1);
-                                  }
-                                }}
-                              />
-                            )}
-                          </div>
-                        ) : pendingCliFiles > 0 ? (
-                          // CLI 待处理文件占位
-                          <PendingFilesWall count={pendingCliFiles} />
-                        ) : (
-                          // 无文件时的欢迎界面
-                          <div
-                            className="flex-1 flex flex-col items-center justify-center text-gray-600 bg-theme-base cursor-pointer hover:bg-theme-surface transition-colors"
-                            onClick={handleOpen}
-                          >
-                            <svg className="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                            <p className="text-sm font-medium">将日志文件拖拽至此处打开</p>
-                            <p className="text-[10px] mt-2 opacity-50">或点击浏览并打开文件/文件夹</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              {/* 中间编辑器区域（dockview 分屏承载） */}
+              <EditorArea
+                files={files}
+                activeFileId={activeFileId}
+                loadingFileIds={loadingFileIds}
+                indexingFileIds={indexingFileIds}
+                pendingCliFiles={pendingCliFiles}
+                processedCache={processedCache}
+                bridgedUpdateTrigger={bridgedUpdateTrigger}
+                searchQuery={searchQuery}
+                searchConfig={searchConfig}
+                isFindVisible={isFindVisible}
+                activeView={activeView}
+                scrollToIndex={scrollToIndex}
+                highlightedIndex={highlightedIndex}
+                settings={settings}
+                resolvedTheme={resolvedTheme}
+                hasNewContent={hasNewContent}
+                onOpen={handleOpen}
+                onLineClick={(idx) => setHighlightedIndex(idx)}
+                onAddLayer={(type, config) => addLayer(type, config)}
+                onToggleBookmark={handleToggleBookmark}
+                onUpdateBookmarkComment={handleUpdateBookmarkComment}
+                onSelectedTextChange={setCanvasSelectedText}
+                onSendToAI={(text) => { setAiPanelInitialContent(text); setActiveView('ai'); }}
+                onScrollToNewContent={() => {
+                  clearNewContent();
+                  if (activeFile?.lineCount) {
+                    setScrollToIndex(activeFile.lineCount - 1);
+                  }
+                }}
+                onFileActivated={(fileId) => setActiveFileId(fileId)}
+                onFileClosed={handleFileClosed}
+                onApiReady={(api) => { dockApiRef.current = api; }}
+                onFileDrop={(paths) => addNewFiles(paths)}
+              />
             </>
           )}
         </div>

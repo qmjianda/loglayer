@@ -7,7 +7,7 @@
 
 import React, { useEffect, useRef, useCallback } from 'react';
 import { LogLayer } from '../types';
-import { saveWorkspaceConfig, loadWorkspaceConfig, WorkspaceConfig } from '../bridge_client';
+import { saveWorkspaceConfig, loadWorkspaceConfig, openFile, WorkspaceConfig, WorkspaceConfigFile } from '../bridge_client';
 import { FileData } from './useFileManagement';
 
 const SAVE_DEBOUNCE_MS = 1000;
@@ -60,6 +60,7 @@ export function useWorkspaceConfig({
     const getSessionHash = useCallback((filesList: FileData[], activePath?: string | null): string => {
         const fileState = filesList.map(f => ({
             path: f.path,
+            wasOpen: f.wasOpen !== false,
             layers: f.layers.map(l => [l.id, l.type, l.enabled, l.config])
         }));
         return JSON.stringify([fileState, activePath]);
@@ -82,7 +83,8 @@ export function useWorkspaceConfig({
                 path: f.path || f.name,
                 name: f.name,
                 size: f.size,
-                layers: f.layers
+                layers: f.layers,
+                wasOpen: f.wasOpen !== false
             })),
             activeFilePath: activeFilePath || null
         };
@@ -109,7 +111,25 @@ export function useWorkspaceConfig({
             if (config.files && config.files.length > 0) {
                 console.log(`[WorkspaceConfig] Restoring session: ${config.files.length} files`);
 
-                const newFiles: FileData[] = config.files.map((cf, i) => ({
+                // 相对路径基于 workspace 根目录解析为绝对路径
+                const workspaceRoot = configPath.replace(/[/\\]\.loglayer$/, '');
+                const resolvePath = (p: string): string => {
+                    if (!p) return p;
+                    if (p.startsWith('/') || /^[A-Za-z]:[\\/]/.test(p)) return p; // 已是绝对路径
+                    // 相对路径 → 拼接 workspace 根
+                    return `${workspaceRoot}/${p.replace(/\\/g, '/')}`;
+                };
+
+                // 按解析后的绝对路径去重（旧配置可能同时存相对+绝对路径）
+                const seen = new Set<string>();
+                const deduped = (config.files as WorkspaceConfigFile[]).filter(cf => {
+                    const abs = resolvePath(cf.path || '');
+                    if (!abs || seen.has(abs)) return false;
+                    seen.add(abs);
+                    return true;
+                });
+
+                const newFiles: FileData[] = deduped.map((cf, i) => ({
                     id: `bridged-restored-${Date.now()}-${i}`,
                     name: cf.name,
                     size: cf.size,
@@ -118,20 +138,40 @@ export function useWorkspaceConfig({
                     // Force collapse all layers when loading from config
                     layers: (cf.layers || []).map(l => ({ ...l, isCollapsed: true })),
                     isBridged: true,
-                    path: cf.path,
+                    path: resolvePath(cf.path || ''),
+                    wasOpen: cf.wasOpen !== false, // 默认 true（旧配置无该字段视为打开）
                     history: { past: [], future: [] }
                 }));
 
                 setFiles(newFiles);
 
-                // Restore active file
-                if (config.activeFilePath) {
-                    const found = newFiles.find(f => f.path === config.activeFilePath);
+                // 仅自动打开 wasOpen=true 的文件；wasOpen=false 的历史文件只进列表
+                newFiles.forEach(f => {
+                    if (f.wasOpen && f.path) {
+                        openFile(f.id, f.path).then(ok => {
+                            // 打开失败（如路径不存在）：降级为历史文件，避免永久 loading
+                            if (!ok) {
+                                setFiles(prev =>
+                                    prev.map(x => x.id === f.id ? { ...x, wasOpen: false } : x)
+                                );
+                            }
+                        });
+                    }
+                });
+
+                // Restore active file（仅限仍打开的文件）
+                const activeAbs = config.activeFilePath ? resolvePath(config.activeFilePath) : null;
+                if (activeAbs) {
+                    const found = newFiles.find(f => f.path === activeAbs && f.wasOpen);
                     if (found) {
                         setTimeout(() => setActiveFileId(found.id), 100);
+                    } else {
+                        const firstOpen = newFiles.find(f => f.wasOpen);
+                        if (firstOpen) setTimeout(() => setActiveFileId(firstOpen.id), 100);
                     }
-                } else if (newFiles.length > 0) {
-                    setTimeout(() => setActiveFileId(newFiles[0].id), 100);
+                } else {
+                    const firstOpen = newFiles.find(f => f.wasOpen);
+                    if (firstOpen) setTimeout(() => setActiveFileId(firstOpen.id), 100);
                 }
 
                 lastSavedHashRef.current = getSessionHash(newFiles, config.activeFilePath);

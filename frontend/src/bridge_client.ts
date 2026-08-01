@@ -183,6 +183,11 @@ class WebBridge implements FileBridgeAPI {
     async get_platform_info() { return this.get('platform'); }
     async get_log_level_stats(fileId: string) { return this.get('log_level_stats', { file_id: fileId }); }
 
+    // Cache APIs
+    async get_cache_config() { return this.get('cache_config'); }
+    async set_cache_config(cacheSizeMB: number) { return this.post('cache_config', { cache_size_mb: cacheSizeMB }); }
+    async clear_cache() { return this.post('cache/clear'); }
+
     // Bookmark APIs
     async toggle_bookmark(fileId: string, lineIndex: number) {
         return this.post('toggle_bookmark', { file_id: fileId, line_index: lineIndex });
@@ -290,6 +295,42 @@ export async function getLogLevelStats(fileId: string): Promise<Record<string, n
     }
 }
 
+export interface CacheConfig {
+    cacheSizeMB: number;
+    totalBytes: number;
+    fileCount: number;
+}
+
+export async function getCacheConfig(): Promise<CacheConfig | null> {
+    if (!fileBridge) return null;
+    try {
+        return await fileBridge.get_cache_config();
+    } catch (e) {
+        console.error('[Bridge] get_cache_config error:', e);
+        return null;
+    }
+}
+
+export async function setCacheConfig(cacheSizeMB: number): Promise<boolean> {
+    if (!fileBridge) return false;
+    try {
+        return await fileBridge.set_cache_config(cacheSizeMB);
+    } catch (e) {
+        console.error('[Bridge] set_cache_config error:', e);
+        return false;
+    }
+}
+
+export async function clearCache(): Promise<boolean> {
+    if (!fileBridge) return false;
+    try {
+        return await fileBridge.clear_cache();
+    } catch (e) {
+        console.error('[Bridge] clear_cache error:', e);
+        return false;
+    }
+}
+
 export function signalReady(): void {
     if (fileBridge) fileBridge.ready();
 }
@@ -350,10 +391,18 @@ export async function listDirectory(folderPath: string): Promise<any[]> {
     } catch (e) { return []; }
 }
 
+export interface WorkspaceConfigFile {
+    path: string;
+    name: string;
+    size: number;
+    layers: any[];
+    wasOpen?: boolean;  // 文件当前是否在编辑区（默认 true）
+}
+
 export interface WorkspaceConfig {
     version: number;
     lastModified: string;
-    files?: Array<{ path: string; name: string; size: number; layers: any[] }>;
+    files?: WorkspaceConfigFile[];
     activeFilePath?: string | null;
     layers?: any[];
 }

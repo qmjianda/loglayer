@@ -2,12 +2,15 @@ import os
 import mmap
 from abc import ABC, abstractmethod
 
+
 class BaseStorageProvider(ABC):
     """
-    存储提供者基类。
-    定义了如何打开文件、获取大小和名称的标准接口。
+    存储提供者基类（DEPRECATED - 已废弃，仅保留兼容）。
+
+    已由 loglayer.vfs.ILogStreamProvider / LocalFileProvider 取代。
+    新代码请使用 VFS 抽象，勿再依赖本类。
     """
-    scheme = "file" # 默认协议
+    scheme = "file"  # 默认协议
 
     @abstractmethod
     def open(self, uri: str):

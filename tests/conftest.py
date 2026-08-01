@@ -4,6 +4,11 @@ import sys
 import tempfile
 import json
 
+# e2e 测试需启动前后端，默认不随普通单测运行；
+# 显式执行：python3 -m pytest tests/e2e -v
+if os.path.basename(os.path.dirname(__file__)) != "e2e":
+    collect_ignore = ["e2e"]
+
 # Add project root and backend to sys.path
 project_root = os.path.dirname(os.path.dirname(__file__))
 if project_root not in sys.path:

@@ -307,6 +307,30 @@ def load_workspace_config(folder_path: str):
 
 
 # ============================================================
+# SQLite 元数据缓存 APIs
+# ============================================================
+
+
+@app.get("/api/cache_config")
+def get_cache_config():
+    """获取缓存配置与占用情况。"""
+    return bridge.get_cache_config()
+
+
+@app.post("/api/cache_config")
+def set_cache_config(data: dict = Body(...)):
+    """更新缓存大小（MB）。"""
+    cache_size_mb = data.get("cache_size_mb", 2048)
+    return bridge.set_cache_size_mb(cache_size_mb)
+
+
+@app.post("/api/cache/clear")
+def clear_cache():
+    """清空缓存（当前编辑文件除外）。"""
+    return bridge.clear_cache()
+
+
+# ============================================================
 # Worker Pool Configuration APIs
 # ============================================================
 
@@ -506,8 +530,11 @@ def start_app():
 
             if os.path.isdir(abs_path):
                 # Only set workspace, don't open all files (as requested)
+                bridge.set_workspace_dir(abs_path)
                 bridge.workspaceOpened.emit(abs_path)
             elif os.path.isfile(abs_path):
+                # 单文件场景：工作区取其所在目录（缓存存到该目录 .loglayer/）
+                bridge.set_workspace_dir(os.path.dirname(abs_path))
                 # Just open the single file
                 try:
                     stats = os.stat(abs_path)

@@ -132,6 +132,11 @@ export interface FileBridgeAPI {
   get_platform_info(): Promise<string>;
   get_log_level_stats(fileId: string): Promise<Record<string, number>>;
 
+  // Cache operations
+  get_cache_config(): Promise<{ cacheSizeMB: number; totalBytes: number; fileCount: number }>;
+  set_cache_config(cacheSizeMB: number): Promise<boolean>;
+  clear_cache(): Promise<boolean>;
+
   // Signals
   fileLoaded: { connect: (cb: (fileId: string, payloadJson: string) => void) => void };
   pipelineFinished: { connect: (cb: (fileId: string, newTotal: number, matchCount: number) => void) => void };

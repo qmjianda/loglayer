@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSettings, AppSettings } from '../hooks/useSettings';
 import { AISettingsPanel } from './DynamicUI/AISettings';
+import { clearCache, setCacheConfig } from '../bridge_client';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -28,9 +29,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
       Object.entries(localSettings).forEach(([key, value]) => {
         globalUpdate(key as keyof AppSettings, value);
       });
+      // 同步缓存大小配置到后端并触发 LRU 淘汰
+      setCacheConfig(localSettings.cacheSizeMB);
       setLocalSettings(null);
     }
     onClose();
+  };
+
+  const handleClearCache = async () => {
+    await clearCache();
+    setLocalSettings(null);
   };
 
   const cancel = () => {
@@ -309,6 +317,24 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-theme-primary rounded"
                   >
                     重置所有设置为默认
+                  </button>
+                </Section>
+
+                <Section title="缓存">
+                  <NumberInput
+                    label="缓存大小"
+                    value={currentSettings.cacheSizeMB}
+                    min={128}
+                    max={16384}
+                    unit="MB"
+                    description="行偏移索引缓存上限（LRU 淘汰），最少保留 1 个文件"
+                    onChange={v => handleChange('cacheSizeMB', v)}
+                  />
+                  <button
+                    onClick={handleClearCache}
+                    className="px-4 py-2 text-sm bg-orange-600 hover:bg-orange-500 text-theme-primary rounded"
+                  >
+                    清空缓存
                   </button>
                 </Section>
               </div>

@@ -54,38 +54,44 @@ def resolve_file_path(file_path: str) -> str:
 
 
 class LRUCache:
-    """Simple LRU cache with max size limit."""
+    """Simple LRU cache with max size limit. Thread-safe."""
 
     def __init__(self, max_size: int = 5000):
         self.max_size = max_size
         self._cache = {}
         self._access_order = []
+        self._lock = threading.Lock()
 
     def __contains__(self, key):
-        return key in self._cache
+        with self._lock:
+            return key in self._cache
 
     def __getitem__(self, key):
-        if key in self._cache:
-            self._access_order.remove(key)
-            self._access_order.append(key)
-            return self._cache[key]
-        raise KeyError(key)
+        with self._lock:
+            if key in self._cache:
+                self._access_order.remove(key)
+                self._access_order.append(key)
+                return self._cache[key]
+            raise KeyError(key)
 
     def __setitem__(self, key, value):
-        if key in self._cache:
-            self._access_order.remove(key)
-        elif len(self._cache) >= self.max_size:
-            oldest = self._access_order.pop(0)
-            del self._cache[oldest]
-        self._cache[key] = value
-        self._access_order.append(key)
+        with self._lock:
+            if key in self._cache:
+                self._access_order.remove(key)
+            elif len(self._cache) >= self.max_size:
+                oldest = self._access_order.pop(0)
+                del self._cache[oldest]
+            self._cache[key] = value
+            self._access_order.append(key)
 
     def __len__(self):
-        return len(self._cache)
+        with self._lock:
+            return len(self._cache)
 
     def clear(self):
-        self._cache.clear()
-        self._access_order.clear()
+        with self._lock:
+            self._cache.clear()
+            self._access_order.clear()
 
     def get(self, key, default=None):
         try:
@@ -111,6 +117,8 @@ except ImportError:
 
 from loglayer.registry import LayerRegistry
 from loglayer.core import LayerStage, LayerCategory, ProcessedLine
+from loglayer.vfs import LocalFileProvider
+from loglayer.metadata_cache import SqliteMetadataCache, CachedFileIndex
 from search_mixin import SearchPipeline, BookmarkPipeline
 
 # Constants
@@ -238,7 +246,10 @@ class CustomThread:
 
 
 class IndexingWorker(CustomThread):
-    FAST_PREVIEW_BYTES = 10 * 1024 * 1024  # 10MB for quick preview
+    """单阶段完整索引：扫描全部行偏移后一次性 emit finished。
+
+    已移除 preview/partial 两阶段：首次打开完整等待，命中缓存秒开。
+    """
 
     def __init__(self, mmap_obj, size, file_path=None):
         super().__init__()
@@ -256,48 +267,24 @@ class IndexingWorker(CustomThread):
             offsets = array.array("Q", [0])
             scanned = 0
 
-            # Phase 1: Quick preview (first N MB) - show content immediately
-            preview_bytes = min(self.size, self.FAST_PREVIEW_BYTES)
-            for m in re.finditer(b"\n", self.mmap[:preview_bytes]):
+            last_offset = 0
+            for m in re.finditer(b"\n", self.mmap):
                 if self.is_cancelled():
                     return
                 offsets.append(m.start() + 1)
+                last_offset = m.end()
                 scanned += 1
 
-            preview_count = scanned
-            preview_time = time.time() - start_time
-
-            # Send preview immediately so user can see content
-            self.finished.emit(
-                {
-                    "offsets": offsets,
-                    "partial": True,
-                    "lineCount": preview_count,
-                }
-            )
-            print(f"[Indexing] Preview: {preview_count} lines in {preview_time:.2f}s")
-            self.progress.emit(10)
-
-            # Phase 2: Continue full indexing in background
-            if not self.is_cancelled() and self.size > preview_bytes:
-                last_offset = offsets[-1]
-
-                for m in re.finditer(b"\n", self.mmap[last_offset:]):
-                    if self.is_cancelled():
-                        return
-                    offsets.append(last_offset + m.start() + 1)
-                    scanned += 1
-
-                    if scanned % 1000000 == 0:
-                        progress = 10 + (scanned / max(1, self.size / 80) * 90)
-                        self.progress.emit(min(100, progress))
+                if scanned % 1000000 == 0:
+                    progress = min(100, (m.start() / max(1, self.size) * 100))
+                    self.progress.emit(progress)
 
             # Cleanup tail
             if len(offsets) > 1 and offsets[-1] >= self.size:
                 offsets.pop()
 
             total_time = time.time() - start_time
-            speed_mbps = self.size / total_time / 1024 / 1024
+            speed_mbps = self.size / total_time / 1024 / 1024 if total_time > 0 else 0
             print(
                 f"[Indexing] Complete: {len(offsets)} lines in {total_time:.2f}s ({speed_mbps:.1f} MB/s)"
             )
@@ -705,8 +692,8 @@ class LogSession:
         self.id = file_id
         self.path = str(path)
         self.provider = provider
-        self.file_obj = None
-        self.mmap = None
+        self.file_obj = None  # type: ignore[assignment]
+        self.mmap = None  # type: ignore[assignment]
         self.size = 0
         self.line_offsets = array.array("Q")
         self.visible_indices = None
@@ -720,6 +707,8 @@ class LogSession:
         self.processing_cache = {}
         self.rendering_cache = LRUCache(max_size=5000)
         self.workers = {}
+        # 缓存命中标记：命中后 line_offsets 来自缓存，无需写回
+        self.from_cache = False
 
     @property
     def cache(self):
@@ -766,6 +755,12 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         self._sessions = {}
         self._registry = LayerRegistry()
         self._rg_path = self._get_rg_path()
+        # VFS 数据源抽象 + SQLite 元数据缓存（惰性初始化，随工作区确定存储位置）
+        self._provider = LocalFileProvider()
+        self._workspace_dir = None
+        self._cache = None
+        self._cache_size_mb = 2048
+        self._ensure_cache()
         # Dynamic worker pool sizing
         self._executor_max_workers = 4
         self.executor = ThreadPoolExecutor(max_workers=self._executor_max_workers)
@@ -774,6 +769,84 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         plugin_dir = os.path.join(os.getcwd(), "backend", "plugins")
         self._registry = LayerRegistry(plugin_dir)
         self._registry.discover_plugins()
+
+    def _cache_db_path(self) -> str:
+        """缓存数据库路径：一律存工作区 `.loglayer/cache.db`（不用全局目录）。"""
+        if self._workspace_dir:
+            return os.path.join(self._workspace_dir, ".loglayer", "cache.db")
+        return ""
+
+    def _ensure_cache(self) -> None:
+        """确保缓存实例存在（惰性初始化 / 工作区已设置）。"""
+        if self._cache is not None and self._cache.db_path:
+            return
+        db_path = self._cache_db_path()
+        if not db_path:
+            # 尚未设置工作区：缓存暂不落地（等 open_file 自动设置后构建）
+            return
+        self._cache = SqliteMetadataCache(db_path)
+        self._cache.set_cache_size(self._cache_size_mb * 1024 * 1024)
+
+    def _build_cache(self):
+        """按当前工作区构建缓存实例。"""
+        return SqliteMetadataCache(self._cache_db_path())
+
+    def set_workspace_dir(self, folder_path: str = None) -> None:
+        """切换当前工作区，缓存数据库跟随切换到工作区 `.loglayer/cache.db`。
+
+        相同工作区不重复切换；不同工作区则重建缓存连接（旧数据保留在磁盘）。
+        """
+        folder_path = os.path.abspath(folder_path) if folder_path else None
+        if folder_path == self._workspace_dir:
+            return
+        self._workspace_dir = folder_path
+        try:
+            if self._cache is not None:
+                self._cache.close()
+        except Exception:
+            pass
+        self._cache = None
+        self._ensure_cache()
+        if self._cache is not None:
+            print(f"[Cache] Workspace cache switched to: {self._cache.db_path}")
+
+    def get_cache_config(self) -> dict:
+        """返回缓存配置与占用情况。"""
+        self._ensure_cache()
+        if self._cache is None:
+            return {"cacheSizeMB": self._cache_size_mb, "totalBytes": 0, "fileCount": 0}
+        return {
+            "cacheSizeMB": self._cache_size_mb,
+            "totalBytes": self._cache.total_bytes(),
+            "fileCount": len(self._cache.get_entries()),
+        }
+
+    def set_cache_size_mb(self, cache_size_mb: int) -> bool:
+        """更新缓存大小（MB）并触发 LRU 淘汰。"""
+        try:
+            self._cache_size_mb = max(1, int(cache_size_mb))
+            self._ensure_cache()
+            if self._cache is not None:
+                self._cache.set_cache_size(self._cache_size_mb * 1024 * 1024)
+            return True
+        except Exception as e:
+            print(f"[Cache] set_cache_size error: {e}")
+            return False
+
+    def clear_cache(self) -> bool:
+        """清空缓存（当前编辑文件除外）。"""
+        try:
+            self._ensure_cache()
+            if self._cache is None:
+                return True
+            protected = {s.path for s in self._sessions.values()}
+            for entry in self._cache.get_entries():
+                if entry[0] not in protected:
+                    self._cache.invalidate(entry[0])
+            return True
+        except Exception as e:
+            print(f"[Cache] clear error: {e}")
+            return False
 
     def get_worker_config(self) -> dict:
         """Returns current worker pool configuration."""
@@ -875,11 +948,47 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             # 解析文件路径（处理 Windows -> Linux 路径转换）
             resolved_path = resolve_file_path(file_path)
 
-            provider = self._registry.storage.get_provider(resolved_path)
-            session = LogSession(file_id, resolved_path, provider)
+            if not os.path.exists(resolved_path):
+                print(f"[Bridge] File not found: {resolved_path}")
+                return False
 
-            session.size = provider.get_size(resolved_path)
-            session.file_obj = provider.open(resolved_path)
+            # 未设置工作区时，以文件所在目录作为工作区（缓存存到该目录 .loglayer/）
+            if not self._workspace_dir:
+                self.set_workspace_dir(os.path.dirname(resolved_path))
+            self._ensure_cache()
+
+            session = LogSession(file_id, resolved_path, self._provider)
+
+            # 缓存查找：命中 → 反序列化偏移，跳过重新扫描
+            cached = self._cache.get(resolved_path)
+            if cached is not None:
+                offsets = SqliteMetadataCache.deserialize_offsets(cached.offsets_blob)
+                meta = self._provider.open_mmap(resolved_path)
+                self._provider.set_line_offsets(resolved_path, offsets)
+                session.size = meta.size_bytes
+                session.line_offsets = array.array("Q", offsets)
+                session.mmap = self._provider.get_mmap(resolved_path)
+                session.file_obj = self._provider.get_file_obj(resolved_path)
+                session.from_cache = True
+                self._sessions[file_id] = session
+                print(f"[Cache] Hit: {resolved_path} ({len(session.line_offsets)} lines)")
+                self.fileLoaded.emit(
+                    file_id,
+                    json.dumps(
+                        {
+                            "name": self._provider.get_name(resolved_path),
+                            "size": session.size,
+                            "lineCount": len(session.line_offsets),
+                        }
+                    ),
+                )
+                return True
+
+            try:
+                session.size = os.path.getsize(resolved_path)
+            except OSError:
+                session.size = 0
+
             if session.size == 0:
                 session.line_offsets = array.array("Q")
                 self._sessions[file_id] = session
@@ -887,7 +996,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                     file_id,
                     json.dumps(
                         {
-                            "name": provider.get_name(resolved_path),
+                            "name": self._provider.get_name(resolved_path),
                             "size": 0,
                             "lineCount": 0,
                         }
@@ -895,11 +1004,14 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 )
                 return True
 
-            session.mmap = provider.get_mmap(resolved_path)
+            meta = self._provider.open_mmap(resolved_path)
+            session.size = meta.size_bytes
+            session.mmap = self._provider.get_mmap(resolved_path)
+            session.file_obj = self._provider.get_file_obj(resolved_path)
             self._sessions[file_id] = session
             self.operationStarted.emit(file_id, "indexing")
 
-            # TODO: Handle non-mmap workers for remote providers
+            # 单阶段完整索引（无 preview）
             worker = IndexingWorker(
                 session.mmap or session.file_obj, session.size, resolved_path
             )
@@ -947,6 +1059,10 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         session.processing_cache.clear()
         session.rendering_cache.clear()
 
+        # 未命中缓存：索引完成后写回 SQLite 缓存
+        if not getattr(session, "from_cache", False):
+            self._write_cache(session.path, session.line_offsets)
+
         name = (
             session.provider.get_name(session.path)
             if session.provider
@@ -961,10 +1077,26 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                     "name": name,
                     "size": session.size,
                     "lineCount": line_count,
-                    "partial": is_partial,
                 }
             ),
         )
+
+    def _write_cache(self, file_path: str, offsets) -> None:
+        """将行偏移索引分块压缩后写入 SQLite 缓存，并触发 LRU 淘汰。"""
+        try:
+            blob = SqliteMetadataCache.serialize_offsets(list(offsets))
+            index = CachedFileIndex(
+                file_hash=SqliteMetadataCache.compute_file_hash(file_path),
+                line_count=len(offsets),
+                offsets_blob=blob,
+                file_size=os.path.getsize(file_path),
+            )
+            self._cache.put(file_path, index)
+            # 当前编辑中的文件豁免淘汰
+            protected = {s.path for s in self._sessions.values()}
+            self._cache.enforce_limit(protected=protected)
+        except Exception as e:
+            print(f"[Cache] Write error: {e}")
 
     def sync_all(self, file_id: str, layers_json: str, search_json: str) -> bool:
         """Legacy API - delegates to sync_layers for backward compatibility"""
@@ -1348,6 +1480,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
 
     def save_workspace_config(self, folder_path: str, config_json: str) -> bool:
         try:
+            self.set_workspace_dir(folder_path)
             config_dir = Path(folder_path) / ".loglayer"
             config_dir.mkdir(parents=True, exist_ok=True)
             config_file = config_dir / "config.json"
@@ -1360,6 +1493,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
 
     def load_workspace_config(self, folder_path: str) -> str:
         try:
+            self.set_workspace_dir(folder_path)
             config_file = Path(folder_path) / ".loglayer" / "config.json"
             if not config_file.exists():
                 return ""
@@ -1433,6 +1567,10 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         if file_id in self._sessions:
             session = self._sessions[file_id]
             session.close(self)
+            try:
+                self._provider.close(session.path)
+            except Exception as e:
+                print(f"[Bridge] Provider close error for {session.path}: {e}")
             del self._sessions[file_id]
 
     def select_files(self) -> str:

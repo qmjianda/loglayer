@@ -20,16 +20,11 @@ export interface FileData {
     layers: LogLayer[];
     isBridged: true;
     path?: string;
+    wasOpen?: boolean;  // 文件当前是否在编辑区（用于工作区恢复）
     history?: {
         past: LogLayer[][];
         future: LogLayer[][];
     };
-}
-
-// Pane interface for split view support
-export interface Pane {
-    id: string;
-    fileId: string | null;
 }
 
 // Processed cache per file
@@ -46,6 +41,9 @@ export function getBridgedCount(fileId: string): number | undefined {
 export function setBridgedCount(fileId: string, count: number): void {
     bridgedCounts[fileId] = count;
 }
+export function clearBridgedCount(fileId: string): void {
+    delete bridgedCounts[fileId];
+}
 
 export interface UseFileManagementReturn {
     // File state
@@ -53,11 +51,6 @@ export interface UseFileManagementReturn {
     setFiles: React.Dispatch<React.SetStateAction<FileData[]>>;
     activeFileId: string | null;
     activeFile: FileData | undefined;
-
-    // Pane state
-    panes: Pane[];
-    activePaneId: string;
-    setActivePaneId: (id: string) => void;
 
     // Loading state
     loadingFileIds: Set<string>;
@@ -78,6 +71,7 @@ export interface UseFileManagementReturn {
     setActiveFileId: (fileId: string | null) => void;
     handleFileActivate: (fileId: string) => void;
     handleFileRemove: (fileId: string) => void;
+    handleFileClosed: (fileId: string) => void;
     addNewFiles: (files: { name: string; size?: number; path: string }[], autoActivateFirst?: boolean) => void;
     handleNativeFileSelect: () => Promise<void>;
     handleNativeFolderSelect: () => Promise<{ path: string; name: string } | null>;
@@ -98,10 +92,7 @@ export interface UseFileManagementReturn {
 export function useFileManagement(): UseFileManagementReturn {
     // File state
     const [files, setFiles] = useState<FileData[]>([]);
-
-    // Pane state (for split view support)
-    const [panes, setPanes] = useState<Pane[]>([{ id: 'pane-1', fileId: null }]);
-    const [activePaneId, setActivePaneId] = useState<string>('pane-1');
+    const [activeFileId, setActiveFileIdState] = useState<string | null>(null);
 
     // Loading state
     const [loadingFileIds, setLoadingFileIds] = useState<Set<string>>(new Set());
@@ -118,9 +109,11 @@ export function useFileManagement(): UseFileManagementReturn {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const folderInputRef = useRef<HTMLInputElement>(null);
 
-    // Derive active file from panes
-    const activePane = panes.find(p => p.id === activePaneId);
-    const activeFileId = activePane?.fileId || null;
+    // Latest files ref for idempotent external callbacks
+    const filesRef = useRef(files);
+    filesRef.current = files;
+
+    // Derive active file
     const activeFile = useMemo(() => files.find(f => f.id === activeFileId), [files, activeFileId]);
 
     // Trigger update for LogViewer
@@ -128,10 +121,10 @@ export function useFileManagement(): UseFileManagementReturn {
         setBridgedUpdateTrigger(v => v + 1);
     }, []);
 
-    // Set active file for current pane
+    // Set active file (driven externally by dockview onDidActiveChange)
     const setActiveFileId = useCallback((fileId: string | null) => {
-        setPanes(prev => prev.map(p => p.id === activePaneId ? { ...p, fileId } : p));
-    }, [activePaneId]);
+        setActiveFileIdState(fileId);
+    }, []);
 
     // Activate file
     const handleFileActivate = useCallback((fileId: string) => {
@@ -143,22 +136,31 @@ export function useFileManagement(): UseFileManagementReturn {
         const file = files.find(f => f.id === fileId);
         if (!file?.path) return;
 
+        // 激活的文件视为在编辑区打开
+        setFiles(prev => prev.map(f => f.id === fileId ? { ...f, wasOpen: true } : f));
+
         // Check if backend has this file open
         const isLoaded = getBridgedCount(fileId) !== undefined;
 
         // Still trigger openFile if backend is not synchronized
         if (!isLoaded && !loadingFileIds.has(fileId)) {
             setLoadingFileIds(prev => new Set(prev).add(fileId));
-            openFile(fileId, file.path);
+            openFile(fileId, file.path).then(ok => {
+                // 打开失败（如文件不存在）：清除 loading 态，避免卡死
+                if (!ok) {
+                    setLoadingFileIds(prev => removeFromSet(prev, fileId));
+                }
+            });
         }
     }, [activeFileId, files, setActiveFileId, loadingFileIds]);
 
-    // Remove file
+    // Remove file（关闭）：不删除条目，仅置 wasOpen=false
     const handleFileRemove = useCallback((fileId: string) => {
         // 1. Notify backend to close file and release resources
         closeFile(fileId).catch(err => console.error(`[useFileManagement] Error closing file ${fileId}:`, err));
 
-        // 2. Clean up local metadata
+        // 2. Clean up local metadata（清除计数，重新打开时才能触发 openFile）
+        clearBridgedCount(fileId);
         setProcessedCache(prev => {
             const next = { ...prev };
             delete next[fileId];
@@ -167,15 +169,32 @@ export function useFileManagement(): UseFileManagementReturn {
 
         setLoadingFileIds(prev => removeFromSet(prev, fileId));
 
-        // 3. Update file list and active pane
+        // 3. 文件列表保留条目，仅标记为未打开；切换激活文件
         setFiles(prev => {
-            const next = prev.filter(f => f.id !== fileId);
+            const next = prev.map(f => f.id === fileId ? { ...f, wasOpen: false } : f);
             if (activeFileId === fileId) {
-                setActiveFileId(next.length > 0 ? next[0].id : null);
+                const stillOpen = next.filter(f => f.id !== fileId && f.wasOpen !== false);
+                setActiveFileId(stillOpen.length > 0 ? stillOpen[0].id : null);
             }
             return next;
         });
     }, [activeFileId, setActiveFileId]);
+
+    // File closed externally (e.g. dockview panel close). 保留条目仅置 wasOpen=false。幂等。
+    const handleFileClosed = useCallback((fileId: string) => {
+        const current = filesRef.current.find(f => f.id === fileId);
+        if (!current) return;
+        if (current.wasOpen === false) return; // 已关闭，避免重复处理
+        closeFile(fileId).catch(err => console.error(`[useFileManagement] Error closing file ${fileId}:`, err));
+        clearBridgedCount(fileId);
+        setProcessedCache(prev => {
+            const next = { ...prev };
+            delete next[fileId];
+            return next;
+        });
+        setLoadingFileIds(prev => removeFromSet(prev, fileId));
+        setFiles(prev => prev.map(f => f.id === fileId ? { ...f, wasOpen: false } : f));
+    }, []);
 
     // Add new files (unified logic)
     const addNewFiles = useCallback((incomingFiles: { name: string; size?: number; path: string }[], autoActivateFirst = true) => {
@@ -192,6 +211,7 @@ export function useFileManagement(): UseFileManagementReturn {
                 layers: [],
                 isBridged: true,
                 path: f.path,
+                wasOpen: true,
                 history: { past: [], future: [] }
             };
         });
@@ -208,7 +228,19 @@ export function useFileManagement(): UseFileManagementReturn {
 
     // Open file by path (checks for duplicates)
     const handleOpenFileByPath = useCallback((path: string, name: string) => {
-        const existing = files.find(f => f.path === path);
+        const normalizePath = (p: string | null | undefined) => {
+            if (!p) return '';
+            return p.replace(/\\/g, '/').toLowerCase();
+        };
+        const target = normalizePath(path);
+        const targetBase = normalizePath(basename(path));
+        const existing = files.find(f => {
+            const fp = normalizePath(f.path);
+            const fn = normalizePath(f.name);
+            // 绝对路径精确匹配，或相对/文件名匹配（CLI 文件 path 可能只是文件名）
+            return fp === target || fn === target || fp === targetBase || fn === targetBase
+                || (fp.endsWith(target) || fn.endsWith(target));
+        });
         if (existing) {
             handleFileActivate(existing.id);
             return;
@@ -297,9 +329,6 @@ export function useFileManagement(): UseFileManagementReturn {
         setFiles,
         activeFileId,
         activeFile,
-        panes,
-        activePaneId,
-        setActivePaneId,
         loadingFileIds,
         indexingFileIds,
         setIndexingFileIds,
@@ -312,6 +341,7 @@ export function useFileManagement(): UseFileManagementReturn {
         setActiveFileId,
         handleFileActivate,
         handleFileRemove,
+        handleFileClosed,
         addNewFiles,
         handleNativeFileSelect,
         handleNativeFolderSelect,

@@ -18,6 +18,7 @@ export interface AppSettings {
   virtualScrollBuffer: number;
   layerPresetDefault: string;
   syncLayersOnOpen: boolean;
+  cacheSizeMB: number;
   backendUrl: string;
   debugMode: boolean;
 }
@@ -40,6 +41,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   virtualScrollBuffer: 500,
   layerPresetDefault: '',
   syncLayersOnOpen: true,
+  cacheSizeMB: 2048,
   backendUrl: 'http://127.0.0.1:12345',
   debugMode: false,
 };

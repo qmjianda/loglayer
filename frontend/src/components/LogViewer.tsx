@@ -175,7 +175,16 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     };
     handleResize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    // ResizeObserver 跟踪容器尺寸变化（dockview 面板布局完成 / 分屏调整时不触发 window resize）
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      observer = new ResizeObserver(() => handleResize());
+      observer.observe(containerRef.current);
+    }
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      observer?.disconnect();
+    };
   }, []);
 
   const maxPhysicalScroll = Math.max(0, virtualTotalHeight - viewportHeight);
