@@ -20,11 +20,3 @@ export type {
     UseVirtualScrollOptions, 
     UseVirtualScrollReturn 
 } from './useVirtualScroll';
-
-export { canvasRenderer } from '../utils/CanvasRenderer';
-export type { 
-    RenderLineOptions, 
-    RenderGutterOptions, 
-    RenderBackgroundOptions,
-    LogViewerColors 
-} from '../utils/CanvasRenderer';

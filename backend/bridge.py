@@ -12,6 +12,7 @@ import platform
 from pathlib import Path
 import importlib
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
 
 def convert_windows_path_to_linux(windows_path: str) -> str:
@@ -119,6 +120,7 @@ from loglayer.registry import LayerRegistry
 from loglayer.core import LayerStage, LayerCategory, ProcessedLine
 from loglayer.vfs import LocalFileProvider
 from loglayer.metadata_cache import SqliteMetadataCache, CachedFileIndex
+from loglayer.workspace_store import WorkspaceStore
 from search_mixin import SearchPipeline, BookmarkPipeline
 
 # Constants
@@ -760,6 +762,8 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         self._workspace_dir = None
         self._cache = None
         self._cache_size_mb = 2048
+        # 工作区统一持久化存储（`.loglayer/workspace.db`，惰性初始化随工作区切换）
+        self._workspace_store = None
         self._ensure_cache()
         # Dynamic worker pool sizing
         self._executor_max_workers = 4
@@ -795,6 +799,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         """切换当前工作区，缓存数据库跟随切换到工作区 `.loglayer/cache.db`。
 
         相同工作区不重复切换；不同工作区则重建缓存连接（旧数据保留在磁盘）。
+        工作区统一存储（`.loglayer/workspace.db`）随工作区一起切换。
         """
         folder_path = os.path.abspath(folder_path) if folder_path else None
         if folder_path == self._workspace_dir:
@@ -806,9 +811,120 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         except Exception:
             pass
         self._cache = None
+        # 废弃旧持久化文件（config.json / 首次迁移的 cache.db）
+        if folder_path:
+            self._cleanup_legacy_files(folder_path)
         self._ensure_cache()
         if self._cache is not None:
             print(f"[Cache] Workspace cache switched to: {self._cache.db_path}")
+        # 工作区统一存储切换
+        try:
+            if self._workspace_store is not None:
+                self._workspace_store.close()
+        except Exception:
+            pass
+        self._workspace_store = None
+        if folder_path:
+            self._get_workspace_store(folder_path)
+            print(f"[Workspace] Workspace store switched to: {folder_path}")
+
+    def _cleanup_legacy_files(self, folder_path: str) -> None:
+        """废弃旧持久化文件：`.loglayer/config.json` 一律删除；`cache.db` 仅首次迁移删除。
+
+        `cache.db` 仍是索引缓存存储位置，仅当工作区尚无 `workspace.db`
+        （即新底座首次启动）时删除旧缓存，随后由新底座按需重建，避免每次启动丢缓存。
+        """
+        try:
+            loglayer_dir = os.path.join(folder_path, ".loglayer")
+            if not os.path.isdir(loglayer_dir):
+                return
+            self._remove_legacy_file(
+                os.path.join(loglayer_dir, "config.json"), "Removed legacy config.json: {}"
+            )
+            if not os.path.exists(os.path.join(loglayer_dir, "workspace.db")):
+                self._remove_legacy_file(
+                    os.path.join(loglayer_dir, "cache.db"),
+                    "Removed legacy cache.db (first migration): {}",
+                )
+        except Exception as e:
+            print(f"[Workspace] Legacy cleanup error: {e}")
+
+    @staticmethod
+    def _remove_legacy_file(path: str, log_template: str) -> None:
+        """删除一个旧持久化文件；不存在或删除失败时静默返回。"""
+        if not os.path.exists(path):
+            return
+        try:
+            os.remove(path)
+            print(log_template.format(path))
+        except Exception as e:
+            print(f"[Workspace] Failed to remove legacy file {path}: {e}")
+
+    def _get_workspace_store(self, folder_path: Optional[str] = None):
+        """获取当前工作区的统一存储实例（惰性打开）。
+
+        `folder_path` 为空时使用当前工作区目录；不同工作区则切换连接。
+        旧持久化文件清理由 `set_workspace_dir` 负责，此处不做（避免二次删除）。
+        """
+        root = folder_path or self._workspace_dir
+        if not root:
+            return None
+        root = os.path.abspath(root)
+        if self._workspace_store is not None and str(self._workspace_store.root) == root:
+            return self._workspace_store
+        if self._workspace_store is not None:
+            try:
+                self._workspace_store.close()
+            except Exception:
+                pass
+        self._workspace_store = WorkspaceStore(root)
+        return self._workspace_store
+
+    def _current_workspace_store(self, folder_path: Optional[str] = None):
+        """切换到指定工作区（可选）并返回其统一存储实例。"""
+        if folder_path:
+            self.set_workspace_dir(folder_path)
+        return self._get_workspace_store()
+
+    # ---------------------------------------------------------------
+    # 工作区统一存储 API（布局/书签/设置经 KV，文件历史经 files 表）
+    # ---------------------------------------------------------------
+
+    def get_workspace_state(self, key: str, folder_path: Optional[str] = None) -> str:
+        """读取一个工作区 KV 状态；不存在返回空字符串。"""
+        store = self._current_workspace_store(folder_path)
+        if store is None:
+            return ""
+        return store.get(key) or ""
+
+    def set_workspace_state(self, folder_path: Optional[str], key: str, value: str) -> bool:
+        """原子写一个工作区 KV 状态。"""
+        try:
+            store = self._current_workspace_store(folder_path)
+            if store is None:
+                return False
+            return store.put(key, value)
+        except Exception as e:
+            print(f"[Workspace] Error setting state: {e}")
+            return False
+
+    def get_workspace_files(self, folder_path: Optional[str] = None) -> list:
+        """读取工作区文件历史列表。"""
+        store = self._current_workspace_store(folder_path)
+        if store is None:
+            return []
+        return store.get_files()
+
+    def set_workspace_files(self, folder_path: Optional[str], files: list) -> bool:
+        """事务写工作区文件历史。"""
+        try:
+            store = self._current_workspace_store(folder_path)
+            if store is None:
+                return False
+            return store.set_files(files)
+        except Exception as e:
+            print(f"[Workspace] Error setting files: {e}")
+            return False
 
     def get_cache_config(self) -> dict:
         """返回缓存配置与占用情况。"""
@@ -972,6 +1088,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 session.from_cache = True
                 self._sessions[file_id] = session
                 print(f"[Cache] Hit: {resolved_path} ({len(session.line_offsets)} lines)")
+                self.restore_bookmarks(file_id)
                 self.fileLoaded.emit(
                     file_id,
                     json.dumps(
@@ -992,6 +1109,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             if session.size == 0:
                 session.line_offsets = array.array("Q")
                 self._sessions[file_id] = session
+                self.restore_bookmarks(file_id)
                 self.fileLoaded.emit(
                     file_id,
                     json.dumps(
@@ -1009,6 +1127,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             session.mmap = self._provider.get_mmap(resolved_path)
             session.file_obj = self._provider.get_file_obj(resolved_path)
             self._sessions[file_id] = session
+            self.restore_bookmarks(file_id)
             self.operationStarted.emit(file_id, "indexing")
 
             # 单阶段完整索引（无 preview）
@@ -1479,26 +1598,45 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         return json.dumps(get_directory_contents(folder_path))
 
     def save_workspace_config(self, folder_path: str, config_json: str) -> bool:
+        """兼容壳：解析旧 config JSON，转写入统一工作区存储（files 表 + activeFilePath）。
+
+        前端 `useWorkspaceConfig` 仍调用本方法保存文件历史；新底座接管存储，
+        `config.json` 不再作为写入目标。
+        """
         try:
-            self.set_workspace_dir(folder_path)
-            config_dir = Path(folder_path) / ".loglayer"
-            config_dir.mkdir(parents=True, exist_ok=True)
-            config_file = config_dir / "config.json"
-            with open(config_file, "w", encoding="utf-8") as f:
-                f.write(config_json)
+            store = self._current_workspace_store(folder_path)
+            if store is None:
+                return False
+            config = json.loads(config_json)
+            files = config.get("files") or []
+            if files:
+                store.set_files(files)
+            store.put("activeFilePath", config.get("activeFilePath") or "")
             return True
         except Exception as e:
             print(f"[Workspace] Error saving config: {e}")
             return False
 
     def load_workspace_config(self, folder_path: str) -> str:
+        """兼容壳：从统一工作区存储读取文件历史，重建旧 config JSON 格式返回。
+
+        `WorkspaceConfig.files[]` 的 schema 与读写由统一底座接管。
+        """
         try:
-            self.set_workspace_dir(folder_path)
-            config_file = Path(folder_path) / ".loglayer" / "config.json"
-            if not config_file.exists():
+            store = self._current_workspace_store(folder_path)
+            if store is None:
                 return ""
-            with open(config_file, "r", encoding="utf-8") as f:
-                return f.read()
+            files = store.get_files()
+            if not files:
+                return ""
+            active = store.get("activeFilePath") or ""
+            config = {
+                "version": 2,
+                "lastModified": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "files": files,
+                "activeFilePath": active or None,
+            }
+            return json.dumps(config, ensure_ascii=False)
         except Exception as e:
             print(f"[Workspace] Error loading config: {e}")
             return ""

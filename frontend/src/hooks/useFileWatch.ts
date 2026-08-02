@@ -28,6 +28,8 @@ export function useFileWatch(
   const lastMtimeRef = useRef<number>(0);
   const lastLineCountRef = useRef<number>(0);
   const intervalRef = useRef<number | null>(null);
+  // 切换被监视文件后，首次检查只记录基线，不触发"新内容"（避免切 tab 误报并自动滚动）
+  const firstCheckRef = useRef(true);
 
   const checkForChanges = useCallback(async () => {
     const fileId = fileIdRef.current;
@@ -42,6 +44,14 @@ export function useFileWatch(
 
       const mtime = data.mtime;
       const lineCount = data.lineCount;
+
+      // 首次检查：仅记录基线，不触发回调（防止 startWatching 后立即误报新内容）
+      if (firstCheckRef.current) {
+        firstCheckRef.current = false;
+        lastMtimeRef.current = mtime;
+        lastLineCountRef.current = lineCount;
+        return;
+      }
 
       if (mtime !== lastMtimeRef.current || lineCount !== lastLineCountRef.current) {
         const newLines = Math.max(0, lineCount - lastLineCountRef.current);
@@ -69,6 +79,7 @@ export function useFileWatch(
     setIsWatching(true);
     setHasNewContent(false);
     setNewContentCount(0);
+    firstCheckRef.current = true;
     
     // Check immediately
     checkForChanges();

@@ -100,6 +100,10 @@ export interface FileBridgeAPI {
   list_directory(folderPath: string): Promise<string>;
   save_workspace_config(folderPath: string, configJson: string): Promise<boolean>;
   load_workspace_config(folderPath: string): Promise<string>;
+  get_workspace_state(key: string, folderPath?: string): Promise<string>;
+  put_workspace_state(folderPath: string, key: string, value: string): Promise<boolean>;
+  get_workspace_files(folderPath?: string): Promise<unknown[]>;
+  put_workspace_files(folderPath: string, files: unknown[]): Promise<boolean>;
   ready(): Promise<void>;
 
   // Bookmark operations

@@ -58,6 +58,25 @@ export function generateId(prefix: string = ''): string {
 }
 
 /**
+ * 基于文件路径（uri）的稳定面板 id：`log-view-<hash>`。
+ *
+ * 与每次会话变化的 fileId 解耦，同一文件跨会话/跨刷新 id 稳定，
+ * 保证 dockview 布局保存/恢复后仍命中同一面板。uri 变更（文件移动）
+ * 会导致 id 变化，属正常布局重置。
+ * @param uri 文件绝对路径
+ * @returns 稳定面板 id
+ */
+export function panelIdForFile(uri?: string | null): string {
+    const path = uri || '';
+    // djb2 hash：跨会话稳定，仅依赖字符串内容
+    let hash = 5381;
+    for (let i = 0; i < path.length; i++) {
+        hash = ((hash << 5) + hash + path.charCodeAt(i)) >>> 0;
+    }
+    return `log-view-${hash.toString(36)}`;
+}
+
+/**
  * 防抖函数
  * @param fn 要防抖的函数
  * @param delay 延迟时间（毫秒）

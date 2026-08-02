@@ -307,6 +307,37 @@ def load_workspace_config(folder_path: str):
 
 
 # ============================================================
+# 工作区统一存储 APIs（布局/书签/设置经 KV，文件历史经 files 表）
+# ============================================================
+
+
+@app.get("/api/workspace/state")
+def get_workspace_state(key: str, folder_path: str = ""):
+    """读取一个工作区 KV 状态（如 layout / bookmarks.<path>）。"""
+    return bridge.get_workspace_state(key, folder_path)
+
+
+@app.put("/api/workspace/state")
+def put_workspace_state(data: dict = Body(...)):
+    """原子写一个工作区 KV 状态。"""
+    return bridge.set_workspace_state(
+        data.get("folder_path"), data.get("key", ""), data.get("value", "")
+    )
+
+
+@app.get("/api/workspace/files")
+def get_workspace_files(folder_path: str = ""):
+    """读取工作区文件历史列表。"""
+    return bridge.get_workspace_files(folder_path)
+
+
+@app.put("/api/workspace/files")
+def put_workspace_files(data: dict = Body(...)):
+    """事务写工作区文件历史。"""
+    return bridge.set_workspace_files(data.get("folder_path"), data.get("files", []))
+
+
+# ============================================================
 # SQLite 元数据缓存 APIs
 # ============================================================
 

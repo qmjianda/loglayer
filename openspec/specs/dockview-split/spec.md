@@ -5,13 +5,19 @@ TBD - created by archiving change dockview-split-panes. Update Purpose after arc
 ## Requirements
 ### Requirement: dockview 承载分屏渲染
 
-系统 SHALL 使用 dockview 的 `DockviewReact` 渲染日志查看区域，替换自研的 `panes.map` flex 布局。
+系统 SHALL 使用 dockview 的 `DockviewReact` 渲染日志查看区域，面板以基于路径的稳定 id 标识，而非每次会话变化的 fileId。
 
 #### Scenario: 面板渲染
 
 - **WHEN** 应用加载且存在已打开的文件
 - **THEN** 系统经 dockview 渲染每个文件为一个 `logViewer` 面板
-- **AND** 每个面板经 `params` 携带其 `fileId` 与 `uri`
+- **AND** 每个面板经 `params` 携带其基于路径的稳定 id 与 `uri`
+
+#### Scenario: 面板标识稳定
+
+- **WHEN** 应用为同一文件创建面板
+- **THEN** 面板 id 基于文件路径生成且跨会话稳定
+- **AND** 布局保存/恢复后仍能命中同一面板
 
 #### Scenario: 拖拽分屏
 
@@ -37,18 +43,30 @@ TBD - created by archiving change dockview-split-panes. Update Purpose after arc
 
 ### Requirement: 布局持久化
 
-系统 SHALL 将 dockview 布局序列化到 localStorage，并在下次启动时恢复。
+系统 SHALL 将 dockview 布局（分屏结构、叠放、面板位置与激活状态）持久化到统一工作区存储，而非浏览器 localStorage。
 
 #### Scenario: 布局保存
 
 - **WHEN** 用户调整分屏布局（拖拽、增删面板）
-- **THEN** 系统经 dockview `toJSON` 保存布局到 localStorage
+- **THEN** 系统经 dockview `toJSON` 保存布局到统一工作区存储
 
 #### Scenario: 布局恢复
 
 - **WHEN** 应用启动且存在已保存布局
 - **THEN** 系统经 `fromJSON` 恢复面板布局
 - **AND** 恢复失败时回退到默认单面板布局
+
+#### Scenario: 刷新后布局一致
+
+- **WHEN** 用户打开若干文件（叠放或分屏）后刷新页面并重新打开工作区
+- **THEN** 布局与刷新前一致恢复
+- **AND** 不因 fileId 变化产生错误的分屏
+
+#### Scenario: 布局随工作区迁移
+
+- **WHEN** 用户复制 `.loglayer/` 到另一台机器并打开
+- **THEN** 布局随工作区存储恢复
+- **AND** 不依赖原浏览器的 localStorage
 
 ### Requirement: 现有 LogViewer 面板复用
 

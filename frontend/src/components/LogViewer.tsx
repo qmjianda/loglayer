@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { LogLine, LayerType } from '../types';
 import { readProcessedLines } from '../bridge_client';
@@ -10,10 +10,13 @@ import { LOG_VIEWER } from '../constants';
 import { getLogViewerColors } from '../theme';
 import { AppSettings } from '../hooks/useSettings';
 import { detectJson } from '../utils/jsonTree';
+import { LogRow } from './logViewer/LogRow';
 
 interface LogViewerProps {
   totalLines: number;
   fileId: string | null;
+  /** 稳定标识（如文件路径），用于跨重挂载持久化滚动位置 */
+  scrollKey?: string;
   searchQuery: string;
   searchConfig: { regex: boolean; caseSensitive: boolean; wholeWord?: boolean };
   scrollToIndex?: number | null;
@@ -37,46 +40,23 @@ interface LogViewerProps {
   onScrollToNewContent?: () => void;
 }
 
-/**
- * Normalize selection to top-to-bottom order regardless of drag direction.
- * Returns { topLine, topChar, bottomLine, bottomChar }.
- */
-function normalizeSelection(sel: { startLine: number; startChar: number; endLine: number; endChar: number }) {
-  if (sel.startLine < sel.endLine || (sel.startLine === sel.endLine && sel.startChar <= sel.endChar)) {
-    return { topLine: sel.startLine, topChar: sel.startChar, bottomLine: sel.endLine, bottomChar: sel.endChar };
-  }
-  return { topLine: sel.endLine, topChar: sel.endChar, bottomLine: sel.startLine, bottomChar: sel.startChar };
-}
+// 浏览器滚动容器安全高度上限（Chrome ~33.5M px），留余量
+const MAX_SCROLL_HEIGHT = 30_000_000;
+
+// 滚动位置持久化：key 为稳定文件标识（uri）。LogViewer 因 fileId 变化/面板重建
+// 而重挂载时，恢复此前进度，避免"每次切 tab / 加书签就跳回首行"。
+const LOGVIEWER_SCROLL_STORE = new Map<string, { scrollTop: number }>();
 
 /**
- * Get the character range [s, e) for a given line index within a normalized selection.
- */
-function getLineSelectionRange(i: number, norm: ReturnType<typeof normalizeSelection>, contentLength: number) {
-  let s = 0, e = contentLength;
-  if (norm.topLine === norm.bottomLine) {
-    s = norm.topChar;
-    e = norm.bottomChar;
-  } else if (i === norm.topLine) {
-    s = norm.topChar;
-    // e stays contentLength (select to end of line)
-  } else if (i === norm.bottomLine) {
-    e = norm.bottomChar;
-    // s stays 0 (select from start of line)
-  }
-  // else: middle line, s=0, e=contentLength (entire line)
-  return { s, e };
-}
-
-/**
- * LogViewer - Canvas-based Redesign
+ * LogViewer - DOM 虚拟化重构版
  *
- * Performance Optimized: Uses HTML5 Canvas for rendering millions of lines.
- * Hybrid Scroll: Native OS scrolling with Canvas drawing.
- * High-DPI: Sharp rendering on all displays.
+ * 外层真实滚动容器（spacer 撑高，超大文件压缩高度）+ 内层 react-virtuoso
+ * 渲染窗口行。原生 DOM 文本提供选择/复制/中文/字体缩放能力。
  */
 export const LogViewer: React.FC<LogViewerProps> = ({
   totalLines,
   fileId,
+  scrollKey,
   searchQuery,
   searchConfig,
   scrollToIndex,
@@ -100,142 +80,256 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   onScrollToNewContent
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const scrollStateRef = useRef({ top: 0, left: 0 });
+  const viewportHeightRef = useRef(0);
 
   const [scrollTop, setScrollTop] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(0);
-  const [maxLineWidth, setMaxLineWidth] = useState(viewportWidth);
+
+  // 同步 viewportHeight 到 ref，供原生 scroll 监听读取
+  useEffect(() => {
+    viewportHeightRef.current = viewportHeight;
+  }, [viewportHeight]);
+
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, text: string, lineIndex?: number } | null>(null);
   const [commentPopover, setCommentPopover] = useState<{ x: number, y: number, lineIndex: number, comment: string } | null>(null);
   const [expandedJsonLine, setExpandedJsonLine] = useState<number | null>(null);
   const [showGoToLine, setShowGoToLine] = useState(false);
-  const [showPerformancePanel, setShowPerformancePanel] = useState(false);
-  const [performanceStats, setPerformanceStats] = useState({ fps: 60, visibleLines: 0, memory: 0 });
 
-  const [selection, setSelection] = useState<{
-    startLine: number, startChar: number,
-    endLine: number, endChar: number
-  } | null>(null);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [hoveredLineIndex, setHoveredLineIndex] = useState<number | null>(null);
+  // 当前渲染窗口（逻辑行区间）
+  const [windowStart, setWindowStart] = useState(0);
 
   const [bridgedLines, setBridgedLines] = useState<Map<number, LogLine | string>>(new Map());
   const lastFetchRef = useRef<{ start: number; end: number }>({ start: -1, end: -1 });
-  const scrollVelocityRef = useRef(0);
-  const scrollDirectionRef = useRef<'up' | 'down' | null>(null);
-  const lastScrollTimeRef = useRef(0);
-  const lastScrollTopRef = useRef(0);
 
-  const { LINE_HEIGHT, GUTTER_WIDTH, VIRTUAL_HEIGHT_LIMIT, BUFFER_NORMAL, BUFFER_LARGE, SCROLL_MARGIN, CHAR_WIDTH_DEFAULT, FONT } = LOG_VIEWER;
-  
+  // 最近一次由用户/原生滚动更新的时间（区分「用户滚到顶」与「外部把滚动条归零」）
+  const lastScrollEventRef = useRef(0);
+
+  // === 滚动位置看门狗 ===
+  // dockview 激活/失活面板（切换 `dv-active-group` 等 class）时，浏览器会把面板内容的
+  // DOM 滚动条归零，且不触发 scroll 事件（React state 仍是旧值），导致视觉上跳回首行。
+  // 这里逐帧检测「DOM=0 但 state>0 且近期无用户滚动」的脱节，同帧拉回真实位置。
+  // 用户真正滚动到顶时 scroll 事件会把 state 同步为 0，因此不会误干预。
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const top = el.scrollTop;
+      const state = scrollStateRef.current.top;
+      if (top === 0 && state > 0 && performance.now() - lastScrollEventRef.current > 80) {
+        el.scrollTop = state;
+        setScrollTop(state);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const { LINE_HEIGHT, GUTTER_WIDTH, SCROLL_MARGIN, FETCH_DEBOUNCE_MS } = LOG_VIEWER;
+
   const fontSize = settings?.fontSize ?? 12;
   const lineHeight = settings?.lineHeight ?? LINE_HEIGHT;
   const wordWrap = settings?.wordWrap ?? false;
   const showWhitespace = settings?.showWhitespace ?? false;
   const showLineNumbers = settings?.showLineNumbers ?? true;
   const showRuler = settings?.showRuler ?? true;
-  const virtualScrollBufferSetting = settings?.virtualScrollBuffer ?? 500;
-  const searchHighlightAll = settings?.searchHighlightAll ?? true;
   const theme = resolvedTheme ?? 'dark';
   const colors = getLogViewerColors(theme as 'dark' | 'light');
-  
+
   const gutterWidth = GUTTER_WIDTH;
+  const fontFamily = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
+  // === 滚动缩放（亿行支持，仅非 wordWrap 固定行高模式生效） ===
   const realTotalHeight = totalLines * lineHeight;
-  const useScrollScaling = realTotalHeight > VIRTUAL_HEIGHT_LIMIT;
-  const baseBuffer = useScrollScaling ? BUFFER_LARGE : BUFFER_NORMAL;
-  const velocityBuffer = Math.abs(scrollVelocityRef.current) * 200;
-  const directionBonus = scrollDirectionRef.current === 'down' ? 500 : 0;
-  const dynamicBuffer = Math.min(virtualScrollBufferSetting, baseBuffer + velocityBuffer + directionBonus);
-  const buffer = dynamicBuffer;
-  const scaleFactor = useScrollScaling ? VIRTUAL_HEIGHT_LIMIT / realTotalHeight : 1;
-  const virtualTotalHeight = (useScrollScaling ? VIRTUAL_HEIGHT_LIMIT : realTotalHeight) + SCROLL_MARGIN;
+  const useScaling = realTotalHeight > MAX_SCROLL_HEIGHT;
+  // spacer 高度：缩放时用上限，非缩放时至少覆盖视口（避免短文件出现假滚动条）
+  const scaledHeight = useScaling ? MAX_SCROLL_HEIGHT : realTotalHeight;
+  const virtualTotalHeight = Math.max(viewportHeight, scaledHeight) + (scaledHeight > viewportHeight ? SCROLL_MARGIN : 0);
 
-  const charWidthRef = useRef(CHAR_WIDTH_DEFAULT);
-  const font = `${fontSize}px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
-
-  useEffect(() => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.font = font;
-      const testStr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      charWidthRef.current = ctx.measureText(testStr).width / testStr.length;
-    }
-  }, []);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current) {
-        setViewportHeight(containerRef.current.clientHeight);
-        setViewportWidth(containerRef.current.clientWidth);
-      }
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    // ResizeObserver 跟踪容器尺寸变化（dockview 面板布局完成 / 分屏调整时不触发 window resize）
-    let observer: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
-      observer = new ResizeObserver(() => handleResize());
-      observer.observe(containerRef.current);
-    }
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      observer?.disconnect();
-    };
-  }, []);
-
+  // 物理 scrollTop → 逻辑 scrollTop
   const maxPhysicalScroll = Math.max(0, virtualTotalHeight - viewportHeight);
   const maxLogicalScroll = Math.max(0, realTotalHeight - viewportHeight);
-  const effectiveScrollTop = useScrollScaling && maxPhysicalScroll > 0
+  const logicalScrollTop = useScaling && maxPhysicalScroll > 0
     ? (scrollTop / maxPhysicalScroll) * maxLogicalScroll
     : scrollTop;
 
-  const startIndex = Math.max(0, Math.floor(effectiveScrollTop / lineHeight) - buffer);
-  const endIndex = Math.min(totalLines, Math.ceil((effectiveScrollTop + viewportHeight) / lineHeight) + buffer);
+  const topVisibleLine = Math.max(0, Math.floor(logicalScrollTop / lineHeight));
+  const visibleRows = Math.max(1, Math.ceil(viewportHeight / lineHeight));
+
+  // === 渲染窗口（固定大小）：窗口随 topVisibleLine 平移 ===
+  // 缓冲取可见行与固定下限的较大者；首屏挂载时可见行为 1，固定下限避免
+  // 小文件被一次全量渲染（几 KB 文件几百行会导致首屏长任务阻塞）。
+  const windowBuffer = Math.max(50, visibleRows);
+  const windowSize = Math.min(totalLines, visibleRows + 2 * windowBuffer);
+  const maxWindowStart = Math.max(0, totalLines - windowSize);
+
+  const desiredWindowStart = Math.max(0, Math.min(topVisibleLine - windowBuffer, maxWindowStart));
 
   useEffect(() => {
-    setBridgedLines(new Map());
-    lastFetchRef.current = { start: -1, end: -1 };
-  }, [fileId]);
+    setWindowStart(prev => {
+      if (Math.abs(desiredWindowStart - prev) >= windowBuffer * 0.5) {
+        return desiredWindowStart;
+      }
+      return prev;
+    });
+  }, [desiredWindowStart, windowBuffer]);
+
+  const windowEnd = Math.min(totalLines, windowStart + windowSize);
+  // 窗口内偏移（像素）：视口顶部应显示 topVisibleLine，窗口首行是 windowStart
+  const windowOffsetPx = Math.max(0, topVisibleLine - windowStart) * lineHeight;
+  // 窗口内渲染的行数
+  const itemCount = windowEnd - windowStart;
+
+  // === 尺寸监听：useLayoutEffect 同步测量确保 viewportHeight 立即可用 ===
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (containerRef.current) {
+        const el = containerRef.current;
+        const h = el.clientHeight;
+        const w = el.clientWidth;
+        if (h > 0) setViewportHeight(h);
+        if (w > 0) setViewportWidth(w);
+      }
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    // ResizeObserver 跟踪后续尺寸变化
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      observer = new ResizeObserver(measure);
+      observer.observe(containerRef.current);
+    }
+    // 兜底：dockview 面板异步创建时，用 rAF+setTimeout 确保测量到
+    const rafId = requestAnimationFrame(measure);
+    const timerId = setTimeout(measure, 150);
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer?.disconnect();
+      cancelAnimationFrame(rafId);
+      clearTimeout(timerId);
+    };
+  }, []);
+
+  // === 原生 scroll 监听：dockview 中 React onScroll 合成事件不可靠，
+  // 改用原生 addEventListener 绑定容器，滚动事件经 rAF 同步到 state ===
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let rafId = 0;
+    const onScroll = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        const top = el.scrollTop;
+        const left = el.scrollLeft;
+        scrollStateRef.current = { top, left };
+        lastScrollEventRef.current = performance.now();
+        if (scrollKey) LOGVIEWER_SCROLL_STORE.set(scrollKey, { scrollTop: top });
+        if (viewportHeightRef.current === 0) {
+          const h = el.clientHeight;
+          if (h > 0) setViewportHeight(h);
+        }
+        setScrollTop(top);
+        setScrollLeft(left);
+      });
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [scrollKey]);
+
+  const prevFileIdRef = useRef<string | null | undefined>(undefined);
+
+  // fileId/scrollKey 变化时重建行缓存并维持滚动位置。
+  // - 首次挂载：有历史进度则恢复（跨重挂载保持位置），否则顶部。
+  // - fileId 变化（同一面板，同一 uri，如工作区恢复换了 id）：保留当前滚动位置，
+  //   只重建行缓存；期间外部（dockview 激活/失活）可能把 DOM 滚动条归零，从 store
+  //   读回并连续几帧重新断言（与下方看门狗共同兜底）。
+  useEffect(() => {
+    const isFirst = prevFileIdRef.current === undefined;
+    prevFileIdRef.current = fileId;
+    if (isFirst) {
+      const stored = scrollKey ? LOGVIEWER_SCROLL_STORE.get(scrollKey) : undefined;
+      const restoreTop = stored ? stored.scrollTop : 0;
+      setBridgedLines(new Map());
+      lastFetchRef.current = { start: -1, end: -1 };
+      setWindowStart(0);
+      setScrollTop(restoreTop);
+      if (containerRef.current) containerRef.current.scrollTop = restoreTop;
+    } else {
+      const stored = scrollKey ? LOGVIEWER_SCROLL_STORE.get(scrollKey) : undefined;
+      const keepTop = stored ? stored.scrollTop : (containerRef.current?.scrollTop ?? 0);
+      setBridgedLines(new Map());
+      lastFetchRef.current = { start: -1, end: -1 };
+      setWindowStart(0);
+      if (keepTop > 0) {
+        let frames = 0;
+        const reassert = () => {
+          if (containerRef.current && containerRef.current.scrollTop === 0 && keepTop > 0) {
+            containerRef.current.scrollTop = keepTop;
+            setScrollTop(keepTop);
+            scrollStateRef.current.top = keepTop;
+          }
+          if (++frames < 3) requestAnimationFrame(reassert);
+        };
+        requestAnimationFrame(reassert);
+      }
+    }
+    // dockview 面板切换/新文件时强制重新测量 viewport，避免空白
+    requestAnimationFrame(() => {
+      if (containerRef.current) {
+        const h = containerRef.current.clientHeight;
+        if (h > 0) setViewportHeight(h);
+        const w = containerRef.current.clientWidth;
+        if (w > 0) setViewportWidth(w);
+      }
+    });
+  }, [fileId, scrollKey]);
+
+  // 卸载时保存滚动位置，供重挂载恢复
+  useEffect(() => {
+    return () => {
+      if (scrollKey) {
+        const el = containerRef.current;
+        if (el) LOGVIEWER_SCROLL_STORE.set(scrollKey, { scrollTop: el.scrollTop });
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     lastFetchRef.current = { start: -1, end: -1 };
   }, [updateTrigger]);
 
+  // === 按需拉取行数据（窗口驱动） ===
+  const fetchStart = windowStart;
+  const fetchEnd = windowEnd;
+
   useEffect(() => {
     if (!fileId || totalLines === 0) return;
-    if (startIndex === lastFetchRef.current.start && endIndex === lastFetchRef.current.end) return;
+    const start = fetchStart;
+    const end = fetchEnd;
+    if (start === lastFetchRef.current.start && end === lastFetchRef.current.end) return;
+    if (start >= end) return;
 
-    lastFetchRef.current = { start: startIndex, end: endIndex };
+    lastFetchRef.current = { start, end };
     let ignore = false;
-
     const timer = setTimeout(async () => {
       try {
-        const count = endIndex - startIndex;
-        if (count <= 0 || ignore) return;
-        const lines = await readProcessedLines(fileId, startIndex, count);
+        const count = end - start;
+        const lines = await readProcessedLines(fileId, start, count);
         if (ignore) return;
-
         setBridgedLines(prev => {
           const next = new Map(prev);
-          let newMaxInnerWidth = maxLineWidth;
-          lines.forEach((line, idx) => {
-            const lineIdx = startIndex + idx;
-            next.set(lineIdx, line);
-
-            // 跟踪最大行宽
-            const content = typeof line === 'string' ? line : line.content || '';
-            const lineW = content.length * charWidthRef.current + gutterWidth + 100;
-            if (lineW > newMaxInnerWidth) newMaxInnerWidth = lineW;
-          });
-
-          if (newMaxInnerWidth > maxLineWidth) setMaxLineWidth(newMaxInnerWidth);
-
+          lines.forEach((line, idx) => next.set(start + idx, line));
           if (next.size > LOG_VIEWER.MAX_CACHED_LINES) {
-            const center = Math.floor((startIndex + endIndex) / 2);
+            const center = Math.floor((start + end) / 2);
             for (const key of next.keys()) {
               if (Math.abs(Number(key) - center) > LOG_VIEWER.CACHE_CLEAR_DISTANCE) next.delete(key);
             }
@@ -243,83 +337,52 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           return next;
         });
       } catch (e) { console.error('Failed to fetch lines:', e); }
-    }, LOG_VIEWER.FETCH_DEBOUNCE_MS);
-
+    }, FETCH_DEBOUNCE_MS);
     return () => { ignore = true; clearTimeout(timer); };
-  }, [startIndex, endIndex, fileId, totalLines, updateTrigger]);
+  }, [fetchStart, fetchEnd, fileId, totalLines, updateTrigger, FETCH_DEBOUNCE_MS]);
 
+  // === 可视范围上报 ===
   useEffect(() => {
-    onVisibleRangeChange?.(startIndex, endIndex);
-  }, [startIndex, endIndex, onVisibleRangeChange]);
+    onVisibleRangeChange?.(fetchStart, fetchEnd);
+  }, [fetchStart, fetchEnd, onVisibleRangeChange]);
 
+  // === 外部 scrollToIndex 定位 ===
   useEffect(() => {
     if (scrollToIndex !== null && scrollToIndex !== undefined && containerRef.current) {
-      const targetLogicalScroll = Math.max(0, scrollToIndex * lineHeight - (viewportHeight / 3));
-      const targetPhysicalScroll = useScrollScaling && maxLogicalScroll > 0
-        ? (targetLogicalScroll / maxLogicalScroll) * maxPhysicalScroll
-        : targetLogicalScroll;
-      containerRef.current.scrollTo({ top: targetPhysicalScroll, behavior: 'auto' });
+      const targetLogical = Math.max(0, scrollToIndex * lineHeight - (viewportHeight / 3));
+      const targetPhysical = useScaling && maxLogicalScroll > 0
+        ? (targetLogical / maxLogicalScroll) * maxPhysicalScroll
+        : targetLogical;
+      containerRef.current.scrollTo({ top: targetPhysical, behavior: 'auto' });
     }
-  }, [scrollToIndex, totalLines, viewportHeight, useScrollScaling, maxLogicalScroll, maxPhysicalScroll]);
+  }, [scrollToIndex, totalLines, viewportHeight, useScaling, maxLogicalScroll, maxPhysicalScroll, lineHeight]);
 
-  const getPosFromEvent = (e: MouseEvent | React.MouseEvent) => {
-    if (!containerRef.current) return null;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const logicalY = y + effectiveScrollTop;
-    const lineIndex = Math.floor(logicalY / lineHeight);
-    const charIndex = Math.floor(Math.max(0, x - gutterWidth + scrollLeft) / charWidthRef.current);
-    return { lineIndex, charIndex, x, y };
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    const pos = getPosFromEvent(e);
-    if (!pos) return;
-    setSelection({ startLine: pos.lineIndex, startChar: pos.charIndex, endLine: pos.lineIndex, endChar: pos.charIndex });
-    setIsSelecting(true);
-    setContextMenu(null);
-  };
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isSelecting) return;
-    const pos = getPosFromEvent(e);
-    if (!pos) return;
-    setSelection(prev => prev ? { ...prev, endLine: pos.lineIndex, endChar: pos.charIndex } : null);
-  }, [isSelecting, effectiveScrollTop]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsSelecting(false);
-  }, []);
-
+  // === 原生选择：向父组件报告选中文本 ===
   useEffect(() => {
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    if (!onSelectedTextChange) return;
+    const handleSelection = () => {
+      const sel = window.getSelection();
+      const text = sel ? sel.toString() : '';
+      onSelectedTextChange(text.trim());
+    };
+    document.addEventListener('selectionchange', handleSelection);
+    window.addEventListener('mouseup', handleSelection);
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('selectionchange', handleSelection);
+      window.removeEventListener('mouseup', handleSelection);
     };
-  }, [handleMouseMove, handleMouseUp]);
+  }, [onSelectedTextChange]);
 
-  // Custom wheel handler: normalize each tick to exactly 3 lines
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const linesToScroll = LOG_VIEWER.WHEEL_LINES_PER_TICK;
-      const logicalDelta = Math.sign(e.deltaY) * linesToScroll * lineHeight;
-      const physicalDelta = useScrollScaling && maxLogicalScroll > 0
-        ? (logicalDelta / maxLogicalScroll) * maxPhysicalScroll
-        : logicalDelta;
-      container.scrollTop += physicalDelta;
-    };
-    container.addEventListener('wheel', onWheel, { passive: false });
-    return () => container.removeEventListener('wheel', onWheel);
-  }, [useScrollScaling, maxLogicalScroll, maxPhysicalScroll, lineHeight]);
+  // === 键盘导航 ===
+  const scrollToLine = useCallback((index: number) => {
+    if (!containerRef.current) return;
+    const targetLogical = Math.max(0, index * lineHeight - (viewportHeight / 3));
+    const targetPhysical = useScaling && maxLogicalScroll > 0
+      ? (targetLogical / maxLogicalScroll) * maxPhysicalScroll
+      : targetLogical;
+    containerRef.current.scrollTo({ top: targetPhysical, behavior: 'auto' });
+  }, [useScaling, maxLogicalScroll, maxPhysicalScroll, lineHeight, viewportHeight]);
 
-  // Keyboard navigation handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -330,536 +393,191 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         setShowGoToLine(true);
         return;
       }
-
       if (showGoToLine) return;
 
-      if (e.key === 'l' && modifier && e.shiftKey) {
-        e.preventDefault();
-        if (hoveredLineIndex !== null) {
-          const line = bridgedLines.get(hoveredLineIndex);
-          const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
-          setSelection({
-            startLine: hoveredLineIndex,
-            startChar: 0,
-            endLine: hoveredLineIndex,
-            endChar: content.length
-          });
-        } else if (highlightedIndex !== null) {
-          const line = bridgedLines.get(highlightedIndex);
-          const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
-          setSelection({
-            startLine: highlightedIndex,
-            startChar: 0,
-            endLine: highlightedIndex,
-            endChar: content.length
-          });
-        }
-        return;
-      }
-
-      if (e.key === 'Enter' && modifier) {
-        e.preventDefault();
-        if (selection) {
-          const norm = normalizeSelection(selection);
-          onLineClick?.(norm.topLine);
-        }
-        return;
-      }
-
-      if (e.key === 'ArrowUp' && e.altKey) {
-        e.preventDefault();
-        if (selection) {
-          const norm = normalizeSelection(selection);
-          const newTopLine = Math.max(0, norm.topLine - 1);
-          const newBottomLine = Math.max(0, norm.bottomLine - 1);
-          setSelection({
-            startLine: newTopLine,
-            startChar: norm.topChar,
-            endLine: newBottomLine,
-            endChar: norm.bottomChar
-          });
-        }
-        return;
-      }
-
-      if (e.key === 'ArrowDown' && e.altKey) {
-        e.preventDefault();
-        if (selection) {
-          const norm = normalizeSelection(selection);
-          const newTopLine = Math.min(totalLines - 1, norm.topLine + 1);
-          const newBottomLine = Math.min(totalLines - 1, norm.bottomLine + 1);
-          setSelection({
-            startLine: newTopLine,
-            startChar: norm.topChar,
-            endLine: newBottomLine,
-            endChar: norm.bottomChar
-          });
-        }
-        return;
-      }
-
+      // Ctrl+A 全选当前可视文本（虚拟化下仅可视区可原生选中）
       if (e.key === 'a' && modifier) {
         e.preventDefault();
-        setSelection({
-          startLine: 0,
-          startChar: 0,
-          endLine: totalLines - 1,
-          endChar: 0
-        });
+        const sel = window.getSelection();
+        if (sel && containerRef.current) {
+          const range = document.createRange();
+          range.selectNodeContents(containerRef.current);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        return;
+      }
+
+      // Ctrl+Enter 跳转选中行（高亮行）
+      if (e.key === 'Enter' && modifier && highlightedIndex !== null) {
+        e.preventDefault();
+        onLineClick?.(highlightedIndex);
         return;
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showGoToLine, hoveredLineIndex, highlightedIndex, selection, bridgedLines, totalLines, onLineClick]);
+  }, [showGoToLine, highlightedIndex, onLineClick]);
 
-  const handleClick = (e: React.MouseEvent) => {
-    const pos = getPosFromEvent(e);
-    if (!pos) return;
-
-    if (pos.x < gutterWidth) {
-      const line = bridgedLines.get(pos.lineIndex);
-      const isLogLine = line && typeof line !== 'string';
-      const logLine = isLogLine ? (line as LogLine) : null;
-      const originalIndex = logLine ? logLine.index : pos.lineIndex;
-
-      if (pos.x < 30 && logLine?.isMarked) {
-        const rect = containerRef.current!.getBoundingClientRect();
-        setCommentPopover({
-          x: rect.left + gutterWidth,
-          y: e.clientY,
-          lineIndex: originalIndex,
-          comment: logLine.bookmarkComment || ''
-        });
-      } else {
-        onToggleBookmark?.(originalIndex);
-      }
-    } else {
-      if (!selection || (selection.startLine === selection.endLine && Math.abs(selection.startChar - selection.endChar) < 2)) {
-        onLineClick?.(pos.lineIndex);
-      }
-    }
-  };
-
-  // Double-click handler: select the word under cursor
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    const pos = getPosFromEvent(e);
-    if (!pos || pos.x < gutterWidth) return;
-
-    const line = bridgedLines.get(pos.lineIndex);
-    const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
-    if (!content) return;
-
-    // Find word boundaries (alphanumeric + underscore)
-    const charIndex = pos.charIndex;
-    let start = charIndex;
-    let end = charIndex;
-
-    // Expand left
-    while (start > 0 && /[\w]/.test(content[start - 1])) {
-      start--;
-    }
-
-    // Expand right
-    while (end < content.length && /[\w]/.test(content[end])) {
-      end++;
-    }
-
-    // Only select if we have a valid word
-    if (end > start) {
-      setSelection({
-        startLine: pos.lineIndex,
-        startChar: start,
-        endLine: pos.lineIndex,
-        endChar: end
-      });
-      setIsSelecting(false);
-    }
-  };
-
-  // Report selected text to parent (for Ctrl+F auto-fill etc.)
-  useEffect(() => {
-    if (!selection || !onSelectedTextChange) return;
-    const norm = normalizeSelection(selection);
-    if (norm.topLine === norm.bottomLine && norm.topChar === norm.bottomChar) {
-      onSelectedTextChange('');
-      return;
-    }
-    let text = '';
-    for (let i = norm.topLine; i <= norm.bottomLine; i++) {
-      const line = bridgedLines.get(i);
-      const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
-      const { s, e } = getLineSelectionRange(i, norm, content.length);
-      text += content.substring(s, e) + (i === norm.bottomLine ? '' : '\n');
-    }
-    onSelectedTextChange(text.trim());
-  }, [selection, bridgedLines, onSelectedTextChange]);
-
-  useEffect(() => {
-    const handleCopyEvent = (e: ClipboardEvent) => {
-      // If we have a selection, use our calculated text for native copy
-      if (selection) {
-        let selectedText = '';
-        const norm = normalizeSelection(selection);
-
-        for (let i = norm.topLine; i <= norm.bottomLine; i++) {
-          const line = bridgedLines.get(i);
-          const text = typeof line === 'string' ? line : (line as LogLine)?.content || '';
-          const { s, e } = getLineSelectionRange(i, norm, text.length);
-          selectedText += text.substring(s, e) + (i === norm.bottomLine ? '' : '\n');
-        }
-
-        if (selectedText) {
-          e.clipboardData?.setData('text/plain', selectedText.trim());
-          e.preventDefault();
-        }
-      }
-    };
-    window.addEventListener('copy', handleCopyEvent);
-    return () => window.removeEventListener('copy', handleCopyEvent);
-  }, [selection, bridgedLines]);
-
+  // === context menu ===
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    const pos = getPosFromEvent(e);
-    if (!pos) return;
-
-    let selectedText = '';
-    if (selection) {
-      const norm = normalizeSelection(selection);
-      if (norm.topLine !== norm.bottomLine || norm.topChar !== norm.bottomChar) {
-        for (let i = norm.topLine; i <= norm.bottomLine; i++) {
-          const line = bridgedLines.get(i);
-          const text = typeof line === 'string' ? line : (line as LogLine)?.content || '';
-          const { s, e } = getLineSelectionRange(i, norm, text.length);
-          selectedText += text.substring(s, e) + (i === norm.bottomLine ? '' : '\n');
-        }
-      }
-    }
-
-    const line = bridgedLines.get(pos.lineIndex);
-    const originalIndex = (line && typeof line !== 'string') ? (line as LogLine).index : pos.lineIndex;
-
-    setContextMenu({ x: e.clientX, y: e.clientY, text: selectedText.trim(), lineIndex: originalIndex });
+    const lineEl = (e.target as HTMLElement).closest('[data-log-index]') as HTMLElement | null;
+    const index = lineEl ? Number(lineEl.dataset.logIndex) : null;
+    const sel = window.getSelection();
+    const selectedText = sel ? sel.toString().trim() : '';
+    setContextMenu({ x: e.clientX, y: e.clientY, text: selectedText, lineIndex: index ?? undefined });
   };
 
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !Number.isFinite(viewportWidth) || viewportWidth <= 0 || !Number.isFinite(viewportHeight) || viewportHeight <= 0) return;
-
-    const ctx = canvas.getContext('2d', { alpha: false });
-    if (!ctx) return;
-
-    try {
-      const dpr = window.devicePixelRatio || 1;
-      const targetWidth = Math.floor(viewportWidth * dpr);
-      const targetHeight = Math.floor(viewportHeight * dpr);
-
-      if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-      }
-
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      // Read scroll position directly from DOM for frame-perfect rendering
-      const currentScrollTop = containerRef.current?.scrollTop || 0;
-      const currentScrollLeft = containerRef.current?.scrollLeft || 0;
-      const drawEffectiveScroll = useScrollScaling && maxPhysicalScroll > 0
-        ? (currentScrollTop / maxPhysicalScroll) * maxLogicalScroll
-        : currentScrollTop;
-      const safeScrollTop = Number.isFinite(drawEffectiveScroll) ? drawEffectiveScroll : 0;
-      const safeScrollLeft = Number.isFinite(currentScrollLeft) ? currentScrollLeft : 0;
-
-      // --- Draw Overview Ruler ---
-      const effectiveRulerWidth = showRuler ? 12 : 0;
-      const effectiveViewportWidth = viewportWidth - effectiveRulerWidth;
-
-      if (showRuler) {
-        const rulerWidth = 12;
-        const rulerX = viewportWidth - rulerWidth;
-        ctx.fillStyle = colors.BACKGROUND;
-        ctx.fillRect(rulerX, 0, rulerWidth, viewportHeight);
-
-        // Draw markers for layers/search
-        Object.entries(layerStats).forEach(([id, stats]: [string, any]) => {
-          const color = id === 'search' ? colors.SEARCH_HIGHLIGHT : colors.LAYER_HIGHLIGHT;
-          ctx.fillStyle = color;
-          stats.distribution.forEach((v: number, idx: number) => {
-            if (v > 0) {
-              const h = Math.max(2, v * (viewportHeight / 20));
-              ctx.globalAlpha = 0.5;
-              ctx.fillRect(rulerX + 2, idx * (viewportHeight / 20), rulerWidth - 4, h);
-              ctx.globalAlpha = 1.0;
-            }
-          });
+  // === gutter 点击切换书签 / 内容点击选中行 ===
+  const handleRowClick = (e: React.MouseEvent) => {
+    const rowEl = (e.target as HTMLElement).closest('[data-log-index]') as HTMLElement | null;
+    const gutterEl = (e.target as HTMLElement).closest('.log-row-gutter');
+    if (!rowEl) return;
+    const index = Number(rowEl.dataset.logIndex);
+    if (gutterEl) {
+      // 书签已有，点左侧打开评论；否则切换书签
+      const logLine = bridgedLines.get(index);
+      const isLogLine = logLine && typeof logLine !== 'string';
+      if (isLogLine && (logLine as LogLine).isMarked) {
+        const rect = containerRef.current!.getBoundingClientRect();
+        setCommentPopover({
+          x: rect.left + GUTTER_WIDTH,
+          y: e.clientY,
+          lineIndex: index,
+          comment: (logLine as LogLine).bookmarkComment || ''
         });
-
-        // Draw markers for bookmarks
-        const bookmarkIndices = Object.keys(bookmarks).map(Number);
-        if (bookmarkIndices.length > 0) {
-          ctx.fillStyle = colors.BOOKMARK_INDICATOR;
-          bookmarkIndices.forEach(idx => {
-            const yPos = (idx / totalLines) * viewportHeight;
-            ctx.fillRect(rulerX, yPos, rulerWidth, 2);
-          });
-        }
-
-        // Draw viewport indicator in ruler (uses drawEffectiveScroll, not the outer effectiveScrollTop)
-        const viewStart = (drawEffectiveScroll / realTotalHeight) * viewportHeight;
-        const viewSize = (viewportHeight / realTotalHeight) * viewportHeight;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.strokeRect(rulerX, viewStart, rulerWidth, Math.max(5, viewSize));
-      }
-
-      // 只有在有数据时才填充背景
-      if (totalLines > 0) {
-        ctx.fillStyle = colors.BACKGROUND;
-        ctx.fillRect(0, 0, effectiveViewportWidth, viewportHeight);
-
-        if (bridgedLines.size === 0) {
-          ctx.font = '14px "JetBrains Mono"';
-          ctx.fillStyle = colors.TEXT;
-          ctx.textAlign = 'center';
-          
-          const centerX = effectiveViewportWidth / 2;
-          const centerY = viewportHeight / 2;
-          
-          if (isIndexing) {
-            ctx.fillText(`正在构建索引... ${Math.round(indexingProgress)}%`, centerX, centerY - 10);
-            ctx.font = '12px "JetBrains Mono"';
-            ctx.fillStyle = colors.GUTTER_TEXT;
-            ctx.fillText('请稍候', centerX, centerY + 15);
-          } else if (isSearching) {
-            ctx.fillText('正在搜索...', centerX, centerY - 10);
-            ctx.font = '12px "JetBrains Mono"';
-            ctx.fillStyle = colors.GUTTER_TEXT;
-            ctx.fillText(`${totalLines.toLocaleString()} 行待处理`, centerX, centerY + 15);
-          } else {
-            const linesRemaining = totalLines - endIndex;
-            if (linesRemaining > 0) {
-              ctx.fillText(`加载中... ${linesRemaining.toLocaleString()} 行`, centerX, centerY - 10);
-            } else {
-              ctx.fillText('Loading lines...', centerX, centerY);
-            }
-          }
-          return;
-        }
       } else {
-        ctx.clearRect(0, 0, viewportWidth, viewportHeight);
-        return;
+        onToggleBookmark?.(index);
       }
-
-      const firstVisibleY = (startIndex - Math.floor(safeScrollTop / lineHeight)) * lineHeight;
-
-      for (let i = startIndex; i < endIndex; i++) {
-        if (i >= totalLines) break;
-        const line = bridgedLines.get(i);
-        const y = firstVisibleY + (i - startIndex) * lineHeight;
-        if (y + lineHeight < 0 || y > viewportHeight) continue;
-
-        const isLogLine = line && typeof line !== 'string';
-        const logLine = isLogLine ? (line as LogLine) : null;
-        const content = typeof line === 'string' ? line : logLine?.content || '';
-        const isMarked = logLine?.isMarked;
-
-        // 1. Backgrounds
-        const rowStyle = logLine?.rowStyle;
-        const hasData = line !== undefined;
-        if (highlightedIndex === i) {
-          // Current line highlight - use a more visible cyan tint
-          ctx.fillStyle = 'rgba(34, 211, 238, 0.15)';
-          ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
-        } else if (rowStyle?.backgroundColor) {
-          ctx.fillStyle = rowStyle.backgroundColor;
-          ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
-        } else if (isMarked) {
-          ctx.fillStyle = colors.BOOKMARK_BACKGROUND;
-          ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
-        } else if (!hasData) {
-          // Loading placeholder - draw faint background to prevent transparency
-          ctx.fillStyle = colors.BACKGROUND;
-          ctx.fillRect(0, y, effectiveViewportWidth, lineHeight);
-        }
-
-        // Selection highlight
-        if (selection) {
-          const norm = normalizeSelection(selection);
-          if (i >= norm.topLine && i <= norm.bottomLine) {
-            const { s, e } = getLineSelectionRange(i, norm, content.length);
-            ctx.fillStyle = colors.SELECTION;
-            ctx.fillRect(gutterWidth + s * charWidthRef.current - safeScrollLeft, y, (e - s) * charWidthRef.current, lineHeight);
-          }
-        }
-
-        // Draw gutter and line numbers
-        if (showLineNumbers) {
-          ctx.fillStyle = colors.GUTTER;
-          ctx.fillRect(0, y, gutterWidth - 5, lineHeight);
-
-          const gutterFontSize = Math.max(10, fontSize - 2);
-          ctx.font = `${gutterFontSize}px "JetBrains Mono", monospace`;
-          ctx.fillStyle = highlightedIndex === i ? colors.CURRENT_LINE : colors.GUTTER_TEXT;
-          ctx.textAlign = 'right';
-          ctx.fillText((i + 1).toLocaleString(), gutterWidth - 15, y + lineHeight / 2 + 4);
-        }
-
-        if (isMarked) {
-          ctx.fillStyle = colors.BOOKMARK_INDICATOR;
-          ctx.textAlign = 'center';
-          ctx.font = `${fontSize}px "JetBrains Mono"`;
-          ctx.fillText(logLine?.bookmarkComment ? '★' : '●', 15, y + lineHeight / 2 + 4);
-
-          ctx.fillStyle = colors.BOOKMARK_INDICATOR;
-          ctx.fillRect(0, y, 2, lineHeight);
-        }
-
-        // 4. Content
-        ctx.font = font;
-        ctx.textAlign = 'left';
-        const contentX = showLineNumbers ? (gutterWidth - safeScrollLeft) : (-safeScrollLeft);
-        const effectiveGutterWidth = showLineNumbers ? gutterWidth : 0;
-        const maxCharsPerLine = Math.floor((viewportWidth - effectiveRulerWidth - effectiveGutterWidth) / charWidthRef.current);
-
-        let displayContent = content;
-        if (showWhitespace) {
-          displayContent = content
-            .replace(/ /g, '\u00B7')
-            .replace(/\t/g, '\u2192 ');
-        }
-
-        const renderText = (text: string, startX: number, startY: number) => {
-          const highlightsToRender = searchHighlightAll ? logLine?.highlights : [];
-          if (highlightsToRender && highlightsToRender.length > 0) {
-            let lastIdx = 0;
-            const sorted = [...highlightsToRender].sort((a, b) => a.start - b.start);
-            sorted.forEach(h => {
-              if (h.start > lastIdx) {
-                ctx.fillStyle = colors.TEXT;
-                ctx.fillText(text.substring(lastIdx, h.start), startX + lastIdx * charWidthRef.current, startY);
-              }
-              const opacity = (h.opacity || 100) / 100;
-              const hText = text.substring(h.start, h.end);
-              if (h.isSearch || h.color === '#facc15') {
-                ctx.fillStyle = h.color;
-                ctx.fillRect(startX + h.start * charWidthRef.current, startY - lineHeight / 2 + 2, hText.length * charWidthRef.current, lineHeight - 4);
-                ctx.fillStyle = '#000';
-              } else {
-                ctx.fillStyle = h.color.startsWith('#') ? `${h.color}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}` : h.color;
-              }
-              ctx.fillText(hText, startX + h.start * charWidthRef.current, startY);
-              lastIdx = h.end;
-            });
-            if (lastIdx < text.length) {
-              ctx.fillStyle = colors.TEXT;
-              ctx.fillText(text.substring(lastIdx), startX + lastIdx * charWidthRef.current, startY);
-            }
-          } else {
-            ctx.fillStyle = rowStyle?.color || colors.TEXT;
-            ctx.fillText(text, startX, startY);
-          }
-        };
-
-        if (wordWrap && maxCharsPerLine > 0) {
-          const lines = [];
-          for (let i = 0; i < displayContent.length; i += maxCharsPerLine) {
-            lines.push(displayContent.substring(i, i + maxCharsPerLine));
-          }
-          lines.forEach((lineText, lineIdx) => {
-            renderText(lineText, contentX, y + lineHeight / 2 + 4 + lineIdx * lineHeight);
-          });
-        } else {
-          renderText(displayContent, contentX, y + lineHeight / 2 + 4);
-        }
-      }
-    } catch (err) {
-      console.error('Canvas draw error:', err);
+      return;
     }
-  }, [viewportWidth, viewportHeight, startIndex, endIndex, bridgedLines, selection, highlightedIndex, totalLines, layerStats, bookmarks, useScrollScaling, maxPhysicalScroll, maxLogicalScroll, lineHeight, showLineNumbers, showRuler, wordWrap, showWhitespace, fontSize, searchHighlightAll, settings]);
+    onLineClick?.(index);
+  };
 
-  const frameCountRef = useRef(0);
-  const lastFpsUpdateRef = useRef(performance.now());
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    // 浏览器原生双击选词，这里不需要额外逻辑
+    const rowEl = (e.target as HTMLElement).closest('[data-log-index]') as HTMLElement | null;
+    if (rowEl) onLineClick?.(Number(rowEl.dataset.logIndex));
+  };
 
-  useEffect(() => {
-    const updatePerformanceStats = () => {
-      frameCountRef.current++;
-      const now = performance.now();
-      const elapsed = now - lastFpsUpdateRef.current;
-      
-      if (elapsed >= 1000) {
-        const fps = Math.round((frameCountRef.current * 1000) / elapsed);
-        const visibleLines = endIndex - startIndex;
-        const memory = (performance as any).memory 
-          ? Math.round((performance as any).memory.usedJSHeapSize / 1048576) 
-          : 0;
-        
-        setPerformanceStats({ fps, visibleLines, memory });
-        frameCountRef.current = 0;
-        lastFpsUpdateRef.current = now;
-      }
-    };
-
-    const frame = requestAnimationFrame(() => {
-      draw();
-      updatePerformanceStats();
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [draw, startIndex, endIndex]);
+  // === 渲染 ===
+  const isContentReady = fileId && totalLines > 0 && viewportHeight > 0;
+  const showLoading = fileId && !isContentReady;
 
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-auto relative custom-scrollbar"
+      data-logviewer="true"
+      className="flex-1 overflow-auto relative custom-scrollbar select-text"
       style={{ backgroundColor: colors.BACKGROUND }}
-      onScroll={(e) => {
-        const now = performance.now();
-        const st = e.currentTarget.scrollTop;
-        const sl = e.currentTarget.scrollLeft;
-        
-        if (now - lastScrollTimeRef.current > 0) {
-          const delta = st - lastScrollTopRef.current;
-          const timeDelta = now - lastScrollTimeRef.current;
-          scrollVelocityRef.current = delta / timeDelta;
-          scrollDirectionRef.current = delta > 0 ? 'down' : delta < 0 ? 'up' : scrollDirectionRef.current;
-        }
-        
-        lastScrollTimeRef.current = now;
-        lastScrollTopRef.current = st;
-        
-        if (canvasRef.current) {
-          canvasRef.current.style.transform = `translate3d(${sl}px, ${st}px, 0)`;
-        }
-        setScrollTop(st);
-        setScrollLeft(sl);
-      }}
-      onMouseDown={handleMouseDown}
       onContextMenu={handleContextMenu}
-      onClick={handleClick}
+      onClick={handleRowClick}
       onDoubleClick={handleDoubleClick}
     >
-      {/* Spacer in normal flow to create scrollable area */}
-      <div style={{ height: virtualTotalHeight, width: maxLineWidth, pointerEvents: 'none' }} />
+      {/* 滚动 spacer：撑起滚动高度 */}
+      <div style={{ height: virtualTotalHeight, width: 1, pointerEvents: 'none' }} />
 
-      {fileId && totalLines > 0 && viewportWidth > 0 && viewportHeight > 0 && (
-        <ErrorBoundary>
-          <canvas
-            ref={canvasRef}
-            role="log"
-            aria-label={`日志视图，共 ${totalLines.toLocaleString()} 行。当前显示第 ${startIndex + 1} 到 ${endIndex} 行`}
-            aria-readonly="true"
-            tabIndex={0}
+      {/* 加载状态 */}
+      {showLoading && (
+        <div
+          className="absolute top-0 left-0 flex items-center justify-center text-gray-500 text-sm"
+          style={{ height: viewportHeight || 400, width: '100%' }}
+        >
+          {isIndexing
+            ? <>正在构建索引... {Math.round(indexingProgress)}%</>
+            : isSearching
+              ? <>正在搜索... {totalLines.toLocaleString()} 行待处理</>
+              : <>Loading lines...</>}
+        </div>
+      )}
+
+      {/* 内容视口：translateY(scrollTop) 抵消物理滚动使内容固定，窗口内行用绝对定位渲染 */}
+      {isContentReady && (
+        <div
+          className="absolute top-0 left-0"
+          style={{ height: viewportHeight, width: '100%' }}
+        >
+          <ErrorBoundary>
+            {/* 窗口内行：translateY(scrollTop - windowOffsetPx) 使窗口内容对齐到视口（视口在 content 坐标 scrollTop 处） */}
+            <div
+              style={{
+                transform: `translateY(${scrollTop - windowOffsetPx}px)`,
+                height: itemCount * lineHeight,
+                width: '100%',
+                willChange: 'transform',
+              }}
+            >
+              {Array.from({ length: itemCount }, (_, i) => (
+                <LogRow
+                  key={windowStart + i}
+                  index={windowStart + i}
+                  line={bridgedLines.get(windowStart + i)}
+                  colors={colors}
+                  lineHeight={lineHeight}
+                  gutterWidth={gutterWidth}
+                  showLineNumbers={showLineNumbers}
+                  showWhitespace={showWhitespace}
+                  fontSize={fontSize}
+                  isHighlighted={highlightedIndex === windowStart + i}
+                  wordWrap={wordWrap}
+                  fontFamily={fontFamily}
+                  onToggleBookmark={onToggleBookmark}
+                />
+              ))}
+            </div>
+          </ErrorBoundary>
+        </div>
+      )}
+
+      {/* Overview Ruler（右侧分布标尺，translateY 抵消滚动固定到视口） */}
+      {showRuler && totalLines > 0 && (
+        <div
+          className="absolute right-0 top-0"
+          style={{ width: 12, height: viewportHeight, backgroundColor: colors.RULER, pointerEvents: 'none', zIndex: 5, overflow: 'hidden', transform: `translateY(${scrollTop}px)` }}
+        >
+          {Object.entries(layerStats).map(([id, stats]: [string, any]) => {
+            const color = id === 'search' ? colors.SEARCH_HIGHLIGHT : colors.LAYER_HIGHLIGHT;
+            return (stats.distribution || []).map((v: number, idx: number) => {
+              if (v <= 0) return null;
+              const h = Math.max(2, v * (viewportHeight / 20));
+              return (
+                <div
+                  key={`${id}-${idx}`}
+                  style={{
+                    position: 'absolute',
+                    left: 2,
+                    top: idx * (viewportHeight / 20),
+                    height: h,
+                    width: 8,
+                    backgroundColor: color,
+                    opacity: 0.5,
+                  }}
+                />
+              );
+            });
+          })}
+          {Object.keys(bookmarks).map(idx => {
+            const yPos = (Number(idx) / Math.max(1, totalLines)) * viewportHeight;
+            return (
+              <div
+                key={`bm-${idx}`}
+                style={{ position: 'absolute', left: 0, top: yPos, height: 2, width: 12, backgroundColor: colors.BOOKMARK_INDICATOR }}
+              />
+            );
+          })}
+          <div
             style={{
               position: 'absolute',
-              top: 0,
               left: 0,
-              width: viewportWidth,
-              height: viewportHeight,
-              pointerEvents: 'none',
-              zIndex: 1
+              top: (logicalScrollTop / Math.max(1, realTotalHeight)) * viewportHeight,
+              height: Math.max(5, (viewportHeight / Math.max(1, realTotalHeight)) * viewportHeight),
+              width: 12,
+              border: '1px solid rgba(255,255,255,0.2)',
+              boxSizing: 'border-box',
             }}
           />
-        </ErrorBoundary>
+        </div>
       )}
 
       {contextMenu && createPortal(
@@ -931,31 +649,12 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           totalLines={totalLines}
           onGo={(lineNum) => {
             onLineClick?.(lineNum - 1);
+            scrollToLine(lineNum - 1);
             setShowGoToLine(false);
           }}
           onClose={() => setShowGoToLine(false)}
         />
       )}
-
-      {showPerformancePanel && (
-        <div className="fixed bottom-2 right-2 bg-black/80 text-xs p-2 rounded z-[1000] text-gray-300 font-mono">
-          <div className="flex gap-3">
-            <span>FPS: <span className={performanceStats.fps < 30 ? 'text-red-400' : performanceStats.fps < 50 ? 'text-yellow-400' : 'text-green-400'}>{performanceStats.fps}</span></span>
-            <span>Lines: {performanceStats.visibleLines.toLocaleString()}</span>
-            <span>Mem: {performanceStats.memory}MB</span>
-          </div>
-        </div>
-      )}
-
-      <button
-        className="fixed bottom-8 right-2 text-[10px] text-gray-600 hover:text-gray-400 z-[1000]"
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowPerformancePanel(p => !p);
-        }}
-      >
-        {showPerformancePanel ? 'Hide' : 'Perf'}
-      </button>
 
       {hasNewContent && onScrollToNewContent && (
         <button
@@ -970,7 +669,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       )}
 
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-        {selection ? `已选中 ${Math.abs(selection.endLine - selection.startLine) + 1} 行` : ''}
+        {totalLines > 0 && `日志视图，共 ${totalLines.toLocaleString()} 行。当前显示第 ${windowStart + 1} 到 ${windowEnd} 行`}
       </div>
     </div>
   );

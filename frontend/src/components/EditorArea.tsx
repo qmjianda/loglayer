@@ -20,8 +20,8 @@ import { FileData, ProcessedCache } from '../hooks/useFileManagement';
 import { SearchConfig } from '../hooks/useSearch';
 import { AppSettings } from '../hooks/useSettings';
 import { LayerType } from '../types';
+import { panelIdForFile } from '../utils';
 
-const LAYOUT_STORAGE_KEY = 'loglayer_dockview_layout';
 const SAVE_DELAY_MS = 500;
 
 interface LogViewerPanelParams {
@@ -89,9 +89,10 @@ const LogViewerPanel: React.FC<IDockviewPanelProps<LogViewerPanelParams>> = ({ p
         return (
             <div className="h-full w-full flex flex-col relative min-h-0 overflow-hidden">
                 <LogViewer
-                    key={fileId}
+                    key={params.uri || fileId}
                     totalLines={file.lineCount}
                     fileId={fileId}
+                    scrollKey={params.uri || fileId}
                     searchQuery={(data.isFindVisible || data.activeView === 'search') ? data.searchQuery : ''}
                     searchConfig={data.searchConfig}
                     scrollToIndex={isActive ? data.scrollToIndex : null}
@@ -141,20 +142,86 @@ export interface EditorAreaProps extends EditorAreaData {
     onFileClosed: (fileId: string) => void;
     onApiReady: (api: DockviewApi) => void;
     onFileDrop: (paths: { name: string; path: string }[]) => void;
+    /** 已保存的布局 JSON（来自 kv['layout']）；为空时不恢复 */
+    initialLayout?: string | null;
+    /** 布局变化回调（防抖后调用），由上层写回 kv['layout'] */
+    onLayoutChange?: (json: string) => void;
+}
+
+// 旧布局面板 id 为 `log-<fileId>`（fileId 每次会话变化，刷新后对不上）。
+// dockview 序列化格式：`panels` 是按 id 索引的对象，`grid` 叶子节点通过
+// `data.views` 引用面板 id。恢复前将两者中旧 id 重映射为基于路径的稳定 id。
+// 兼容旧的 localStorage 布局数据（解析自外部 JSON）。
+interface DockviewPanelMeta {
+    id?: string;
+    params?: { uri?: string };
+}
+
+function remapPanelIds(json: any): any {
+    const panels = json?.panels as Record<string, DockviewPanelMeta> | undefined;
+    if (!panels) return json;
+
+    const oldToNew = new Map<string, string>();
+    for (const [id, panel] of Object.entries(panels)) {
+        if (id.startsWith('log-') && !id.startsWith('log-view-')) {
+            const uri = panel.params?.uri;
+            if (uri) oldToNew.set(id, panelIdForFile(uri));
+        }
+    }
+    if (oldToNew.size === 0) return json;
+
+    for (const [oldId, newId] of oldToNew) {
+        const panel = panels[oldId];
+        panel.id = newId;
+        panels[newId] = panel;
+        delete panels[oldId];
+    }
+    remapGridPanelIds(json.grid?.root, oldToNew);
+    return json;
+}
+
+function remapGridPanelIds(grid: any, oldToNew: Map<string, string>): void {
+    if (!grid || typeof grid !== 'object') return;
+    if (Array.isArray(grid.data)) {
+        grid.data.forEach((child: any) => remapGridPanelIds(child, oldToNew));
+        return;
+    }
+    if (Array.isArray(grid.data?.views)) {
+        grid.data.views = grid.data.views.map((id: string) => oldToNew.get(id) ?? id);
+        if (typeof grid.data.activeView === 'string') {
+            grid.data.activeView = oldToNew.get(grid.data.activeView) ?? grid.data.activeView;
+        }
+    }
 }
 
 export const EditorArea: React.FC<EditorAreaProps> = (props) => {
     const apiRef = useRef<DockviewApi | null>(null);
     const propsRef = useRef(props);
     propsRef.current = props;
+    // 最近一次 fromJSON 应用的布局；防止同一布局重复回放（onReady 与异步加载双触发）
+    const lastAppliedLayoutRef = useRef<string | null>(null);
 
-    // 布局持久化：防抖保存
+    // 布局持久化：防抖保存（经 onLayoutChange 回传给上层写 kv['layout']，不再用 localStorage）
     const saveLayout = useCallback((api: DockviewApi) => {
         try {
-            const json = api.toJSON();
-            localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(json));
+            const json = JSON.stringify(api.toJSON());
+            propsRef.current.onLayoutChange?.(json);
         } catch (e) {
             console.error('[EditorArea] Failed to save layout:', e);
+        }
+    }, []);
+
+    // 恢复布局：fromJSON 前按 params.uri 重映射旧 view id（兼容旧布局数据）
+    const applySavedLayout = useCallback((api: DockviewApi, layoutJson: string | null | undefined): boolean => {
+        if (!layoutJson) return false;
+        try {
+            const json = remapPanelIds(JSON.parse(layoutJson));
+            api.fromJSON(json);
+            lastAppliedLayoutRef.current = layoutJson;
+            return true;
+        } catch (e) {
+            console.error('[EditorArea] Failed to restore layout:', e);
+            return false;
         }
     }, []);
 
@@ -163,23 +230,13 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
         apiRef.current = api;
         props.onApiReady(api);
 
-        // 恢复布局；失败则按当前打开文件添加默认面板
-        let restored = false;
-        try {
-            const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
-            if (raw) {
-                const json = JSON.parse(raw);
-                api.fromJSON(json);
-                restored = true;
-            }
-        } catch (e) {
-            console.error('[EditorArea] Failed to restore layout:', e);
-        }
+        // 恢复布局；失败或尚无保存布局则按当前打开文件添加默认面板
+        const restored = applySavedLayout(api, propsRef.current.initialLayout);
 
         // 兜底：确保所有当前打开文件（wasOpen）都有面板（restore 失败或 restore 前的文件）
         if (!restored) {
             propsRef.current.files.filter(f => f.wasOpen !== false).forEach(file => {
-                const panelId = `log-${file.id}`;
+                const panelId = panelIdForFile(file.path);
                 if (!api.getPanel(panelId)) {
                     api.addPanel({
                         id: panelId,
@@ -220,7 +277,16 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
             timer = setTimeout(() => saveLayout(api), SAVE_DELAY_MS);
         };
         api.onDidLayoutChange(save);
-    }, [saveLayout, props]);
+    }, [applySavedLayout, saveLayout, props]);
+
+    // 布局异步到达时恢复（workspace 切换后从 kv['layout'] 加载，晚于 onReady）
+    useEffect(() => {
+        const api = apiRef.current;
+        if (!api || !props.initialLayout) return;
+        // 同一布局已应用过则跳过（onReady 已恢复 / 布局内容未变）
+        if (props.initialLayout === lastAppliedLayoutRef.current) return;
+        applySavedLayout(api, props.initialLayout);
+    }, [props.initialLayout, applySavedLayout]);
 
     // 文件列表变化时：确保每个打开文件都有对应面板，并关闭已移除/已关闭文件的面板
     useEffect(() => {
@@ -231,6 +297,11 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
         const openFiles = props.files.filter(f => f.wasOpen !== false);
         const knownIds = new Set(openFiles.map(f => f.id));
         const knownUris = new Set(openFiles.map(f => f.path).filter(Boolean));
+
+        // 文件列表尚未加载（如刷新后 workspace config 异步恢复中）时，
+        // 不清理任何面板，避免删除 fromJSON 刚恢复的布局。
+        if (openFiles.length === 0) return;
+
         for (const panel of [...api.panels]) {
             const fid = panel.params?.fileId;
             const uri = panel.params?.uri;
@@ -241,12 +312,13 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
         }
 
         for (const file of openFiles) {
+            const panelId = panelIdForFile(file.path);
             const exists = api.panels.some(p =>
-                p.params?.fileId === file.id || (file.path && p.params?.uri === file.path)
+                p.id === panelId || p.params?.fileId === file.id || (file.path && p.params?.uri === file.path)
             );
             if (!exists) {
                 api.addPanel({
-                    id: `log-${file.id}`,
+                    id: panelId,
                     component: 'logViewer',
                     title: file.name,
                     params: { fileId: file.id, uri: file.path },

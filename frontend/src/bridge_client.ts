@@ -143,6 +143,15 @@ class WebBridge implements FileBridgeAPI {
         return res.json();
     }
 
+    private async put(endpoint: string, body: any = {}): Promise<any> {
+        const res = await fetch(`${BACKEND_URL}/api/${endpoint}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        return res.json();
+    }
+
     // API Methods
     async open_file(fileId: string, path: string) { return this.post('open_file', { file_id: fileId, file_path: path }); }
     async close_file(fileId: string) { return this.post('close_file', { file_id: fileId }); }
@@ -153,6 +162,10 @@ class WebBridge implements FileBridgeAPI {
     async list_directory(path: string) { return JSON.stringify(await this.get('list_directory', { folder_path: path })); }
     async save_workspace_config(path: string, json: string) { return this.post('save_workspace_config', { folder_path: path, config_json: json }); }
     async load_workspace_config(path: string) { return this.get('load_workspace_config', { folder_path: path }); }
+    async get_workspace_state(key: string, folderPath?: string) { return this.get('workspace/state', { key, folder_path: folderPath }); }
+    async put_workspace_state(folderPath: string, key: string, value: string) { return this.put('workspace/state', { folder_path: folderPath, key, value }); }
+    async get_workspace_files(folderPath?: string) { return this.get('workspace/files', { folder_path: folderPath }); }
+    async put_workspace_files(folderPath: string, files: unknown[]) { return this.put('workspace/files', { folder_path: folderPath, files }); }
     async ready() { return this.post('ready'); }
     async sync_layers(fileId: string, json: string) { return this.post('sync_layers', { file_id: fileId, layers_json: json }); }
     async sync_decorations(fileId: string, json: string) {
@@ -405,6 +418,8 @@ export interface WorkspaceConfig {
     files?: WorkspaceConfigFile[];
     activeFilePath?: string | null;
     layers?: any[];
+    /** dockview 布局 JSON（toJSON 结果），随工作区持久化，刷新后恢复一致的布局 */
+    layout?: string;
 }
 
 export async function saveWorkspaceConfig(folderPath: string, config: WorkspaceConfig): Promise<boolean> {
@@ -419,6 +434,38 @@ export async function loadWorkspaceConfig(folderPath: string): Promise<Workspace
         if (!jsonStr) return null;
         return JSON.parse(jsonStr) as WorkspaceConfig;
     } catch (e) { return null; }
+}
+
+// ============================================================
+// 工作区统一存储 API（布局/书签/设置经 KV，文件历史经 files 表）
+// ============================================================
+
+/**
+ * 读取工作区 KV 状态（如 layout / bookmarks.<path>）。
+ * @returns 状态值字符串；不存在返回 null
+ */
+export async function getWorkspaceState(key: string, folderPath?: string): Promise<string | null> {
+    if (!fileBridge) return null;
+    try {
+        const value = await fileBridge.get_workspace_state(key, folderPath);
+        return typeof value === 'string' && value.length > 0 ? value : null;
+    } catch (e) {
+        console.error(`[Bridge] getWorkspaceState(${key}) error:`, e);
+        return null;
+    }
+}
+
+/**
+ * 原子写工作区 KV 状态。
+ */
+export async function putWorkspaceState(folderPath: string, key: string, value: string): Promise<boolean> {
+    if (!fileBridge) return false;
+    try {
+        return !!(await fileBridge.put_workspace_state(folderPath, key, value));
+    } catch (e) {
+        console.error(`[Bridge] putWorkspaceState(${key}) error:`, e);
+        return false;
+    }
 }
 
 // ============================================================

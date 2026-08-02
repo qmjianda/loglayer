@@ -68,6 +68,57 @@ def test_large_file_visible_range_and_scroll(page, large_log_path, frontend_erro
     assert not frontend_errors, f"前端出现错误: {frontend_errors}"
 
 
+def test_fast_scroll_shows_placeholder_then_content(page, large_log_path, frontend_errors):
+    """拖动白屏回归：快速滚动到未加载区域时先显示占位行（行号可见），
+    随后替换为真实内容，全程不出现整片空白。"""
+    helpers.open_file_via_picker(page, large_log_path, timeout=120000)
+
+    # 瞬间跳到文件 80% 处（模拟拖动滚动条）
+    page.evaluate(
+        """() => {
+          const sc = document.querySelector('[data-logviewer]');
+          sc.scrollTop = sc.scrollHeight * 0.8;
+        }"""
+    )
+    page.wait_for_timeout(150)
+
+    # 立即检查：行号应已显示（占位/真实），不允许 0 行
+    snap = page.evaluate(
+        """() => {
+          const sc = document.querySelector('[data-logviewer]');
+          const rows = sc.querySelectorAll('.log-row');
+          const first = rows[0];
+          return {
+            rowCount: rows.length,
+            firstGutter: first ? first.querySelector('.log-row-gutter').textContent.trim() : null,
+          };
+        }"""
+    )
+    assert snap["rowCount"] > 0, "快速滚动后应渲染占位行（行号可见），而非空白"
+    assert snap["firstGutter"], "占位行应显示行号"
+
+    # 等数据加载完成后，行号与内容应一致且占位消失
+    page.wait_for_timeout(4000)
+    loaded = page.evaluate(
+        """() => {
+          const sc = document.querySelector('[data-logviewer]');
+          const rows = sc.querySelectorAll('.log-row');
+          const skeleton = sc.querySelectorAll('.log-row-skeleton').length;
+          const first = rows[0];
+          return {
+            skeleton,
+            firstGutter: first ? first.querySelector('.log-row-gutter').textContent.trim() : null,
+            firstIdx: first ? first.getAttribute('data-log-index') : null,
+          };
+        }"""
+    )
+    assert loaded["skeleton"] == 0, f"数据加载完成后占位应消失，剩余 {loaded['skeleton']} 个占位"
+    assert loaded["firstIdx"] is not None, "应有真实行内容"
+    assert loaded["firstGutter"], "行号应持续可见"
+
+    assert not frontend_errors, f"前端出现错误: {frontend_errors}"
+
+
 def test_reopen_same_file_no_duplicate_tab(page, large_log_path, frontend_errors):
     """回归：CLI 预加载的文件再次经 UI 打开时，不应产生重复面板。
 

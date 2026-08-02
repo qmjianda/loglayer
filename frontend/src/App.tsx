@@ -28,7 +28,7 @@ import { StatsPanel, LogLevelStats } from './components/StatsPanel';
 import { LayerType, LogLine } from './types';
 import { ProcessedCache } from './hooks/useFileManagement';
 import { openFile, syncAll, hasNativeDialogs, toggleBookmark, getNearestBookmarkIndex, getLinesByIndices, getLogLevelStats, setCacheConfig } from './bridge_client';
-import { removeFromSet, basename } from './utils';
+import { removeFromSet, basename, panelIdForFile } from './utils';
 
 // 导入自定义 Hooks
 import {
@@ -274,9 +274,11 @@ const AppContent: React.FC = () => {
   } = useFileWatch(
     undefined,
     (newLineCount, totalLines) => {
-      // Auto-scroll to bottom when new content arrives
+      // Auto-scroll to bottom when new content arrives（用后即清，避免残留的
+      // scrollToIndex 在后续切换面板时被应用到别的文件）
       if (totalLines > 0) {
         setScrollToIndex(totalLines - 1);
+        setTimeout(() => setScrollToIndex(null), 150);
       }
     }
   );
@@ -311,8 +313,12 @@ const AppContent: React.FC = () => {
   const [isLayerProcessing, setIsLayerProcessing] = React.useState(false);
 
   // ===== 工作区持久化 (Workspace Config Persistence) =====
-  // 自动将当前打开的文件和图层配置保存到本地磁盘（.loglayer 目录）。
-  useWorkspaceConfig({
+  // 自动将当前打开的文件和图层配置保存到本地磁盘（.loglayer 目录），
+  // 布局经 kv['layout'] 随工作区持久化（EditorArea 通过 onLayoutChange 回写）。
+  const {
+    layout: editorLayout,
+    saveLayout
+  } = useWorkspaceConfig({
     workspaceRoot,
     files,
     setFiles,
@@ -338,14 +344,15 @@ const AppContent: React.FC = () => {
     if (!api) return;
 
     const file = files.find(f => f.id === fileId);
+    const panelId = panelIdForFile(file?.path);
     const existing = api.panels.find(p =>
-      p.params?.fileId === fileId || (file?.path && p.params?.uri === file.path)
+      p.id === panelId || p.params?.fileId === fileId || (file?.path && p.params?.uri === file.path)
     );
     if (existing) {
       existing.api.setActive();
     } else {
       api.addPanel({
-        id: `log-${fileId}`,
+        id: panelId,
         component: 'logViewer',
         title: file?.name || fileId,
         params: { fileId, uri: file?.path }
@@ -918,6 +925,8 @@ const AppContent: React.FC = () => {
                 onFileClosed={handleFileClosed}
                 onApiReady={(api) => { dockApiRef.current = api; }}
                 onFileDrop={(paths) => addNewFiles(paths)}
+                initialLayout={editorLayout}
+                onLayoutChange={saveLayout}
               />
             </>
           )}

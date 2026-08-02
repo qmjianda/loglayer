@@ -5,9 +5,8 @@
  * loads them when the same workspace is opened again.
  */
 
-import React, { useEffect, useRef, useCallback } from 'react';
-import { LogLayer } from '../types';
-import { saveWorkspaceConfig, loadWorkspaceConfig, openFile, WorkspaceConfig, WorkspaceConfigFile } from '../bridge_client';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
+import { saveWorkspaceConfig, loadWorkspaceConfig, openFile, getWorkspaceState, putWorkspaceState, WorkspaceConfig, WorkspaceConfigFile } from '../bridge_client';
 import { FileData } from './useFileManagement';
 
 const SAVE_DEBOUNCE_MS = 1000;
@@ -26,6 +25,10 @@ export interface UseWorkspaceConfigProps {
 export interface UseWorkspaceConfigReturn {
     saveConfig: () => Promise<boolean>;
     loadConfig: () => Promise<boolean>;
+    /** 从 kv['layout'] 加载的 dockview 布局 JSON；随工作区切换而变化 */
+    layout: string | null;
+    /** 写回 kv['layout']（防抖在 EditorArea 内部完成） */
+    saveLayout: (json: string) => void;
 }
 
 export function useWorkspaceConfig({
@@ -39,6 +42,7 @@ export function useWorkspaceConfig({
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSavedHashRef = useRef<string>('');
     const isLoadingRef = useRef<boolean>(false);
+    const [layout, setLayout] = useState<string | null>(null);
 
     // Determine the config folder path
     const getConfigPath = useCallback((): string | null => {
@@ -104,6 +108,10 @@ export function useWorkspaceConfig({
 
         isLoadingRef.current = true;
         try {
+            // 布局独立于文件历史加载：即使无文件也恢复分屏结构
+            const savedLayout = await getWorkspaceState('layout', configPath);
+            setLayout(savedLayout);
+
             const config = await loadWorkspaceConfig(configPath);
             if (!config) return false;
 
@@ -203,8 +211,18 @@ export function useWorkspaceConfig({
                     console.log('[WorkspaceConfig] No config found for new workspace, cleared session');
                 }
             });
+        } else {
+            // 工作区关闭：清空已加载布局，避免旧布局串到下一工作区
+            setLayout(null);
         }
     }, [workspaceRoot?.path]); // Only triggers on root change
+
+    // 布局持久化：EditorArea 防抖后经此写回 kv['layout']
+    const saveLayout = useCallback((json: string) => {
+        const configPath = getConfigPath();
+        if (!configPath) return;
+        putWorkspaceState(configPath, 'layout', json);
+    }, [getConfigPath]);
 
     // Auto-save debouncer
     useEffect(() => {
@@ -222,6 +240,6 @@ export function useWorkspaceConfig({
         };
     }, [files, activeFileId, activeFilePath]); // Triggers on any file/layer change
 
-    return { saveConfig, loadConfig };
+    return { saveConfig, loadConfig, layout, saveLayout };
 }
 

@@ -60,7 +60,7 @@ def test_close_and_reopen_shows_lines(page, small_log_path, frontend_errors):
     _open_via_picker(page, small_log_path)
     # 已打开栏出现文件名
     _wait_text(page, os.path.basename(small_log_path))
-    page.wait_for_selector('canvas[role="log"]', timeout=60000)
+    page.wait_for_selector('.log-row', timeout=60000)
     page.wait_for_timeout(2000)
 
     # 关闭文件
@@ -92,7 +92,7 @@ def test_close_moves_to_history_not_open(page, small_log_path, frontend_errors):
     """
     _open_via_picker(page, small_log_path)
     _wait_text(page, os.path.basename(small_log_path))
-    page.wait_for_selector('canvas[role="log"]', timeout=60000)
+    page.wait_for_selector('.log-row', timeout=60000)
     page.wait_for_timeout(1500)
 
     _close_file_via_sidebar(page, os.path.basename(small_log_path))

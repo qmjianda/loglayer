@@ -28,7 +28,7 @@
 ```bash
 npm run dev                 # 前端 Vite (port 3000)，代理 /api 与 /ws 到 127.0.0.1:12345
 python backend/main.py      # 后端 FastAPI + pywebview 桌面窗口 (port 12345)
-python backend/main.py --no-ui   # 仅启动后端服务（e2e 测试用）
+python backend/main.py --no-ui   # 启动后端服务，不带pywebview，而是通过网页访问（当前主要使用方式可用于e2e 测试，调试，验证效果等）
 ```
 
 - 前后端是两个独立进程，需各开一个终端。后端端口 `--port`（默认 12345），`--host 0.0.0.0` 可外部访问。
@@ -162,3 +162,7 @@ operationProgress   # 操作进度 (file_id, op, progress)
 - **历史 ADR**：`docs/TECHNICAL_DECISIONS.md`（冻结，只读）。
 - **会话模板**：`.opencode/commands/session-template.md`。
 - 代码查询优先使用 codegraph（`codegraph_explore` MCP / `codegraph explore` CLI）以减少文件读取；本仓库暂无 `.codegraph/` 索引，可运行 `codegraph init` 启用。
+
+
+## 规则
+如果自行测试、验证、分析有问题，告诉用户手动测试，并给出测试方法。如果自测卡住需要解决很多疑难问题，如实告诉用户，由用户帮忙解决。

@@ -1,6 +1,9 @@
 import json
 import bisect
 
+# 书签在工作区统一存储中的 KV 键前缀（按文件路径分键）
+BOOKMARK_KV_PREFIX = "bookmarks."
+
 
 class SearchPipeline:
     """
@@ -134,6 +137,55 @@ class BookmarkPipeline:
         session.rendering_cache.clear()
         self._emit_refresh_signal(file_id)
 
+    def _session_and_store(self, file_id: str):
+        """返回 (session, workspace_store)；文件未打开或无工作区时返回 (None, None)。"""
+        session = self._sessions.get(file_id)
+        if session is None or not getattr(session, "path", None):
+            return None, None
+        store = self._get_workspace_store()
+        if store is None:
+            return None, None
+        return session, store
+
+    def _persist_bookmarks(self, file_id: str) -> None:
+        """将当前文件的书签写入工作区统一存储 `kv['bookmarks.<path>']`。
+
+        书签按文件路径分键，随工作区持久化；文件关闭后重开仍可恢复。
+        """
+        try:
+            session, store = self._session_and_store(file_id)
+            if session is None:
+                return
+            layer = self._get_bookmark_layer(session)
+            bookmarks = layer.bookmarks if layer else {}
+            store.put(f"{BOOKMARK_KV_PREFIX}{session.path}", json.dumps(bookmarks))
+        except Exception as e:
+            print(f"[Bookmark] Persist error for {file_id}: {e}")
+
+    def restore_bookmarks(self, file_id: str) -> None:
+        """打开文件时从统一存储恢复书签到 BookmarkLayer（无则忽略）。"""
+        try:
+            session, store = self._session_and_store(file_id)
+            if session is None:
+                return
+            raw = store.get(f"{BOOKMARK_KV_PREFIX}{session.path}")
+            if not raw:
+                return
+            bookmarks = json.loads(raw)
+            if not bookmarks or not isinstance(bookmarks, dict):
+                return
+            layer = self._ensure_bookmark_layer(session, file_id)
+            if layer is None:
+                return
+            layer.bookmarks = {int(k): v for k, v in bookmarks.items()}
+            # 同步到 session.layers 配置，供渲染与 sync_decorations 重建
+            for l_conf in session.layers:
+                if l_conf.get("id") == layer.id:
+                    l_conf["config"]["bookmarks"] = layer.bookmarks
+                    break
+        except Exception as e:
+            print(f"[Bookmark] Restore error for {file_id}: {e}")
+
     def toggle_bookmark(self, file_id: str, line_index: int) -> str:
         if file_id not in self._sessions:
             return "{}"
@@ -144,6 +196,7 @@ class BookmarkPipeline:
 
         layer.toggle(line_index)
         self._sync_bookmark_config_and_refresh(session, layer, file_id)
+        self._persist_bookmarks(file_id)
         return json.dumps(layer.bookmarks)
 
     def get_bookmarks(self, file_id: str) -> str:
@@ -163,6 +216,7 @@ class BookmarkPipeline:
         if layer:
             layer.set_comment(line_index, comment)
             self._sync_bookmark_config_and_refresh(session, layer, file_id)
+            self._persist_bookmarks(file_id)
         return json.dumps(layer.bookmarks if layer else {})
 
     def get_nearest_bookmark_index(
@@ -190,6 +244,7 @@ class BookmarkPipeline:
         if layer:
             layer.clear_all()
             self._sync_bookmark_config_and_refresh(session, layer, file_id)
+            self._persist_bookmarks(file_id)
         return "{}"
 
 
