@@ -1,6 +1,14 @@
 import React, { memo, useMemo } from 'react';
-import { LogLine } from '../../types';
+import { LogLayer, LogLine, SearchConfig } from '../../types';
 import { LOG_VIEWER_COLORS } from '../../theme';
+import { renderLayers, renderWithIsolation } from '../../rendering/registry';
+import {
+  computeGutterWidth,
+  gutterDigits,
+  gutterCharWidth,
+  gutterStarSlot,
+  GUTTER_PADDING,
+} from '../../constants';
 
 interface HighlightSegment {
   start: number;
@@ -13,6 +21,10 @@ interface HighlightSegment {
 interface LogRowProps {
   index: number;
   line: LogLine | string | undefined;
+  /** 当前文件的图层配置（仅渲染类，前端渲染器计算图层高亮/行样式，2.6 前端接管） */
+  layers?: LogLayer[];
+  /** 书签数据（物理行号 → 注释），isMarked 判定与书签样式数据源（fix-bookmark-filter-index：锚定物理行号） */
+  bookmarks?: Record<number, string>;
   colors: typeof LOG_VIEWER_COLORS.DARK;
   lineHeight: number;
   gutterWidth: number;
@@ -23,6 +35,14 @@ interface LogRowProps {
   wordWrap: boolean;
   fontFamily: string;
   onToggleBookmark?: (index: number) => void;
+  searchQuery?: string;
+  searchConfig?: SearchConfig;
+  /** 原始文件行数（物理行号位数与虚拟列折叠判定依据） */
+  rawLineCount: number;
+  /** 当前可见行数（过滤后） */
+  totalLines: number;
+  /** 设置项：显示虚拟行号（默认 true） */
+  showVirtualLineNumbers?: boolean;
 }
 
 /**
@@ -76,28 +96,69 @@ export const LogRow: React.FC<LogRowProps> = memo(({
   wordWrap,
   fontFamily,
   onToggleBookmark,
+  layers = [],
+  bookmarks = {},
+  searchQuery = '',
+  searchConfig,
+  rawLineCount,
+  totalLines,
+  showVirtualLineNumbers = true,
 }) => {
   const logLine = line && typeof line !== 'string' ? (line as LogLine) : null;
   const content = typeof line === 'string' ? line : logLine?.content || '';
-  const isMarked = logLine?.isMarked;
-  const rowStyle = logLine?.rowStyle;
+  // 物理行号（0-based）：对象形态取 line.index；纯字符串形态退化用视觉索引兜底（D5）
+  const physIndex = logLine?.index ?? index;
+  const isMarked = bookmarks[physIndex] !== undefined;
   const isLoaded = line !== undefined;
+  // 虚拟列仅在有过滤且设置开启时展开
+  const virtualVisible = showVirtualLineNumbers && rawLineCount > totalLines;
+  // 字符宽/星标槽按实际字号计算（等宽字体 ch≈0.6em），字号变化时随重渲染自动跟随
+  const charWidth = gutterCharWidth(fontSize);
+  const starSlot = gutterStarSlot(fontSize);
+  const physDigits = gutterDigits(rawLineCount, 3);
+  const virtDigits = gutterDigits(totalLines, 2);
 
   const displayContent = useMemo(() => {
     if (!showWhitespace) return content;
     return content.replace(/ /g, '\u00B7').replace(/\t/g, '\u2192 ');
   }, [content, showWhitespace]);
 
-  const segments = useMemo(
-    () => mergeHighlights(logLine?.highlights || [], displayContent.length),
-    [logLine?.highlights, displayContent.length]
-  );
+  // 前端按 per-tab 词/配置即时计算搜索高亮（memoize by content+query）
+  const searchSegments = useMemo(() => {
+    if (!searchQuery) return [];
+    const result = renderWithIsolation('HIGHLIGHT', content, {
+      query: searchQuery,
+      regex: searchConfig?.regex ?? false,
+      caseSensitive: searchConfig?.caseSensitive ?? false,
+      wholeWord: searchConfig?.wholeWord ?? false,
+      color: isHighlighted ? colors.CURRENT_LINE : colors.SEARCH_HIGHLIGHT,
+      opacity: 100,
+      isSearch: true,
+    });
+    return result.segments;
+  }, [content, searchQuery, searchConfig, isHighlighted, colors]);
+
+  // 前端按图层配置即时计算图层高亮/行样式（memoize by content+layers，替代后端逐行计算）
+  const layerResult = useMemo(() => {
+    const active = layers.filter(l => l.enabled && !l.isSystemManaged);
+    if (active.length === 0) return { segments: [] as HighlightSegment[], rowStyle: undefined };
+    return renderLayers(
+      active.map(l => l.type as string),
+      content,
+      active.map(l => l.config)
+    );
+  }, [layers, content]);
+
+  const segments = useMemo(() => {
+    const layerHighlights = (layerResult.segments || []).filter(h => !h.isSearch);
+    return mergeHighlights([...layerHighlights, ...searchSegments], displayContent.length);
+  }, [layerResult.segments, searchSegments, displayContent.length]);
 
   const rowBackground = isHighlighted
     ? colors.HIGHLIGHT_LINE
-    : rowStyle?.backgroundColor || (isMarked ? colors.BOOKMARK_BACKGROUND : 'transparent');
+    : layerResult.rowStyle?.backgroundColor || (isMarked ? colors.BOOKMARK_BACKGROUND : 'transparent');
 
-  const textColor = rowStyle?.color || colors.TEXT;
+  const textColor = layerResult.rowStyle?.color || colors.TEXT;
 
   const rowStyleCSS: React.CSSProperties = {
     height: lineHeight,
@@ -119,8 +180,6 @@ export const LogRow: React.FC<LogRowProps> = memo(({
     flexShrink: 0,
     backgroundColor: isHighlighted ? colors.HIGHLIGHT_LINE : colors.GUTTER,
     color: isHighlighted ? colors.CURRENT_LINE : colors.GUTTER_TEXT,
-    textAlign: 'right',
-    paddingRight: 10,
     cursor: 'pointer',
     userSelect: 'none',
     borderRight: `1px solid ${colors.RULER}`,
@@ -138,11 +197,61 @@ export const LogRow: React.FC<LogRowProps> = memo(({
           style={gutterStyle}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleBookmark?.(index);
+            onToggleBookmark?.(physIndex);
           }}
         >
-          {(index + 1).toLocaleString()}
-          {isMarked ? (logLine?.bookmarkComment ? ' ★' : ' ●') : ''}
+          <span
+            className="gutter-inner"
+            style={{
+              display: 'flex',
+              height: '100%',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+            }}
+          >
+            {/* 物理列（主）：星标槽 + 物理行号，数字右对齐且不被星标覆盖 */}
+            <span className="gutter-physical" style={{ flexShrink: 0 }}>
+              <span
+                className="gutter-star"
+                style={{
+                  width: starSlot,
+                  display: 'inline-block',
+                  textAlign: 'center',
+                  flexShrink: 0,
+                  color: colors.BOOKMARK_INDICATOR,
+                  fontWeight: 700,
+                }}
+              >
+                {isMarked ? (bookmarks[physIndex] ? '★' : '●') : '\u00A0'}
+              </span>
+              <span
+                className="gutter-number"
+                style={{ minWidth: physDigits * charWidth, textAlign: 'right', flexShrink: 0, overflow: 'hidden' }}
+              >
+                {(physIndex + 1).toLocaleString()}
+              </span>
+            </span>
+            {/* 虚拟列（辅）：过滤序号，无过滤时折叠为 0 宽（150ms 过渡） */}
+            <span
+              className={`gutter-virtual${virtualVisible ? '' : ' collapsed'}`}
+              aria-hidden={virtualVisible ? undefined : 'true'}
+              style={{
+                width: virtualVisible ? virtDigits * charWidth + GUTTER_PADDING : 0,
+                minWidth: 0,
+                flexShrink: 0,
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                textAlign: 'right',
+                fontSize: '0.9em',
+                opacity: virtualVisible ? 1 : 0,
+                paddingLeft: 4,
+                borderLeft: `1px dashed ${isHighlighted ? colors.CURRENT_LINE : colors.RULER}`,
+                transition: 'width 150ms ease, opacity 150ms ease',
+              }}
+            >
+              {(index + 1).toLocaleString()}
+            </span>
+          </span>
         </span>
       )}
       {isLoaded ? (

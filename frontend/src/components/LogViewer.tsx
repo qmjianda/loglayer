@@ -1,12 +1,12 @@
 import React, { useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { LogLine, LayerType } from '../types';
+import { LogLine, LogLayer, LayerType } from '../types';
 import { readProcessedLines } from '../bridge_client';
 import { BookmarkPopover } from './BookmarkPopover';
 import { EditorGoToLineWidget } from './EditorGoToLineWidget';
 import { ErrorBoundary } from './ErrorBoundary';
 import { JsonTreeView } from './JsonTreeView';
-import { LOG_VIEWER } from '../constants';
+import { LOG_VIEWER, computeGutterWidth } from '../constants';
 import { getLogViewerColors } from '../theme';
 import { AppSettings } from '../hooks/useSettings';
 import { detectJson } from '../utils/jsonTree';
@@ -32,12 +32,18 @@ interface LogViewerProps {
   onSelectedTextChange?: (text: string) => void;
   onSendToAI?: (text: string) => void;
   updateTrigger?: number;
+  /** 当前文件的图层列表（前端渲染器按此计算图层高亮/行样式，替代后端逐行计算） */
+  layers?: LogLayer[];
   layerStats?: Record<string, { count: number, distribution: number[] }>;
   bookmarks?: Record<number, string>;
   settings?: AppSettings;
   resolvedTheme?: 'dark' | 'light';
   hasNewContent?: boolean;
   onScrollToNewContent?: () => void;
+  /** 原始文件行数（物理行号显示与虚拟列折叠判定；缺省时退化为 totalLines） */
+  rawLineCount?: number;
+  /** 设置项：显示虚拟行号（默认 true） */
+  showVirtualLineNumbers?: boolean;
 }
 
 // 浏览器滚动容器安全高度上限（Chrome ~33.5M px），留余量
@@ -72,12 +78,15 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   onSelectedTextChange,
   onSendToAI,
   updateTrigger,
+  layers = [],
   layerStats = {},
   bookmarks = {},
   settings,
   resolvedTheme = 'dark',
   hasNewContent = false,
-  onScrollToNewContent
+  onScrollToNewContent,
+  rawLineCount,
+  showVirtualLineNumbers = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollStateRef = useRef({ top: 0, left: 0 });
@@ -129,9 +138,16 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const { LINE_HEIGHT, GUTTER_WIDTH, SCROLL_MARGIN, FETCH_DEBOUNCE_MS } = LOG_VIEWER;
+  const { LINE_HEIGHT, SCROLL_MARGIN, FETCH_DEBOUNCE_MS } = LOG_VIEWER;
 
+  // 原始行数（缺省退化为可见行数）：物理行号位数 / 虚拟列折叠判定 / ruler 基准
+  const rawCount = rawLineCount ?? totalLines;
+  // 虚拟列仅在有过滤（可见行 < 原始行）且设置开启时展开
+  const virtualVisible = (showVirtualLineNumbers ?? true) && rawCount > totalLines;
+  // gutter 宽度按当前字号计算，字号变化（设置）时随重渲染自动更新
   const fontSize = settings?.fontSize ?? 12;
+  const gutterWidth = computeGutterWidth(rawCount, totalLines, virtualVisible, fontSize);
+
   const lineHeight = settings?.lineHeight ?? LINE_HEIGHT;
   const wordWrap = settings?.wordWrap ?? false;
   const showWhitespace = settings?.showWhitespace ?? false;
@@ -140,7 +156,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const theme = resolvedTheme ?? 'dark';
   const colors = getLogViewerColors(theme as 'dark' | 'light');
 
-  const gutterWidth = GUTTER_WIDTH;
   const fontFamily = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
   // === 滚动缩放（亿行支持，仅非 wordWrap 固定行高模式生效） ===
@@ -435,20 +450,21 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     const gutterEl = (e.target as HTMLElement).closest('.log-row-gutter');
     if (!rowEl) return;
     const index = Number(rowEl.dataset.logIndex);
+    const line = bridgedLines.get(index);
+    const phys = line && typeof line !== 'string' ? (line as LogLine).index : index;
     if (gutterEl) {
-      // 书签已有，点左侧打开评论；否则切换书签
-      const logLine = bridgedLines.get(index);
-      const isLogLine = logLine && typeof logLine !== 'string';
-      if (isLogLine && (logLine as LogLine).isMarked) {
+      // 书签已有，点左侧打开评论；否则切换书签（均锚定物理行号）
+      const comment = bookmarks[phys];
+      if (comment !== undefined) {
         const rect = containerRef.current!.getBoundingClientRect();
         setCommentPopover({
-          x: rect.left + GUTTER_WIDTH,
+          x: rect.left + gutterWidth,
           y: e.clientY,
-          lineIndex: index,
-          comment: (logLine as LogLine).bookmarkComment || ''
+          lineIndex: phys,
+          comment: comment || ''
         });
       } else {
-        onToggleBookmark?.(index);
+        onToggleBookmark?.(phys);
       }
       return;
     }
@@ -513,6 +529,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({
                   key={windowStart + i}
                   index={windowStart + i}
                   line={bridgedLines.get(windowStart + i)}
+                  layers={layers}
+                  bookmarks={bookmarks}
                   colors={colors}
                   lineHeight={lineHeight}
                   gutterWidth={gutterWidth}
@@ -523,6 +541,11 @@ export const LogViewer: React.FC<LogViewerProps> = ({
                   wordWrap={wordWrap}
                   fontFamily={fontFamily}
                   onToggleBookmark={onToggleBookmark}
+                  searchQuery={searchQuery}
+                  searchConfig={searchConfig}
+                  rawLineCount={rawCount}
+                  totalLines={totalLines}
+                  showVirtualLineNumbers={showVirtualLineNumbers}
                 />
               ))}
             </div>
@@ -558,7 +581,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({
             });
           })}
           {Object.keys(bookmarks).map(idx => {
-            const yPos = (Number(idx) / Math.max(1, totalLines)) * viewportHeight;
+            // 书签锚定物理行号：ruler 位置以原始行数为基准
+            const yPos = (Number(idx) / Math.max(1, rawCount)) * viewportHeight;
             return (
               <div
                 key={`bm-${idx}`}
@@ -598,7 +622,12 @@ export const LogViewer: React.FC<LogViewerProps> = ({
               <div className="h-[1px] bg-theme-subtle my-1" />
             </>
           )}
-          <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onToggleBookmark?.(contextMenu.lineIndex!); setContextMenu(null); }}>切换书签</button>
+          <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => {
+            const line = bridgedLines.get(contextMenu.lineIndex!);
+            const phys = line && typeof line !== 'string' ? (line as LogLine).index : contextMenu.lineIndex!;
+            onToggleBookmark?.(phys);
+            setContextMenu(null);
+          }}>切换书签</button>
           <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => {
             const line = bridgedLines.get(contextMenu.lineIndex!);
             navigator.clipboard.writeText(typeof line === 'string' ? line : (line as LogLine)?.content || '');

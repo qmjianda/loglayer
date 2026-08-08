@@ -27,20 +27,6 @@ class BookmarkLayer(RenderingLayer):
             # Ensure keys are integers even if loaded from JSON as strings
             self.bookmarks = {int(k): v for k, v in raw_bookmarks.items()}
 
-    def get_row_style(self, content: str, index: int = -1) -> dict:
-        """如果当前行是书签，返回左边框样式和注释"""
-        if index in self.bookmarks:
-            return {
-                "borderLeft": f"3px solid {self.color}",
-                "isMarked": True,
-                "bookmarkComment": self.bookmarks[index]
-            }
-        return {}
-    
-    def highlight_line(self, content: str) -> list:
-        """书签不高亮文字，返回空"""
-        return []
-
     def toggle(self, line_index: int):
         """切换特定行的书签状态"""
         if line_index in self.bookmarks:
@@ -67,7 +53,7 @@ class BookmarkLayer(RenderingLayer):
         # 确定当前物理索引
         current_physical = current_index
         if visual_indices is not None:
-            if not visual_indices: return -1
+            if len(visual_indices) == 0: return -1
             if 0 <= current_index < len(visual_indices):
                 current_physical = visual_indices[current_index]
             elif current_index >= len(visual_indices):

@@ -192,6 +192,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     onChange={v => handleChange('showLineNumbers', v)}
                   />
                   <Toggle
+                    label="显示虚拟行号"
+                    description="过滤时在物理行号旁显示过滤序号"
+                    checked={currentSettings.showVirtualLineNumbers}
+                    onChange={v => handleChange('showVirtualLineNumbers', v)}
+                  />
+                  <Toggle
                     label="显示标尺"
                     description="显示垂直参考线"
                     checked={currentSettings.showRuler}

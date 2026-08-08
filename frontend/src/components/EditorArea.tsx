@@ -21,12 +21,15 @@ import { SearchConfig } from '../hooks/useSearch';
 import { AppSettings } from '../hooks/useSettings';
 import { LayerType } from '../types';
 import { panelIdForFile } from '../utils';
+import { useSearchStore } from '../store/searchStore';
 
 const SAVE_DELAY_MS = 500;
 
 interface LogViewerPanelParams {
     fileId: string;
     uri?: string;
+    /** dockview 面板 id（`log-view-<hash>`），作为 per-tab 搜索状态的 key */
+    panelId?: string;
 }
 
 // 面板组件可访问的实时数据（经 Context 注入）
@@ -47,6 +50,8 @@ interface EditorAreaData {
     settings: AppSettings;
     resolvedTheme: 'dark' | 'light';
     hasNewContent: boolean;
+    /** 当前激活文件的书签（视觉行号 → 注释），供前端渲染书签样式（2.8 数据/视觉分离） */
+    bookmarks: Record<number, string>;
     onOpen: () => void;
     onLineClick: (idx: number) => void;
     onAddLayer: (type: LayerType, config?: any) => void;
@@ -93,7 +98,9 @@ const LogViewerPanel: React.FC<IDockviewPanelProps<LogViewerPanelParams>> = ({ p
                     totalLines={file.lineCount}
                     fileId={fileId}
                     scrollKey={params.uri || fileId}
-                    searchQuery={(data.isFindVisible || data.activeView === 'search') ? data.searchQuery : ''}
+                    layers={file.layers || []}
+                    bookmarks={isActive ? data.bookmarks : {}}
+                    searchQuery={data.searchQuery}
                     searchConfig={data.searchConfig}
                     scrollToIndex={isActive ? data.scrollToIndex : null}
                     highlightedIndex={isActive ? data.highlightedIndex : null}
@@ -106,6 +113,8 @@ const LogViewerPanel: React.FC<IDockviewPanelProps<LogViewerPanelParams>> = ({ p
                     updateTrigger={data.bridgedUpdateTrigger}
                     settings={data.settings}
                     resolvedTheme={data.resolvedTheme}
+                    rawLineCount={file.rawCount}
+                    showVirtualLineNumbers={data.settings.showVirtualLineNumbers}
                     hasNewContent={data.hasNewContent}
                     onScrollToNewContent={data.onScrollToNewContent}
                 />
@@ -242,21 +251,28 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
                         id: panelId,
                         component: 'logViewer',
                         title: file.name,
-                        params: { fileId: file.id, uri: file.path },
+                        params: { fileId: file.id, uri: file.path, panelId },
                         inactive: true
                     });
                 }
             });
         }
 
-        // 激活面板变化 → 通知外部更新 activeFileId
+        // 激活面板变化 → 通知外部更新 activeFileId，并同步 per-tab 搜索激活面板
         api.onDidActivePanelChange((e) => {
             const file = resolveFile(propsRef.current.files, e.panel?.params as LogViewerPanelParams | undefined);
             propsRef.current.onFileActivated(file?.id ?? null);
+
+            // 防御：布局恢复/切组可能短暂无活动面板
+            useSearchStore.getState().setActivePanel(e.panel?.id ?? null);
         });
 
         // 面板关闭 → 若无其他面板引用同一文件，则释放会话
         api.onDidRemovePanel((panel) => {
+            // per-tab 搜索状态随面板生命周期销毁
+            if (panel.id) {
+                useSearchStore.getState().destroyTab(panel.id);
+            }
             const fileId = panel.params?.fileId as string | undefined;
             const uri = panel.params?.uri as string | undefined;
             if (!fileId && !uri) return;
@@ -321,7 +337,7 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
                     id: panelId,
                     component: 'logViewer',
                     title: file.name,
-                    params: { fileId: file.id, uri: file.path },
+                    params: { fileId: file.id, uri: file.path, panelId },
                     inactive: true
                 });
             }
@@ -357,6 +373,7 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
         settings: props.settings,
         resolvedTheme: props.resolvedTheme,
         hasNewContent: props.hasNewContent,
+        bookmarks: props.bookmarks,
         onOpen: props.onOpen,
         onLineClick: props.onLineClick,
         onAddLayer: props.onAddLayer,
@@ -370,7 +387,7 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
         props.pendingCliFiles, props.processedCache, props.bridgedUpdateTrigger,
         props.searchQuery, props.searchConfig, props.isFindVisible, props.activeView,
         props.scrollToIndex, props.highlightedIndex, props.settings, props.resolvedTheme,
-        props.hasNewContent, props.onOpen, props.onLineClick, props.onAddLayer,
+        props.hasNewContent, props.bookmarks, props.onOpen, props.onLineClick, props.onAddLayer,
         props.onToggleBookmark, props.onUpdateBookmarkComment, props.onSelectedTextChange,
         props.onSendToAI, props.onScrollToNewContent
     ]);

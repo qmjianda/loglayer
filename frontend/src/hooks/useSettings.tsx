@@ -8,6 +8,7 @@ export interface AppSettings {
   fontSize: number;
   lineHeight: number;
   showLineNumbers: boolean;
+  showVirtualLineNumbers: boolean;
   showRuler: boolean;
   searchRegexDefault: boolean;
   searchCaseSensitiveDefault: boolean;
@@ -31,6 +32,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   fontSize: 12,
   lineHeight: 20,
   showLineNumbers: true,
+  showVirtualLineNumbers: true,
   showRuler: true,
   searchRegexDefault: false,
   searchCaseSensitiveDefault: false,
