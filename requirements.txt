@@ -9,6 +9,7 @@ pyinstaller
 pytest
 httpx
 requests
+ruff
 
 # e2e 测试（tests/e2e）：
 #   pip install playwright && python -m playwright install chromium

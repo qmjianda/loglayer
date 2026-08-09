@@ -34,7 +34,9 @@ export const EditorGoToLineWidget: React.FC<EditorGoToLineWidgetProps> = ({
   return (
     <div className="absolute top-0 left-1/2 -translate-x-1/2 z-40 w-[400px] animate-in slide-in-from-top-4 duration-150">
       <div className="bg-dark-1 shadow-2xl rounded-b border border-t-0 border-theme-default p-2">
-        <div className={`flex items-center bg-theme-input border rounded overflow-hidden transition-colors ${isValid ? 'border-blue-500/50' : 'border-red-500'}`}>
+        <div
+          className={`flex items-center bg-theme-input border rounded overflow-hidden transition-colors ${isValid ? 'border-blue-500/50' : 'border-red-500'}`}
+        >
           <div className="px-2 text-gray-500 text-xs select-none">:</div>
           <input
             ref={inputRef}
@@ -52,7 +54,9 @@ export const EditorGoToLineWidget: React.FC<EditorGoToLineWidgetProps> = ({
           </div>
         )}
         <div className="mt-2 flex justify-between items-center px-1">
-          <span className="text-[10px] text-gray-500 uppercase tracking-tighter font-bold">跳转到行</span>
+          <span className="text-[10px] text-gray-500 uppercase tracking-tighter font-bold">
+            跳转到行
+          </span>
           <div className="flex space-x-2">
             <span className="text-[9px] text-gray-600 bg-black/20 px-1 rounded flex items-center">
               ENTER 跳转

@@ -10,7 +10,7 @@ interface AIChatPanelProps {
 export const AIChatPanel: React.FC<AIChatPanelProps> = ({
   initialContent,
   onApplySuggestion,
-  onClose
+  onClose,
 }) => {
   const {
     messages,
@@ -20,7 +20,7 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
     sendMessage,
     sendSelectedContent,
     clearChat,
-    isConnected
+    isConnected,
   } = useAIChat();
 
   const [input, setInput] = useState(initialContent || '');
@@ -66,17 +66,24 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
           <span className="text-sm font-medium text-theme-primary">AI 助手</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-orange-500'}`} />
-          <span className="text-[11px] text-theme-muted">
-            {isConnected ? '已连接' : '未配置'}
-          </span>
+          <div
+            className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-orange-500'}`}
+          />
+          <span className="text-[11px] text-theme-muted">{isConnected ? '已连接' : '未配置'}</span>
           {onClose && (
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-theme-elevated rounded"
-            >
-              <svg className="w-4 h-4 text-theme-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <button onClick={onClose} className="p-1 hover:bg-theme-elevated rounded">
+              <svg
+                className="w-4 h-4 text-theme-muted"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           )}
@@ -99,9 +106,18 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
         {isProcessing && (
           <div className="flex items-center gap-2 text-theme-muted">
             <div className="flex gap-1">
-              <span className="w-2 h-2 bg-theme-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 bg-theme-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 bg-theme-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <span
+                className="w-2 h-2 bg-theme-muted rounded-full animate-bounce"
+                style={{ animationDelay: '0ms' }}
+              />
+              <span
+                className="w-2 h-2 bg-theme-muted rounded-full animate-bounce"
+                style={{ animationDelay: '150ms' }}
+              />
+              <span
+                className="w-2 h-2 bg-theme-muted rounded-full animate-bounce"
+                style={{ animationDelay: '300ms' }}
+              />
             </div>
             <span className="text-xs">AI 思考中...</span>
           </div>
@@ -160,14 +176,12 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
 
 const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
   const isUser = message.role === 'user';
-  
+
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
         className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${
-          isUser
-            ? 'bg-blue-600 text-white'
-            : 'bg-theme-elevated text-theme-primary'
+          isUser ? 'bg-blue-600 text-white' : 'bg-theme-elevated text-theme-primary'
         }`}
       >
         <div className="whitespace-pre-wrap break-words">{message.content}</div>

@@ -6,46 +6,46 @@ import React, { forwardRef } from 'react';
 import { TOKENS } from '../../styles/tokens';
 
 export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
-    variant?: 'default' | 'error' | 'success';
-    size?: 'sm' | 'md' | 'lg';
-    leftIcon?: React.ReactNode;
-    rightIcon?: React.ReactNode;
-    errorMessage?: string;
+  variant?: 'default' | 'error' | 'success';
+  size?: 'sm' | 'md' | 'lg';
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+  errorMessage?: string;
 }
 
 const variantStyles = {
-    default: 'border-gray-600 focus:border-blue-500 focus:ring-blue-500',
-    error: 'border-red-500 focus:border-red-500 focus:ring-red-500',
-    success: 'border-green-500 focus:border-green-500 focus:ring-green-500',
+  default: 'border-gray-600 focus:border-blue-500 focus:ring-blue-500',
+  error: 'border-red-500 focus:border-red-500 focus:ring-red-500',
+  success: 'border-green-500 focus:border-green-500 focus:ring-green-500',
 };
 
 const sizeStyles = {
-    sm: 'px-2 py-1 text-xs',
-    md: 'px-3 py-1.5 text-sm',
-    lg: 'px-4 py-2 text-base',
+  sm: 'px-2 py-1 text-xs',
+  md: 'px-3 py-1.5 text-sm',
+  lg: 'px-4 py-2 text-base',
 };
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(({
-    variant = 'default',
-    size = 'md',
-    leftIcon,
-    rightIcon,
-    errorMessage,
-    className = '',
-    disabled,
-    ...props
-}, ref) => {
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  (
+    {
+      variant = 'default',
+      size = 'md',
+      leftIcon,
+      rightIcon,
+      errorMessage,
+      className = '',
+      disabled,
+      ...props
+    },
+    ref,
+  ) => {
     return (
-        <div className="flex flex-col gap-1">
-            <div className="relative flex items-center">
-                {leftIcon && (
-                    <span className="absolute left-3 text-gray-400">
-                        {leftIcon}
-                    </span>
-                )}
-                <input
-                    ref={ref}
-                    className={`
+      <div className="flex flex-col gap-1">
+        <div className="relative flex items-center">
+          {leftIcon && <span className="absolute left-3 text-gray-400">{leftIcon}</span>}
+          <input
+            ref={ref}
+            className={`
                         w-full
                         bg-gray-800
                         text-gray-100
@@ -61,22 +61,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
                         ${rightIcon ? 'pr-10' : ''}
                         ${className}
                     `}
-                    disabled={disabled}
-                    {...props}
-                />
-                {rightIcon && (
-                    <span className="absolute right-3 text-gray-400">
-                        {rightIcon}
-                    </span>
-                )}
-            </div>
-            {errorMessage && (
-                <span className="text-xs text-red-500 mt-1">
-                    {errorMessage}
-                </span>
-            )}
+            disabled={disabled}
+            {...props}
+          />
+          {rightIcon && <span className="absolute right-3 text-gray-400">{rightIcon}</span>}
         </div>
+        {errorMessage && <span className="text-xs text-red-500 mt-1">{errorMessage}</span>}
+      </div>
     );
-});
+  },
+);
 
 Input.displayName = 'Input';

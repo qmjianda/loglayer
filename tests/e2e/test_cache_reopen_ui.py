@@ -4,7 +4,7 @@
 覆盖问题：
 1. Bug1：关闭文件后二次打开卡在 "Loading lines..."（bridgedCounts 未清除
    导致跳过后端 openFile）。应能正常显示行数。
-2. Bug3：侧栏"已打开"栏点 X 关闭文件 → 移入"历史文件"栏，点击可重新打开。
+2. Bug3：dockview tab 关闭文件 → 移入"历史文件"栏，点击可重新打开。
 3. 相对路径工作区配置解析 + 重复条目去重（large_test.log 曾报 File not found）。
 """
 
@@ -38,15 +38,12 @@ def _open_via_picker(page, path):
     helpers.open_file_via_picker(page, path, timeout=60000)
 
 
-def _close_file_via_sidebar(page, file_name):
-    """hover 到指定文件的侧栏行使其 X 按钮显示，再点击关闭。"""
-    # 精确定位包含指定文件名的文件行（div.py-1.px-2），再取其 X 按钮
-    row = page.locator(
-        f'div.py-1.px-2:has(span:text-is("{file_name}"))'
-    ).first
-    row.hover(timeout=10000)
+def _close_file_via_tab(page, file_name):
+    """hover 到指定文件的 dockview tab 使其关闭按钮显示，再点击关闭。"""
+    tab = page.locator(f'.dv-default-tab:has-text("{file_name}")').first
+    tab.hover(timeout=10000)
     page.wait_for_timeout(300)
-    close_btn = row.locator('button[title="关闭文件"]').first
+    close_btn = tab.locator('.dv-default-tab-action .dv-svg').first
     close_btn.click(timeout=10000, force=True)
 
 
@@ -54,25 +51,22 @@ def _close_file_via_sidebar(page, file_name):
 def test_close_and_reopen_shows_lines(page, small_log_path, frontend_errors):
     """回归 Bug1：关闭文件后二次打开能正常显示行数，不卡 loading。
 
-    操作：UI 打开 small.log → 已打开栏出现 → 点 X 关闭（移入历史文件栏）
+    操作：UI 打开 small.log → dockview tab 出现 → 点 tab X 关闭（移入历史文件栏）
     → 点击历史文件栏重新打开 → 应显示 100 Lines（而非一直 Loading lines）。
     """
     _open_via_picker(page, small_log_path)
     # 已打开栏出现文件名
     _wait_text(page, os.path.basename(small_log_path))
     page.wait_for_selector('.log-row', timeout=60000)
-    page.wait_for_timeout(2000)
 
     # 关闭文件
-    _close_file_via_sidebar(page, os.path.basename(small_log_path))
-    page.wait_for_timeout(1500)
+    _close_file_via_tab(page, os.path.basename(small_log_path))
     assert page.locator(':text("历史文件")').count() > 0, "关闭后应出现历史文件栏"
 
-    # 历史文件栏中点击 small.log 重新打开
+    # 历史文件栏中点击 small.log 重新打开（locator 自动等待出现）
     page.locator(
         f'div[title="点击重新打开"]:has(span:text-is("{os.path.basename(small_log_path)}"))'
     ).first.click(timeout=10000, force=True)
-    page.wait_for_timeout(3000)
 
     # 应显示 100 Lines（而非 0 / Loading）
     _wait_text(page, "100 Lines", timeout=15000)
@@ -85,29 +79,25 @@ def test_close_and_reopen_shows_lines(page, small_log_path, frontend_errors):
 
 @pytest.mark.usefixtures("frontend_errors")
 def test_close_moves_to_history_not_open(page, small_log_path, frontend_errors):
-    """回归 Bug3：关闭文件后从"已打开"移到"历史文件"，不再残留在已打开栏。
-
-    注意：后端 CLI 可能预加载了其他文件（如 large_test.log），
-    因此只断言 small.log 的归属变化，不影响其他文件。
-    """
+    """回归 Bug3：关闭文件后从已打开（tab）移到"历史文件"，不再残留在打开状态。"""
     _open_via_picker(page, small_log_path)
     _wait_text(page, os.path.basename(small_log_path))
     page.wait_for_selector('.log-row', timeout=60000)
-    page.wait_for_timeout(1500)
 
-    _close_file_via_sidebar(page, os.path.basename(small_log_path))
-    page.wait_for_timeout(1500)
+    _close_file_via_tab(page, os.path.basename(small_log_path))
 
-    # small.log 应移入历史文件栏
+    # small.log 应移入历史文件栏（事件驱动等待出现）
+    page.wait_for_selector(
+        f'div[title="点击重新打开"]:has(span:text-is("{os.path.basename(small_log_path)}"))',
+        timeout=10000,
+    )
     history_items = page.locator('div[title="点击重新打开"]')
     hist_texts = history_items.all_text_contents()
     assert os.path.basename(small_log_path) in hist_texts, (
         f"small.log 应出现在历史文件栏，实际: {hist_texts}"
     )
-    # small.log 不应再出现在已打开栏（已打开栏行 title 为空，历史栏行 title=点击重新打开）
-    open_row = page.locator(
-        f'div.py-1.px-2:has(span:text-is("{os.path.basename(small_log_path)}")):not([title="点击重新打开"])'
-    )
-    assert open_row.count() == 0, "small.log 不应残留在已打开栏"
+    # small.log 的 dockview tab 应已关闭（面板移除）
+    tab = page.locator(f'.dv-tab:has-text("{os.path.basename(small_log_path)}")')
+    assert tab.count() == 0, "关闭后 small.log 的 tab 应消失"
 
     assert not frontend_errors, f"前端出现错误: {frontend_errors}"

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { LogLevelStats } from '../components/StatsPanel';
+import { LogLevelStats } from '../types';
 
 export interface UseLogStatsReturn {
   stats: LogLevelStats;
@@ -32,19 +32,19 @@ export function useLogStats(lines: string[]): UseLogStatsReturn {
       WARN: 0,
       INFO: 0,
       DEBUG: 0,
-      TRACE: 0
+      TRACE: 0,
     };
-    
+
     for (const line of lines) {
       const level = countLevel(line);
       if (level && level in stats) {
         stats[level]++;
       }
     }
-    
+
     return {
       stats,
-      total: lines.length
+      total: lines.length,
     };
   }, [lines]);
 }

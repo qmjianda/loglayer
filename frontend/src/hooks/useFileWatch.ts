@@ -19,7 +19,7 @@ export interface UseFileWatchReturn {
 
 export function useFileWatch(
   onNewContent?: (fileInfo: FileInfo) => void,
-  onNewLines?: (newLineCount: number, totalLines: number) => void
+  onNewLines?: (newLineCount: number, totalLines: number) => void,
 ): UseFileWatchReturn {
   const [isWatching, setIsWatching] = useState(false);
   const [hasNewContent, setHasNewContent] = useState(false);
@@ -39,7 +39,7 @@ export function useFileWatch(
       const backendUrl = getBackendUrl();
       const res = await fetch(`${backendUrl}/api/file_info?file_id=${fileId}`);
       const data = await res.json();
-      
+
       if (data.error) return;
 
       const mtime = data.mtime;
@@ -55,15 +55,15 @@ export function useFileWatch(
 
       if (mtime !== lastMtimeRef.current || lineCount !== lastLineCountRef.current) {
         const newLines = Math.max(0, lineCount - lastLineCountRef.current);
-        
+
         if (newLines > 0 || mtime !== lastMtimeRef.current) {
           setHasNewContent(true);
-          setNewContentCount(prev => prev + newLines);
+          setNewContentCount((prev) => prev + newLines);
           lastMtimeRef.current = mtime;
           lastLineCountRef.current = lineCount;
-          
+
           onNewContent?.(data);
-          
+
           if (newLines > 0) {
             onNewLines?.(newLines, lineCount);
           }
@@ -74,19 +74,22 @@ export function useFileWatch(
     }
   }, [onNewContent, onNewLines]);
 
-  const startWatching = useCallback((fileId: string) => {
-    fileIdRef.current = fileId;
-    setIsWatching(true);
-    setHasNewContent(false);
-    setNewContentCount(0);
-    firstCheckRef.current = true;
-    
-    // Check immediately
-    checkForChanges();
-    
-    // Poll every 2 seconds
-    intervalRef.current = window.setInterval(checkForChanges, 2000);
-  }, [checkForChanges]);
+  const startWatching = useCallback(
+    (fileId: string) => {
+      fileIdRef.current = fileId;
+      setIsWatching(true);
+      setHasNewContent(false);
+      setNewContentCount(0);
+      firstCheckRef.current = true;
+
+      // Check immediately
+      checkForChanges();
+
+      // Poll every 2 seconds
+      intervalRef.current = window.setInterval(checkForChanges, 2000);
+    },
+    [checkForChanges],
+  );
 
   const stopWatching = useCallback(() => {
     if (intervalRef.current) {
@@ -118,6 +121,6 @@ export function useFileWatch(
     stopWatching,
     hasNewContent,
     newContentCount,
-    clearNewContent
+    clearNewContent,
   };
 }

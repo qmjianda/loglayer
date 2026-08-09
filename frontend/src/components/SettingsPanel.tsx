@@ -64,21 +64,27 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={cancel}>
-      <div 
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
+      onClick={cancel}
+    >
+      <div
         className="bg-theme-surface border border-theme-default rounded-lg shadow-2xl w-[700px] h-[550px] overflow-hidden flex flex-col"
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* 头部 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-theme-subtle shrink-0">
           <h2 className="text-sm font-semibold text-theme-primary">设置</h2>
           <div className="flex items-center gap-2">
-            {hasChanges && (
-              <span className="text-xs text-yellow-500">有未保存的更改</span>
-            )}
+            {hasChanges && <span className="text-xs text-yellow-500">有未保存的更改</span>}
             <button onClick={cancel} className="text-theme-secondary hover:text-theme-primary">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -88,13 +94,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
         <div className="flex flex-1 overflow-hidden">
           {/* 侧边栏 */}
           <div className="w-40 border-r border-theme-subtle p-2 shrink-0">
-            {tabs.map(tab => (
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`w-full text-left px-3 py-2 text-sm rounded flex items-center gap-2 ${
-                  activeTab === tab.id 
-                    ? 'bg-blue-600 text-theme-primary' 
+                  activeTab === tab.id
+                    ? 'bg-blue-600 text-theme-primary'
                     : 'text-theme-secondary hover:bg-theme-hover'
                 }`}
               >
@@ -106,7 +112,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
 
           {/* 设置内容 */}
           <div className="flex-1 overflow-y-auto p-4">
-            
             {/* 通用设置 */}
             {activeTab === 'general' && (
               <div className="space-y-6">
@@ -115,13 +120,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     label="自动打开上次文件"
                     description="启动时自动打开上次关闭的文件"
                     checked={currentSettings.autoOpenLastFile}
-                    onChange={v => handleChange('autoOpenLastFile', v)}
+                    onChange={(v) => handleChange('autoOpenLastFile', v)}
                   />
                   <Toggle
                     label="记住窗口位置和大小"
                     description="重启后恢复上次窗口状态"
                     checked={currentSettings.rememberWindowPosition}
-                    onChange={v => handleChange('rememberWindowPosition', v)}
+                    onChange={(v) => handleChange('rememberWindowPosition', v)}
                   />
                 </Section>
 
@@ -135,7 +140,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                       { value: 'gb2312', label: 'GB2312' },
                       { value: 'ascii', label: 'ASCII' },
                     ]}
-                    onChange={v => handleChange('fileEncoding', v)}
+                    onChange={(v) => handleChange('fileEncoding', v)}
                   />
                 </Section>
               </div>
@@ -146,7 +151,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
               <div className="space-y-6">
                 <Section title="主题">
                   <div className="flex gap-2">
-                    {(['dark', 'light', 'system'] as const).map(t => (
+                    {(['dark', 'light', 'system'] as const).map((t) => (
                       <button
                         key={t}
                         onClick={() => handleChange('theme', t)}
@@ -157,7 +162,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                         }`}
                       >
                         <div className="text-center">
-                          <div className="text-lg mb-1">{t === 'dark' ? '🌙' : t === 'light' ? '☀️' : '💻'}</div>
+                          <div className="text-lg mb-1">
+                            {t === 'dark' ? '🌙' : t === 'light' ? '☀️' : '💻'}
+                          </div>
                           <div>{t === 'dark' ? '深色' : t === 'light' ? '亮色' : '跟随系统'}</div>
                         </div>
                       </button>
@@ -172,7 +179,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     min={10}
                     max={24}
                     unit="px"
-                    onChange={v => handleChange('fontSize', v)}
+                    onChange={(v) => handleChange('fontSize', v)}
                   />
                   <NumberInput
                     label="行高"
@@ -180,7 +187,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     min={14}
                     max={40}
                     unit="px"
-                    onChange={v => handleChange('lineHeight', v)}
+                    onChange={(v) => handleChange('lineHeight', v)}
                   />
                 </Section>
 
@@ -189,19 +196,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     label="显示行号"
                     description="在左侧显示行号"
                     checked={currentSettings.showLineNumbers}
-                    onChange={v => handleChange('showLineNumbers', v)}
+                    onChange={(v) => handleChange('showLineNumbers', v)}
                   />
                   <Toggle
                     label="显示虚拟行号"
                     description="过滤时在物理行号旁显示过滤序号"
                     checked={currentSettings.showVirtualLineNumbers}
-                    onChange={v => handleChange('showVirtualLineNumbers', v)}
+                    onChange={(v) => handleChange('showVirtualLineNumbers', v)}
                   />
                   <Toggle
                     label="显示标尺"
                     description="显示垂直参考线"
                     checked={currentSettings.showRuler}
-                    onChange={v => handleChange('showRuler', v)}
+                    onChange={(v) => handleChange('showRuler', v)}
                   />
                 </Section>
               </div>
@@ -215,13 +222,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     label="默认使用正则表达式"
                     description="搜索框默认启用正则模式"
                     checked={currentSettings.searchRegexDefault}
-                    onChange={v => handleChange('searchRegexDefault', v)}
+                    onChange={(v) => handleChange('searchRegexDefault', v)}
                   />
                   <Toggle
                     label="默认区分大小写"
                     description="搜索框默认启用大小写敏感"
                     checked={currentSettings.searchCaseSensitiveDefault}
-                    onChange={v => handleChange('searchCaseSensitiveDefault', v)}
+                    onChange={(v) => handleChange('searchCaseSensitiveDefault', v)}
                   />
                 </Section>
 
@@ -230,7 +237,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     label="高亮所有匹配"
                     description="在文件中高亮所有搜索匹配项"
                     checked={currentSettings.searchHighlightAll}
-                    onChange={v => handleChange('searchHighlightAll', v)}
+                    onChange={(v) => handleChange('searchHighlightAll', v)}
                   />
                 </Section>
 
@@ -240,7 +247,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     value={currentSettings.searchHistoryLimit}
                     min={10}
                     max={200}
-                    onChange={v => handleChange('searchHistoryLimit', v)}
+                    onChange={(v) => handleChange('searchHistoryLimit', v)}
                   />
                 </Section>
               </div>
@@ -254,13 +261,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     label="自动换行"
                     description="长行自动换行显示"
                     checked={currentSettings.wordWrap}
-                    onChange={v => handleChange('wordWrap', v)}
+                    onChange={(v) => handleChange('wordWrap', v)}
                   />
                   <Toggle
                     label="显示空白字符"
                     description="显示空格和制表符"
                     checked={currentSettings.showWhitespace}
-                    onChange={v => handleChange('showWhitespace', v)}
+                    onChange={(v) => handleChange('showWhitespace', v)}
                   />
                 </Section>
 
@@ -271,7 +278,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     min={100}
                     max={1000}
                     description="滚动时预加载的行数（越大越流畅但更占内存）"
-                    onChange={v => handleChange('virtualScrollBuffer', v)}
+                    onChange={(v) => handleChange('virtualScrollBuffer', v)}
                   />
                 </Section>
               </div>
@@ -285,16 +292,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     label="打开文件时同步图层"
                     description="重新打开文件时自动恢复上次图层"
                     checked={currentSettings.syncLayersOnOpen}
-                    onChange={v => handleChange('syncLayersOnOpen', v)}
+                    onChange={(v) => handleChange('syncLayersOnOpen', v)}
                   />
                 </Section>
               </div>
             )}
 
             {/* AI 设置 */}
-            {activeTab === 'ai' && (
-              <AISettingsPanel />
-            )}
+            {activeTab === 'ai' && <AISettingsPanel />}
 
             {/* 高级设置 */}
             {activeTab === 'advanced' && (
@@ -304,7 +309,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     label="后端服务器地址"
                     value={currentSettings.backendUrl}
                     placeholder="http://127.0.0.1:12345"
-                    onChange={v => handleChange('backendUrl', v)}
+                    onChange={(v) => handleChange('backendUrl', v)}
                   />
                 </Section>
 
@@ -313,7 +318,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     label="调试模式"
                     description="显示性能监控和详细日志"
                     checked={currentSettings.debugMode}
-                    onChange={v => handleChange('debugMode', v)}
+                    onChange={(v) => handleChange('debugMode', v)}
                   />
                 </Section>
 
@@ -334,7 +339,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     max={16384}
                     unit="MB"
                     description="行偏移索引缓存上限（LRU 淘汰），最少保留 1 个文件"
-                    onChange={v => handleChange('cacheSizeMB', v)}
+                    onChange={(v) => handleChange('cacheSizeMB', v)}
                   />
                   <button
                     onClick={handleClearCache}
@@ -386,7 +391,7 @@ const Toggle: React.FC<{
     <input
       type="checkbox"
       checked={checked}
-      onChange={e => onChange(e.target.checked)}
+      onChange={(e) => onChange(e.target.checked)}
       className="mt-1 w-4 h-4 rounded accent-blue-500"
     />
     <div>
@@ -406,11 +411,13 @@ const Select: React.FC<{
     <div className="text-sm text-theme-primary mb-1">{label}</div>
     <select
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       className="w-full bg-theme-base border border-theme-default rounded px-3 py-2 text-sm text-theme-primary"
     >
-      {options.map(opt => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
       ))}
     </select>
   </div>
@@ -433,7 +440,7 @@ const NumberInput: React.FC<{
         value={value}
         min={min}
         max={max}
-        onChange={e => onChange(Number(e.target.value))}
+        onChange={(e) => onChange(Number(e.target.value))}
         className="w-20 bg-theme-base border border-theme-default rounded px-2 py-1 text-sm text-theme-primary"
       />
       {unit && <span className="text-xs text-theme-muted">{unit}</span>}
@@ -454,7 +461,7 @@ const TextInput: React.FC<{
       type="text"
       value={value}
       placeholder={placeholder}
-      onChange={e => onChange(e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       className="w-full bg-theme-base border border-theme-default rounded px-3 py-2 text-sm text-theme-primary"
     />
   </div>

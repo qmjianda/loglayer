@@ -64,7 +64,6 @@ def test_filter_bookmark_physical_index_and_jump(page, filter_log_path, frontend
     """过滤下书签锚定物理行号：双列显示 + 书签跳转精确命中。"""
     helpers.open_file_via_picker(page, filter_log_path, timeout=60000)
     page.wait_for_selector('.log-row', timeout=60000)
-    page.wait_for_timeout(1500)
 
     # --- 1. 精确定位第 4 行（0-based 3 = 第一个 ERROR 行），JS 选中 "ERROR" 词，右键 → "以此过滤" ---
     page.wait_for_function(
@@ -108,14 +107,13 @@ def test_filter_bookmark_physical_index_and_jump(page, filter_log_path, frontend
     page.keyboard.press('ContextMenu')
     page.wait_for_selector('button:has-text("以此过滤")', timeout=10000)
     page.locator('button:has-text("以此过滤")').click()
-    page.wait_for_timeout(500)
 
-    # --- 2. 等待过滤生效：只剩 4 个可见行 ---
+    # --- 2. 等待过滤生效：只剩 4 个可见行，且首行物理列重渲染为 4 ---
     page.wait_for_function(
-        """() => document.querySelectorAll('.log-row').length === 4""",
+        """() => document.querySelectorAll('.log-row').length === 4
+               && document.querySelector('.log-row .gutter-physical')?.textContent.trim() === '4'""",
         timeout=60000,
     )
-    page.wait_for_timeout(500)  # 等 gutter 重渲染稳定
 
     # --- 3. 断言双行号：物理列（4,9,14,19）+ 虚拟列（1,2,3,4） ---
     phys = _gutter_physical_texts(page)
@@ -125,7 +123,8 @@ def test_filter_bookmark_physical_index_and_jump(page, filter_log_path, frontend
 
     # --- 4. 点击第一个可见行（物理行 4）gutter 加书签 ---
     page.locator('.log-row .log-row-gutter').nth(0).click(timeout=10000)
-    page.wait_for_timeout(800)  # 等书签乐观更新 + 刷新
+    # 书签列表在右侧操作台「书签」折叠区内，先展开再断言
+    page.locator(':text-is("书签")').first.click()
     # 书签列表出现 #4（物理行号 +1），证明书签 key 锚定物理行号
     page.wait_for_selector('span.text-amber-500:text-is("#4")', timeout=10000)
 

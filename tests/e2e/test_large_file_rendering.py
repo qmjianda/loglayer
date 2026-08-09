@@ -11,26 +11,15 @@ LogViewer 容器高度在 dockview 面板内未受约束，viewportHeight 被错
 3. 无前端运行时错误
 """
 
-import os
-import subprocess
-
 import pytest
 
 from . import helpers
 
-pytestmark = pytest.mark.e2e
-
-
-def _expected_lines(path: str) -> int:
-    """用 wc -l 高效统计行数（与 backend 按 \\n 索引一致）。"""
-    result = subprocess.run(
-        ["wc", "-l", path], capture_output=True, text=True, check=True
-    )
-    return int(result.stdout.split()[0])
+pytestmark = [pytest.mark.e2e, pytest.mark.heavy]
 
 
 @pytest.mark.usefixtures("frontend_errors")
-def test_large_file_renders_not_blank(page, large_log_path, frontend_errors):
+def test_large_file_renders_not_blank(page, large_log_path, large_log_lines, frontend_errors):
     """打开超大文件后日志区域正常渲染，不出现白屏，且无前端错误。"""
     # 通过前端 UI 交互打开大文件
     helpers.open_file_via_picker(page, large_log_path, timeout=120000)
@@ -38,10 +27,7 @@ def test_large_file_renders_not_blank(page, large_log_path, frontend_errors):
     # 采集渲染状态并断言
     state = helpers.collect_canvas_state(page)
     helpers.assert_not_blank_screen(state)
-
-    # 行数校验（大文件行数较多，统计需要一点时间）
-    expected = _expected_lines(large_log_path)
-    helpers.assert_aria_line_count(state, expected)
+    helpers.assert_aria_line_count(state, large_log_lines)
 
     assert not frontend_errors, f"前端出现错误: {frontend_errors}"
 
@@ -97,8 +83,11 @@ def test_fast_scroll_shows_placeholder_then_content(page, large_log_path, fronte
     assert snap["rowCount"] > 0, "快速滚动后应渲染占位行（行号可见），而非空白"
     assert snap["firstGutter"], "占位行应显示行号"
 
-    # 等数据加载完成后，行号与内容应一致且占位消失
-    page.wait_for_timeout(4000)
+    # 等数据加载完成（占位消失）——事件驱动替代固定 sleep
+    page.wait_for_function(
+        """() => document.querySelectorAll('.log-row-skeleton').length === 0""",
+        timeout=30000,
+    )
     loaded = page.evaluate(
         """() => {
           const sc = document.querySelector('[data-logviewer]');
@@ -120,17 +109,13 @@ def test_fast_scroll_shows_placeholder_then_content(page, large_log_path, fronte
 
 
 def test_reopen_same_file_no_duplicate_tab(page, large_log_path, frontend_errors):
-    """回归：CLI 预加载的文件再次经 UI 打开时，不应产生重复面板。
-
-    背景：曾出现 CLI 文件 path 为空（仅文件名）导致 handleOpenFileByPath
-    路径去重失效，同一文件出现两个 tab。
-    """
-    # backend 已用 CLI 预加载 large_test.log，首个 tab 应已存在
-    helpers.wait_for_tab(page, os.path.basename(large_log_path), timeout=60000)
+    """回归：同一文件重复打开不应产生重复面板（路径去重）。"""
+    # 首次通过 UI 打开，应只有 1 个 tab
+    helpers.open_file_via_picker(page, large_log_path, timeout=120000)
     tabs_before = page.locator('.dv-tab').all_text_contents()
-    assert len(tabs_before) == 1, f"CLI 预加载后应只有 1 个 tab，实际: {tabs_before}"
+    assert len(tabs_before) == 1, f"打开后应只有 1 个 tab，实际: {tabs_before}"
 
-    # 再次通过 UI 打开同一文件
+    # 再次通过 UI 打开同一文件，不应新增 tab
     helpers.open_file_via_picker(page, large_log_path, timeout=120000)
 
     tabs_after = page.locator('.dv-tab').all_text_contents()

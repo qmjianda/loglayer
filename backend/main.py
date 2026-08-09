@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import asyncio
+import hashlib
 import threading
 import uvicorn
 import webview
@@ -33,6 +34,17 @@ bridge = FileBridge()
 
 # Event loop reference for thread-safe broadcasting
 main_loop = None
+
+
+def cli_file_id(abs_path: str) -> str:
+    """CLI 预加载文件的稳定 file_id（跨进程确定，避免路径去重失效）。
+
+    用 md5 而非内置 hash()：后者受 PYTHONHASHSEED 影响、每次进程启动都不同，
+    同一文件在不同后端进程会被视为不同 id，导致前端按路径去重失效。
+    """
+    st = os.stat(abs_path)
+    digest = hashlib.md5(os.path.abspath(abs_path).encode("utf-8")).hexdigest()[:12]
+    return f"cli-{int(st.st_mtime)}-{st.st_size}-{digest}"
 
 
 @asynccontextmanager
@@ -224,6 +236,12 @@ def get_search_matches_range(file_id: str, start_rank: int, count: int):
 @app.get("/api/get_layer_registry")
 def get_layer_registry():
     return bridge._registry.get_all_types()
+
+
+@app.get("/api/diagnostics")
+def diagnostics():
+    """诊断数据：缓存命中统计 + 各文件管线阶段耗时（可观测，3.4）。"""
+    return json.loads(bridge.get_diagnostics())
 
 
 @app.get("/api/get_ui_widgets")
@@ -452,7 +470,7 @@ def get_file_info(file_id: str):
 @app.get("/api/log_level_stats")
 def get_log_level_stats(file_id: str):
     """获取日志级别统计"""
-    return bridge.get_log_level_stats(file_id)
+    return json.loads(bridge.get_log_level_stats(file_id))
 
 
 # ============================================================
@@ -568,11 +586,7 @@ def start_app():
                 bridge.set_workspace_dir(os.path.dirname(abs_path))
                 # Just open the single file
                 try:
-                    stats = os.stat(abs_path)
-                    file_id = (
-                        f"cli-{int(stats.st_mtime)}-{stats.st_size}-{hash(abs_path)}"
-                    )
-                    bridge.open_file(file_id, abs_path)
+                    bridge.open_file(cli_file_id(abs_path), abs_path)
                 except Exception as e:
                     print(f"[Main] CLI open_file error: {e}")
 

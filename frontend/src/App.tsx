@@ -1,6 +1,6 @@
 /**
  * App.tsx - 应用程序主入口
- * 
+ *
  * 采用了 Hook 分离架构，将复杂的业务逻辑分发到各个 custom hooks 中：
  * - useFileManagement: 处理文件打开、关闭、切换。
  * - useLayerManagement: 处理图层的增删改查、拖拽排序、撤销重做。
@@ -8,27 +8,38 @@
  * - useBridge: 处理前端与 Python 后端的信号监听与数据同步。
  */
 
-import React, { useMemo, useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { DockviewApi } from 'dockview-react';
 import { Sidebar } from './components/Sidebar';
 import { EditorArea } from './components/EditorArea';
 import { SearchPanel } from './components/SearchPanel';
-import { EditorFindWidget } from './components/EditorFindWidget';
+import { SearchResultsPanel } from './components/SearchResultsPanel';
 import { EditorGoToLineWidget } from './components/EditorGoToLineWidget';
 import { CommandPalette, Command } from './components/CommandPalette';
 import { SettingsPanel } from './components/SettingsPanel';
+import { DebugOverlay } from './components/DebugOverlay';
 import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';
-import { UnifiedPanel, FileInfo } from './components/UnifiedPanel';
+import { UnifiedPanel } from './components/UnifiedPanel';
 import { HelpPanel } from './components/HelpPanel';
 import { StatusBar } from './components/StatusBar';
 import { IndexingOverlay } from './components/LoadingOverlays';
 import { RemotePathPicker } from './components/RemotePathPicker';
 import { AIChatPanel } from './components/AIChatPanel';
-import { StatsPanel, LogLevelStats } from './components/StatsPanel';
-import { LayerType, LogLine } from './types';
+import { InspectorPanel } from './components/InspectorPanel';
+import { LayerType, LogLine, LogLevelStats } from './types';
 import { ProcessedCache } from './hooks/useFileManagement';
-import { openFile, syncAll, hasNativeDialogs, toggleBookmark, getNearestBookmarkIndex, getLinesByIndices, getLogLevelStats, setCacheConfig } from './bridge_client';
+import {
+  openFile,
+  syncAll,
+  hasNativeDialogs,
+  toggleBookmark,
+  getNearestBookmarkIndex,
+  getLinesByIndices,
+  getLogLevelStats,
+  setCacheConfig,
+} from './bridge_client';
 import { removeFromSet, basename, panelIdForFile } from './utils';
+import { timingLog } from './utils/timing';
 
 // 导入自定义 Hooks
 import {
@@ -37,17 +48,17 @@ import {
   useWorkspaceConfig,
   useRemotePathPicker,
   setBridgedCount,
-  FileLoadedInfo
+  FileLoadedInfo,
 } from './hooks';
 import { useFileManagement } from './hooks/useFileManagement';
 import { useLayerManagement } from './hooks/useLayerManagement';
 import { useSearch } from './hooks/useSearch';
+import { useSearchStore } from './store/searchStore';
 import { useBookmarkLogic } from './hooks/useBookmarkLogic';
-import { useBookmarks } from './hooks/useBookmarks';
+import { useBookmarks, invalidateBookmarkCache } from './hooks/useBookmarks';
 import { useSettings, SettingsProvider } from './hooks/useSettings';
 import { useResponsive } from './hooks/useResponsive';
 import { useFileWatch } from './hooks/useFileWatch';
-
 
 const AppContent: React.FC = () => {
   // ===== 设置管理 (Settings Management) =====
@@ -85,7 +96,7 @@ const AppContent: React.FC = () => {
     folderInputRef,
     handleFileUpload,
     handleFolderUpload,
-    markFileLoaded
+    markFileLoaded,
   } = fileManagement;
 
   // dockview API ref（由 EditorArea onReady 注入）
@@ -106,7 +117,7 @@ const AppContent: React.FC = () => {
     files,
     setFiles,
     searchQuery: '', // 将在 useSearch 之后连接
-    searchConfig: { regex: false, caseSensitive: false }
+    searchConfig: { regex: false, caseSensitive: false },
   });
 
   const {
@@ -125,31 +136,28 @@ const AppContent: React.FC = () => {
     canRedo,
     presets,
     setPresets,
-    handleSavePreset,
-    saveStatus
+    handleSavePresetWithName,
+    applyPreset,
+    saveStatus,
   } = layerManagement;
 
   // ===== 搜索状态 (Search State) =====
-  // 集中管理搜索相关的视图状态
-  // searchMode 纯 UI 状态，保留在 App 中或移入 useSearch (这里先保留在 Component 中)
-  // 检查 useSearch 是否导出 searchMode? 暂时没有，所以保留本地 state 用于 Widget 显示控制
-  // 但注意 searchConfig.mode 已经在 useSearch 中管理
-  
-  // 修正：useSearch 内部维护了 searchConfig.mode，我们应该使用它
-  // 如果 EditorFindWidget 需要独立的 'filter' | 'highlight' toggle，应该通过 setSearchConfig 更新
+  // 集中管理搜索相关的视图状态（searchConfig.mode 由 useSearch 管理，find widget 经 LogViewerPanel 直读 store）
 
   // UI 状态控制 (UI State)
   // 处理各种面板显隐、滚动定位、进度条、工作区根目录等。
   // Note: 书签导航将在 uiState 返回后定义，使用 useEffect 注册
   // ===== 搜索功能逻辑 (Search Logic Hook) =====
   // Must be called BEFORE useUIState because UI state depends on search methods
+  const activePanelId = useSearchStore((s) => s.activePanelId);
   const search = useSearch({
     activeFileId,
+    activePanelId,
     layers,
     layersFunctionalHash,
     lineCount: activeFile?.lineCount || 0,
     searchMatchCount,
-    setProcessedCache
+    setProcessedCache,
   });
 
   const {
@@ -163,53 +171,73 @@ const AppContent: React.FC = () => {
     setIsSearching,
     currentMatchNumber,
     findNextSearchMatch,
-    clearSearch
+    jumpToRank,
+    clearSearch,
   } = search;
 
-  // Search Mode for UI Widget (Highlight vs Filter)
-  // This is purely UI state for the widget, though it might sync with searchConfig.mode later
-  const [searchMode, setSearchMode] = useState<'highlight' | 'filter'>('highlight');
+  // 清空搜索（Esc 第二段 / 关闭查找条）：清词、重置 rank/cache 计数
+  const handleClearSearch = useCallback(() => {
+    clearSearch();
+    if (activeFileId) {
+      setProcessedCache((prev) => {
+        const newCache = { ...prev };
+        newCache[activeFileId] = {
+          ...(prev[activeFileId] || { layerStats: {}, searchMatchCount: 0 }),
+          searchMatchCount: 0,
+        };
+        return newCache;
+      });
+    }
+  }, [clearSearch, activeFileId, setProcessedCache]);
+
   const [canvasSelectedText, setCanvasSelectedText] = useState('');
   const [isCommandPaletteVisible, setIsCommandPaletteVisible] = useState(false);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [isShortcutsVisible, setIsShortcutsVisible] = useState(false);
+  const [isDebugVisible, setIsDebugVisible] = useState(false);
   const [aiPanelInitialContent, setAiPanelInitialContent] = useState('');
-  const [logLevelStats, setLogLevelStats] = useState<LogLevelStats>({ ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 });
+  const [logLevelStats, setLogLevelStats] = useState<LogLevelStats>({
+    ERROR: 0,
+    WARN: 0,
+    INFO: 0,
+    DEBUG: 0,
+    TRACE: 0,
+  });
 
   // Fetch log level stats when active file changes
+  const fetchLogLevelStats = useCallback(async (fileId: string) => {
+    try {
+      const stats = await getLogLevelStats(fileId);
+      setLogLevelStats({
+        ERROR: stats.ERROR || 0,
+        WARN: stats.WARN || 0,
+        INFO: stats.INFO || 0,
+        DEBUG: stats.DEBUG || 0,
+        TRACE: stats.TRACE || 0,
+        FATAL: stats.FATAL || 0,
+      });
+    } catch (e) {
+      console.error('[App] Failed to fetch log level stats:', e);
+    }
+  }, []);
+
+  // 切文件时清空旧 stats；实际拉取仅由 onFileLoaded 触发（避免与索引并行 + 重复请求）
   useEffect(() => {
     if (!activeFileId) {
       setLogLevelStats({ ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 });
-      return;
     }
-
-    const fetchStats = async () => {
-      try {
-        const stats = await getLogLevelStats(activeFileId);
-        setLogLevelStats({
-          ERROR: stats.ERROR || 0,
-          WARN: stats.WARN || 0,
-          INFO: stats.INFO || 0,
-          DEBUG: stats.DEBUG || 0,
-          TRACE: stats.TRACE || 0,
-          FATAL: stats.FATAL || 0
-        });
-      } catch (e) {
-        console.error('[App] Failed to fetch log level stats:', e);
-      }
-    };
-
-    fetchStats();
   }, [activeFileId]);
 
   // Apply search settings from useSettings
   useEffect(() => {
-    if (settings.searchRegexDefault !== searchConfig.regex || 
-        settings.searchCaseSensitiveDefault !== searchConfig.caseSensitive) {
-      setSearchConfig(prev => ({
+    if (
+      settings.searchRegexDefault !== searchConfig.regex ||
+      settings.searchCaseSensitiveDefault !== searchConfig.caseSensitive
+    ) {
+      setSearchConfig((prev) => ({
         ...prev,
         regex: settings.searchRegexDefault,
-        caseSensitive: settings.searchCaseSensitiveDefault
+        caseSensitive: settings.searchCaseSensitiveDefault,
       }));
     }
   }, [settings.searchRegexDefault, settings.searchCaseSensitiveDefault]);
@@ -235,9 +263,18 @@ const AppContent: React.FC = () => {
         setSidebarWidth(currentWidth > 0 ? 0 : 288);
       }, 0);
     },
-    onOpenFile: () => { handleOpen(); },
-    onOpenFolder: () => { handleNativeFolderSelect(); },
-    onShowSearchHistory: () => setIsFindVisible(true)
+    onOpenFile: () => {
+      handleOpen();
+    },
+    onOpenFolder: () => {
+      handleNativeFolderSelect();
+    },
+    onShowSearchHistory: () => {
+      // Ctrl+H：打开激活面板的 find widget 并触发 focus
+      const panelId = useSearchStore.getState().activePanelId;
+      if (panelId) useSearchStore.getState().requestFocus(panelId);
+    },
+    onClearSearch: handleClearSearch,
   });
 
   const {
@@ -245,8 +282,8 @@ const AppContent: React.FC = () => {
     setActiveView,
     sidebarWidth,
     setSidebarWidth,
-    isFindVisible,
-    setIsFindVisible,
+    inspectorWidth,
+    setInspectorWidth,
     isGoToLineVisible,
     setIsGoToLineVisible,
     scrollToIndex,
@@ -261,17 +298,11 @@ const AppContent: React.FC = () => {
     setOperationStatus,
     workspaceRoot,
     setWorkspaceRoot,
-    handleJumpToLine
+    handleJumpToLine,
   } = uiState;
 
   // ===== 文件监视 (File Watch) =====
-  const {
-    isWatching,
-    startWatching,
-    stopWatching,
-    hasNewContent,
-    clearNewContent
-  } = useFileWatch(
+  const { isWatching, startWatching, stopWatching, hasNewContent, clearNewContent } = useFileWatch(
     undefined,
     (newLineCount, totalLines) => {
       // Auto-scroll to bottom when new content arrives（用后即清，避免残留的
@@ -280,7 +311,7 @@ const AppContent: React.FC = () => {
         setScrollToIndex(totalLines - 1);
         setTimeout(() => setScrollToIndex(null), 150);
       }
-    }
+    },
   );
 
   const handleToggleWatch = useCallback(() => {
@@ -299,7 +330,7 @@ const AppContent: React.FC = () => {
     toggle: handleToggleBookmark,
     updateComment: handleUpdateBookmarkComment,
     clear: handleClearBookmarks,
-    jumpTo: handleJumpToBookmark
+    jumpTo: handleJumpToBookmark,
   } = useBookmarks(activeFileId);
 
   // ===== 书签快捷键导航 (Bookmark Shortcuts) =====
@@ -307,7 +338,7 @@ const AppContent: React.FC = () => {
     activeFileId,
     highlightedIndex,
     setHighlightedIndex,
-    setScrollToIndex
+    setScrollToIndex,
   });
   // F2/Shift+F2 快捷键跳转到上/下一个书签
   const [isLayerProcessing, setIsLayerProcessing] = React.useState(false);
@@ -315,65 +346,82 @@ const AppContent: React.FC = () => {
   // ===== 工作区持久化 (Workspace Config Persistence) =====
   // 自动将当前打开的文件和图层配置保存到本地磁盘（.loglayer 目录），
   // 布局经 kv['layout'] 随工作区持久化（EditorArea 通过 onLayoutChange 回写）。
-  const {
-    layout: editorLayout,
-    saveLayout
-  } = useWorkspaceConfig({
+  const { layout: editorLayout, saveLayout } = useWorkspaceConfig({
     workspaceRoot,
     files,
     setFiles,
     activeFileId,
     setActiveFileId,
     activeFilePath: activeFile?.path,
-    handleFileActivate
+    handleFileActivate,
   });
 
   // 导航到下一个搜索匹配项，并自动滚动到底部/指定行
-  const findNextSearchMatchWithJump = useCallback(async (direction: 'next' | 'prev') => {
-    // [OPTIMIZATION] Nearest neighbor jumping
-    // If we have a highlighted index (user click or previous jump), we find the match nearest to it.
-    const nextIdx = await findNextSearchMatch(direction, highlightedIndex);
-    if (nextIdx !== -1) {
-      handleJumpToLine(nextIdx, activeFile?.lineCount || 0);
-    }
-  }, [findNextSearchMatch, handleJumpToLine, activeFile?.lineCount, highlightedIndex]);
+  const findNextSearchMatchWithJump = useCallback(
+    async (direction: 'next' | 'prev') => {
+      // [OPTIMIZATION] Nearest neighbor jumping
+      // If we have a highlighted index (user click or previous jump), we find the match nearest to it.
+      const nextIdx = await findNextSearchMatch(direction, highlightedIndex);
+      if (nextIdx !== -1) {
+        handleJumpToLine(nextIdx, activeFile?.lineCount || 0);
+      }
+    },
+    [findNextSearchMatch, handleJumpToLine, activeFile?.lineCount, highlightedIndex],
+  );
 
   // 统一打开文件入口：已打开则激活面板，否则 addPanel（经 dockview API）
-  const openFileInEditor = useCallback((fileId: string) => {
-    const api = dockApiRef.current;
-    if (!api) return;
+  const openFileInEditor = useCallback(
+    (fileId: string) => {
+      const api = dockApiRef.current;
+      if (!api) return;
 
-    const file = files.find(f => f.id === fileId);
-    const panelId = panelIdForFile(file?.path);
-    const existing = api.panels.find(p =>
-      p.id === panelId || p.params?.fileId === fileId || (file?.path && p.params?.uri === file.path)
-    );
-    if (existing) {
-      existing.api.setActive();
-    } else {
-      api.addPanel({
-        id: panelId,
-        component: 'logViewer',
-        title: file?.name || fileId,
-        params: { fileId, uri: file?.path }
-      });
-    }
-    handleFileActivate(fileId);
-  }, [files, handleFileActivate]);
+      const file = files.find((f) => f.id === fileId);
+      const panelId = panelIdForFile(file?.path);
+      const existing = api.panels.find(
+        (p) =>
+          p.id === panelId ||
+          p.params?.fileId === fileId ||
+          (file?.path && p.params?.uri === file.path),
+      );
+      if (existing) {
+        existing.api.setActive();
+      } else {
+        api.addPanel({
+          id: panelId,
+          component: 'logViewer',
+          title: file?.name || fileId,
+          params: { fileId, uri: file?.path },
+        });
+      }
+      handleFileActivate(fileId);
+    },
+    [files, handleFileActivate],
+  );
 
   // 增强版：激活文件，并确保其在后端也处于同步状态
-  const handleFileActivateWithLoad = useCallback((fileId: string) => {
-    openFileInEditor(fileId);
-  }, [openFileInEditor]);
+  const handleFileActivateWithLoad = useCallback(
+    (fileId: string) => {
+      openFileInEditor(fileId);
+    },
+    [openFileInEditor],
+  );
 
   // ===== 桥接层集成 (Bridge Integration) =====
   // 监听来自 Python 后端的信号（文件加载完成、搜索完成、统计完成等）。
-  const { bridgeApi, activeFileIdRef, setActiveFileId: setBridgeActiveFileId } = useBridge({
+  const {
+    bridgeApi,
+    activeFileIdRef,
+    setActiveFileId: setBridgeActiveFileId,
+  } = useBridge({
     // 当后端成功解析并建立文件索引后触发
     onFileLoaded: (fileId: string, info: FileLoadedInfo) => {
+      timingLog('signal.fileLoaded', fileId, `lines=${info.lineCount}`);
+      // 重新索引完成，书签缓存失效（下次切换该文件时重新拉取）
+      invalidateBookmarkCache(fileId);
+
       // [BUG FIX] Sanitization: Check if the file is still supposed to be open
-      setFiles(prev => {
-        const existingIndex = prev.findIndex(f => f.id === fileId);
+      setFiles((prev) => {
+        const existingIndex = prev.findIndex((f) => f.id === fileId);
 
         // If the file was removed from the list before this signal arrived, ignore it.
         // Special case: CLI files might not be in the list yet.
@@ -392,7 +440,7 @@ const AppContent: React.FC = () => {
             lineCount: info.lineCount,
             rawCount: info.lineCount,
             size: info.size,
-            path: info.path || oldFile.path
+            path: info.path || oldFile.path,
           };
           return newFiles;
         } else {
@@ -407,7 +455,7 @@ const AppContent: React.FC = () => {
             isBridged: true as const,
             path: info.path || info.name,
             wasOpen: true as const,
-            history: { past: [], future: [] }
+            history: { past: [], future: [] },
           };
           setTimeout(() => setActiveFileId(fileId), 0);
           return [...prev, newFile];
@@ -419,18 +467,21 @@ const AppContent: React.FC = () => {
       setIsProcessing(false);
       setOperationStatus(null);
       markFileLoaded(fileId);
-      setIndexingFileIds(prev => removeFromSet(prev, fileId));
+      // 文件加载完成后会话已建立：补拉级别统计（首次 fetch 可能早于 session 就绪）
+      fetchLogLevelStats(fileId);
+      setIndexingFileIds((prev) => removeFromSet(prev, fileId));
     },
 
     // 当后端 Pipeline 运行结束（过滤/搜索合并）后触发
     onPipelineFinished: (fileId, newTotal, matchCount) => {
+      timingLog('signal.pipelineFinished', fileId, `total=${newTotal} matches=${matchCount}`);
       setBridgedCount(fileId, newTotal);
-      setFiles(prev => prev.map(f => f.id === fileId ? { ...f, lineCount: newTotal } : f));
-      setProcessedCache(prev => {
+      setFiles((prev) => prev.map((f) => (f.id === fileId ? { ...f, lineCount: newTotal } : f)));
+      setProcessedCache((prev) => {
         const newCache = { ...prev };
         newCache[fileId] = {
           ...(prev[fileId] || {}),
-          searchMatchCount: matchCount
+          searchMatchCount: matchCount,
         } as ProcessedCache;
         return newCache;
       });
@@ -440,7 +491,7 @@ const AppContent: React.FC = () => {
         setOperationStatus(null);
         setIsProcessing(false);
         setIsSearching(false);
-        setIndexingFileIds(prev => removeFromSet(prev, fileId));
+        setIndexingFileIds((prev) => removeFromSet(prev, fileId));
 
         // [BUG FIX 3] Nearest jumping after search finishes
         // If we are in searching mode and no rank is selected yet, jump to the nearest!
@@ -456,11 +507,12 @@ const AppContent: React.FC = () => {
 
     // 当后端各图层统计数据计算完成后触发
     onStatsFinished: (fileId, stats) => {
-      setProcessedCache(prev => {
+      timingLog('signal.statsFinished', fileId);
+      setProcessedCache((prev) => {
         const newCache = { ...prev };
         newCache[fileId] = {
           ...(prev[fileId] || { layerStats: {}, searchMatchCount: 0 }),
-          layerStats: { ...prev[fileId]?.layerStats, ...stats }
+          layerStats: { ...prev[fileId]?.layerStats, ...stats },
         };
         return newCache;
       });
@@ -468,8 +520,9 @@ const AppContent: React.FC = () => {
 
     // 监听各种后台任务的进度（Indexing, Pipeline, Searching 等）
     onOperationStarted: (fileId, op) => {
+      timingLog('signal.operationStarted', fileId, `op=${op}`);
       if (op === 'indexing') {
-        setIndexingFileIds(prev => new Set(prev).add(fileId));
+        setIndexingFileIds((prev) => new Set(prev).add(fileId));
       }
 
       if (activeFileIdRef.current === fileId) {
@@ -492,7 +545,7 @@ const AppContent: React.FC = () => {
         setOperationStatus({ op, progress: 0, error: message });
         setIsProcessing(false);
         setIsSearching(false);
-        setIndexingFileIds(prev => removeFromSet(prev, fileId));
+        setIndexingFileIds((prev) => removeFromSet(prev, fileId));
       }
     },
 
@@ -505,25 +558,13 @@ const AppContent: React.FC = () => {
     onWorkspaceOpened: (path) => {
       const folderName = path.split(/[/\\]/).pop() || path;
       setWorkspaceRoot({ path, name: folderName });
-    }
+    },
   });
 
   // 保持 bridge 层的引用与当前激活文件一致
   useEffect(() => {
     setBridgeActiveFileId(activeFileId);
   }, [activeFileId, setBridgeActiveFileId]);
-
-  // 为侧边栏 UnifiedPanel 准备文件列表信息
-  const fileInfoList: FileInfo[] = useMemo(() =>
-    files.map(f => ({
-      id: f.id,
-      name: f.name,
-      size: f.size,
-      isActive: f.id === activeFileId,
-      lineCount: f.lineCount,
-      layers: f.layers,
-      wasOpen: f.wasOpen !== false
-    })), [files, activeFileId]);
 
   // 导航到下一个搜索匹配项，并自动滚动到底部/指定行已被移动到上方
 
@@ -535,34 +576,45 @@ const AppContent: React.FC = () => {
     mode: remotePickerMode,
     listDirectory: remoteListDirectory,
     onSelect: handleRemotePathSelect,
-    onOpenChange: setRemotePickerOpen
+    onOpenChange: setRemotePickerOpen,
   } = remotePathPicker;
 
   // 远程选择器的确认回调
-  const [remotePickerCallback, setRemotePickerCallback] = useState<((result: { path: string; isDir: boolean }) => void) | null>(null);
+  const [remotePickerCallback, setRemotePickerCallback] = useState<
+    ((result: { path: string; isDir: boolean }) => void) | null
+  >(null);
 
   // 打开远程统一选择器
-  const openRemotePicker = useCallback((callback: (result: { path: string; isDir: boolean }) => void) => {
-    setRemotePickerCallback(() => callback);
-    remotePathPicker.openPathPicker();
-  }, [remotePathPicker]);
+  const openRemotePicker = useCallback(
+    (callback: (result: { path: string; isDir: boolean }) => void) => {
+      setRemotePickerCallback(() => callback);
+      remotePathPicker.openPathPicker();
+    },
+    [remotePathPicker],
+  );
 
   // 处理远程选择器结果
-  const handleRemotePathSelected = useCallback((path: string, isDir: boolean) => {
-    handleRemotePathSelect(path, isDir);
-    if (remotePickerCallback) {
-      remotePickerCallback({ path, isDir });
-      setRemotePickerCallback(null);
-    }
-  }, [handleRemotePathSelect, remotePickerCallback]);
+  const handleRemotePathSelected = useCallback(
+    (path: string, isDir: boolean) => {
+      handleRemotePathSelect(path, isDir);
+      if (remotePickerCallback) {
+        remotePickerCallback({ path, isDir });
+        setRemotePickerCallback(null);
+      }
+    },
+    [handleRemotePathSelect, remotePickerCallback],
+  );
 
   // 处理远程选择器关闭
-  const handleRemotePickerClose = useCallback((open: boolean) => {
-    setRemotePickerOpen(open);
-    if (!open) {
-      setRemotePickerCallback(null);
-    }
-  }, [setRemotePickerOpen]);
+  const handleRemotePickerClose = useCallback(
+    (open: boolean) => {
+      setRemotePickerOpen(open);
+      if (!open) {
+        setRemotePickerCallback(null);
+      }
+    },
+    [setRemotePickerOpen],
+  );
 
   // 处理统一打开逻辑 (文件或项目)
   const handleOpen = useCallback(async () => {
@@ -594,43 +646,105 @@ const AppContent: React.FC = () => {
 
   // ===== 命令面板 (Command Palette) =====
   const commands: Command[] = [
-    { id: 'file.open', label: '打开文件', shortcut: 'Ctrl+O', category: '文件', action: handleOpen },
-    { id: 'file.openFolder', label: '打开文件夹', shortcut: 'Ctrl+Shift+O', category: '文件', action: handleNativeFolderSelect },
-    { id: 'search.focus', label: '聚焦搜索', shortcut: 'Ctrl+F', category: '搜索', action: () => setIsFindVisible(true) },
-    { id: 'search.next', label: '下一个匹配', shortcut: 'F3', category: '搜索', action: () => findNextSearchMatchWithJump('next') },
-    { id: 'search.prev', label: '上一个匹配', shortcut: 'Shift+F3', category: '搜索', action: () => findNextSearchMatchWithJump('prev') },
-    { id: 'goto.line', label: '跳转到行', shortcut: 'Ctrl+G', category: '导航', action: () => setIsGoToLineVisible(true) },
+    {
+      id: 'file.open',
+      label: '打开文件',
+      shortcut: 'Ctrl+O',
+      category: '文件',
+      action: handleOpen,
+    },
+    {
+      id: 'file.openFolder',
+      label: '打开文件夹',
+      shortcut: 'Ctrl+Shift+O',
+      category: '文件',
+      action: handleNativeFolderSelect,
+    },
+    {
+      id: 'search.focus',
+      label: '聚焦搜索',
+      shortcut: 'Ctrl+F',
+      category: '搜索',
+      action: () => {
+        const panelId = useSearchStore.getState().activePanelId;
+        if (panelId) useSearchStore.getState().requestFocus(panelId);
+      },
+    },
+    {
+      id: 'search.next',
+      label: '下一个匹配',
+      shortcut: 'F3',
+      category: '搜索',
+      action: () => findNextSearchMatchWithJump('next'),
+    },
+    {
+      id: 'search.prev',
+      label: '上一个匹配',
+      shortcut: 'Shift+F3',
+      category: '搜索',
+      action: () => findNextSearchMatchWithJump('prev'),
+    },
+    {
+      id: 'goto.line',
+      label: '跳转到行',
+      shortcut: 'Ctrl+G',
+      category: '导航',
+      action: () => setIsGoToLineVisible(true),
+    },
     { id: 'view.main', label: '主视图', category: '视图', action: () => setActiveView('main') },
-    { id: 'view.search', label: '搜索视图', category: '视图', action: () => setActiveView('search') },
+    {
+      id: 'view.search',
+      label: '搜索视图',
+      category: '视图',
+      action: () => setActiveView('search'),
+    },
     { id: 'view.ai', label: 'AI 助手', category: '视图', action: () => setActiveView('ai') },
-    { id: 'view.stats', label: '统计面板', category: '视图', action: () => setActiveView('stats') },
     { id: 'view.help', label: '帮助视图', category: '视图', action: () => setActiveView('help') },
-    { id: 'layer.new', label: '新建图层', shortcut: 'Ctrl+Shift+L', category: '图层', action: () => {
-      // 添加一个默认的高亮图层
-      addLayer(LayerType.HIGHLIGHT, { query: '', color: '#fbbf24', enabled: true });
-    }},
-    { id: 'bookmark.export', label: '导出书签', category: '书签', action: () => {
-      // 导出书签为 JSON 文件
-      if (activeFileId && bookmarks[activeFileId]) {
-        const fileBookmarks = bookmarks[activeFileId];
-        const exportData = {
-          file: activeFile?.name,
-          exportedAt: new Date().toISOString(),
-          bookmarks: Object.entries(fileBookmarks).map(([line, comment]) => ({
-            line: parseInt(line),
-            comment
-          }))
-        };
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${activeFile?.name || 'bookmarks'}_bookmarks.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    }},
-    { id: 'settings.open', label: '打开设置', shortcut: 'Ctrl+,', category: '设置', action: () => setIsSettingsVisible(true) },
+    {
+      id: 'layer.new',
+      label: '新建图层',
+      shortcut: 'Ctrl+Shift+L',
+      category: '图层',
+      action: () => {
+        // 添加一个默认的高亮图层
+        addLayer(LayerType.HIGHLIGHT, { query: '', color: '#fbbf24', enabled: true });
+      },
+    },
+    {
+      id: 'bookmark.export',
+      label: '导出书签',
+      category: '书签',
+      action: () => {
+        // 导出书签为 JSON 文件
+        if (activeFileId && bookmarks[activeFileId]) {
+          const fileBookmarks = bookmarks[activeFileId];
+          const exportData = {
+            file: activeFile?.name,
+            exportedAt: new Date().toISOString(),
+            bookmarks: Object.entries(fileBookmarks).map(([line, comment]) => ({
+              line: parseInt(line),
+              comment,
+            })),
+          };
+          const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+            type: 'application/json',
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${activeFile?.name || 'bookmarks'}_bookmarks.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      },
+    },
+    {
+      id: 'settings.open',
+      label: '打开设置',
+      shortcut: 'Ctrl+,',
+      category: '设置',
+      action: () => setIsSettingsVisible(true),
+    },
   ];
 
   // 命令面板快捷键监听 - 放在 useUIState 之后
@@ -657,6 +771,12 @@ const AppContent: React.FC = () => {
       if (isCmdOrCtrl && isT && isShift) {
         e.preventDefault();
         handleToggleWatch();
+      }
+
+      // Ctrl+Shift+D: Debug overlay（诊断浮层）
+      if (isCmdOrCtrl && e.key.toLowerCase() === 'd' && isShift) {
+        e.preventDefault();
+        setIsDebugVisible((v) => !v);
       }
 
       // Ctrl+,: 设置
@@ -694,7 +814,7 @@ const AppContent: React.FC = () => {
         type="file"
         style={{ display: 'none' }}
         onChange={handleFolderUpload}
-        // @ts-ignore - webkitdirectory 是非标准属性，用于选择目录
+        // @ts-expect-error - webkitdirectory 是非标准属性，用于选择目录
         webkitdirectory=""
         directory=""
         multiple
@@ -704,29 +824,59 @@ const AppContent: React.FC = () => {
       <div className="h-9 bg-tertiary flex items-center px-4 border-b border-subtle shrink-0 justify-between">
         <div className="flex items-center space-x-4">
           <span className="text-blue-400 font-black tracking-tighter flex items-center cursor-default">
-            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5-10-5zM2 17l10 5 10-5-10-5-10 5zM2 12l10 5 10-5-10-5-10 5z" /></svg>
+            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2L2 7l10 5 10-5-10-5-10-5zM2 17l10 5 10-5-10-5-10 5zM2 12l10 5 10-5-10-5-10 5z" />
+            </svg>
             LogLayer
           </span>
         </div>
-        <div className="text-[10px] text-gray-500 font-mono truncate max-w-xs">
-          {fileName || (isProcessing ? '正在解析文件...' : '就绪')}
-          {files.length > 1 && ` (+${files.length - 1})`}
+        <div className="flex items-center gap-3">
+          <div className="text-[10px] text-gray-500 font-mono truncate max-w-xs">
+            {fileName || (isProcessing ? '正在解析文件...' : '就绪')}
+            {files.length > 1 && ` (+${files.length - 1})`}
+          </div>
+          {/* 右侧操作台折叠按钮（与左侧 sidebar 折叠对称） */}
+          <button
+            onClick={() => setInspectorWidth((w) => (w > 0 ? 0 : 300))}
+            className={`p-1 rounded transition-colors ${inspectorWidth > 0 ? 'text-theme-muted hover:text-theme-primary hover:bg-theme-elevated' : 'text-theme-muted'}`}
+            title={inspectorWidth > 0 ? '折叠右侧操作台' : '展开右侧操作台'}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {inspectorWidth > 0 ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M9 5l7 7-7 7"
+                />
+              ) : (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 19l-7-7 7-7"
+                />
+              )}
+            </svg>
+          </button>
         </div>
       </div>
 
       {/* 顶部进度条 - 使用绝对定位防止布局跳动 */}
       <div className="absolute top-9 left-0 right-0 h-0.5 z-50 pointer-events-none">
         {(isProcessing || isLayerProcessing) && (
-          <div className={`h-full bg-blue-500 transition-all duration-300 ${isLayerProcessing ? 'animate-pulse' : ''}`}
-            style={{ width: isLayerProcessing ? '100%' : `${loadingProgress}%` }} />
+          <div
+            className={`h-full bg-blue-500 transition-all duration-300 ${isLayerProcessing ? 'animate-pulse' : ''}`}
+            style={{ width: isLayerProcessing ? '100%' : `${loadingProgress}%` }}
+          />
         )}
       </div>
 
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧侧边栏按钮（Explorer, Search, Help） */}
-        <Sidebar 
-          activeView={activeView} 
-          onSetActiveView={setActiveView} 
+        <Sidebar
+          activeView={activeView}
+          onSetActiveView={setActiveView}
           onOpenSettings={() => setIsSettingsVisible(true)}
           isWatching={isWatching}
           onToggleWatch={handleToggleWatch}
@@ -737,9 +887,9 @@ const AppContent: React.FC = () => {
         <div
           className={`bg-secondary border-r border-subtle flex flex-col shrink-0 shadow-lg relative group/sidebar 
             ${responsive.isMobile ? 'absolute inset-y-0 left-10 z-40' : ''}`}
-          style={{ 
+          style={{
             width: responsive.isMobile ? (sidebarWidth > 0 ? sidebarWidth : 280) : sidebarWidth,
-            display: responsive.isMobile && sidebarWidth === 0 ? 'none' : 'flex'
+            display: responsive.isMobile && sidebarWidth === 0 ? 'none' : 'flex',
           }}
         >
           {/* 拖拽调整宽度的 Handle */}
@@ -750,7 +900,10 @@ const AppContent: React.FC = () => {
               const startX = e.clientX;
               const startWidth = sidebarWidth;
               const handleMouseMove = (moveEvent: MouseEvent) => {
-                const newWidth = Math.max(200, Math.min(600, startWidth + (moveEvent.clientX - startX)));
+                const newWidth = Math.max(
+                  200,
+                  Math.min(600, startWidth + (moveEvent.clientX - startX)),
+                );
                 setSidebarWidth(newWidth);
               };
               const handleMouseUp = () => {
@@ -762,68 +915,54 @@ const AppContent: React.FC = () => {
             }}
           />
 
-          {/* 资源管理器视图：包含文件树和图层管理 */}
+          {/* 资源管理器视图：文件树 + 历史文件（纯导航） */}
           {activeView === 'main' && (
             <UnifiedPanel
               workspaceRoot={workspaceRoot}
               onOpenFileByPath={handleOpenFileByPath}
-              files={fileInfoList}
+              files={files}
               activeFileId={activeFileId}
               onOpen={handleOpen}
               onFileActivate={handleFileActivateWithLoad}
               onFileRemove={handleFileRemove}
-              layers={layers}
-              layerStats={layerStats}
-              selectedLayerId={selectedLayerId}
-              fileId={activeFileId}
-              onSelectLayer={setSelectedLayerId}
-              onLayerDrop={(draggedId, targetId, position) => {
-                handleDrop(draggedId, targetId, position);
-              }}
-              onLayerRemove={(id) => updateLayers(prev => prev.filter(l => l.id !== id && l.groupId !== id))}
-              onLayerToggle={(id) => updateLayers(prev => prev.map(l => l.id === id ? { ...l, enabled: !l.enabled } : l))}
-              onLayerUpdate={(id, update) => updateLayers(prev => prev.map(l => l.id === id ? { ...l, ...update } : l))}
-              onAddLayer={addLayer}
-              onJumpToLine={(idx) => handleJumpToLine(idx, activeFile?.lineCount || 0)}
-              presets={presets}
-              onPresetApply={(p) => updateLayers(JSON.parse(JSON.stringify(p.layers)))}
-              onPresetDelete={(id) => {
-                const next = presets.filter(p => p.id !== id);
-                setPresets(next);
-                localStorage.setItem('loglayer_presets', JSON.stringify(next));
-              }}
-              onPresetSave={handleSavePreset}
-              saveStatus={saveStatus}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              onUndo={undo}
-              onRedo={redo}
-              bookmarkRefreshTrigger={0} // Legacy, not used with useBookmarks hook
-              bookmarks={bookmarks}
-              bookmarkPreviews={bookmarkPreviews}
-              onToggleBookmark={handleToggleBookmark}
-              onClearBookmarks={handleClearBookmarks}
-              onJumpToBookmark={(idx) => handleJumpToBookmark(idx, (visualIdx) => handleJumpToLine(visualIdx, activeFile?.lineCount || 0))}
             />
           )}
 
           {/* 全局搜索视图 */}
           {activeView === 'search' && (
-            <SearchPanel
-              onSearch={setSearchQuery}
-              config={searchConfig}
-              setConfig={setSearchConfig}
-              matchCount={searchMatchCount}
-              onNavigate={findNextSearchMatchWithJump}
-              currentIndex={currentMatchNumber}
-            />
+            <>
+              <SearchPanel
+                onSearch={setSearchQuery}
+                config={searchConfig}
+                setConfig={setSearchConfig}
+                matchCount={searchMatchCount}
+                onNavigate={findNextSearchMatchWithJump}
+                currentIndex={currentMatchNumber}
+                externalQuery={searchQuery}
+              />
+              <SearchResultsPanel
+                fileId={activeFileId}
+                query={searchQuery}
+                matchCount={searchMatchCount}
+                currentRank={currentMatchNumber - 1}
+                onJumpToLine={async (rank) => {
+                  const physical = await jumpToRank(rank);
+                  if (physical !== -1) {
+                    handleJumpToLine(physical, activeFile?.lineCount || 0);
+                  }
+                }}
+              />
+            </>
           )}
 
           {/* AI 助手视图 */}
           {activeView === 'ai' && (
-            <AIChatPanel 
+            <AIChatPanel
               initialContent={aiPanelInitialContent}
-              onClose={() => { setActiveView('main'); setAiPanelInitialContent(''); }}
+              onClose={() => {
+                setActiveView('main');
+                setAiPanelInitialContent('');
+              }}
               onApplySuggestion={(type, value) => {
                 if (type === 'filter') {
                   addLayer(LayerType.FILTER, { query: value });
@@ -831,14 +970,6 @@ const AppContent: React.FC = () => {
                   addLayer(LayerType.HIGHLIGHT, { query: value, color: '#facc15' });
                 }
               }}
-            />
-          )}
-
-          {/* 统计视图 */}
-          {activeView === 'stats' && (
-            <StatsPanel 
-              stats={logLevelStats}
-              total={activeFile?.lineCount || 0}
             />
           )}
         </div>
@@ -849,35 +980,6 @@ const AppContent: React.FC = () => {
             <HelpPanel />
           ) : (
             <>
-              {/* 悬浮组件：Ctrl+F 查找搜索框 */}
-              {isFindVisible && (
-                <EditorFindWidget
-                  query={searchQuery}
-                  onQueryChange={setSearchQuery}
-                  config={searchConfig}
-                  onConfigChange={setSearchConfig}
-                  matchCount={searchMatchCount}
-                  currentMatch={currentMatchNumber}
-                  onNavigate={findNextSearchMatchWithJump}
-                  searchMode={searchMode}
-                  onSearchModeChange={setSearchMode}
-                  onClose={() => {
-                    setIsFindVisible(false);
-                    clearSearch();
-                    if (activeFileId) {
-                      setProcessedCache(prev => {
-                        const newCache = { ...prev };
-                        newCache[activeFileId] = {
-                          ...(prev[activeFileId] || { layerStats: {}, searchMatchCount: 0 }),
-                          searchMatchCount: 0
-                        };
-                        return newCache;
-                      });
-                    }
-                  }}
-                />
-              )}
-
               {/* 悬浮组件：Ctrl+G 跳转行号 */}
               {isGoToLineVisible && (
                 <EditorGoToLineWidget
@@ -901,35 +1003,125 @@ const AppContent: React.FC = () => {
                 bridgedUpdateTrigger={bridgedUpdateTrigger}
                 searchQuery={searchQuery}
                 searchConfig={searchConfig}
-                isFindVisible={isFindVisible}
                 activeView={activeView}
                 scrollToIndex={scrollToIndex}
                 highlightedIndex={highlightedIndex}
                 settings={settings}
                 resolvedTheme={resolvedTheme}
                 hasNewContent={hasNewContent}
+                bookmarks={bookmarks}
                 onOpen={handleOpen}
                 onLineClick={(idx) => setHighlightedIndex(idx)}
                 onAddLayer={(type, config) => addLayer(type, config)}
                 onToggleBookmark={handleToggleBookmark}
                 onUpdateBookmarkComment={handleUpdateBookmarkComment}
                 onSelectedTextChange={setCanvasSelectedText}
-                onSendToAI={(text) => { setAiPanelInitialContent(text); setActiveView('ai'); }}
+                onSendToAI={(text) => {
+                  setAiPanelInitialContent(text);
+                  setActiveView('ai');
+                }}
                 onScrollToNewContent={() => {
                   clearNewContent();
                   if (activeFile?.lineCount) {
                     setScrollToIndex(activeFile.lineCount - 1);
                   }
                 }}
+                onFindNavigate={findNextSearchMatchWithJump}
                 onFileActivated={(fileId) => setActiveFileId(fileId)}
                 onFileClosed={handleFileClosed}
-                onApiReady={(api) => { dockApiRef.current = api; }}
+                onApiReady={(api) => {
+                  dockApiRef.current = api;
+                }}
                 onFileDrop={(paths) => addNewFiles(paths)}
                 initialLayout={editorLayout}
                 onLayoutChange={saveLayout}
               />
             </>
           )}
+        </div>
+
+        {/* 右侧操作台（当前文件：摘要/图层/预设/书签/统计） */}
+        <div
+          className={`bg-secondary border-l border-subtle flex flex-col shrink-0 shadow-lg relative group/inspector
+            ${responsive.isMobile ? 'absolute inset-y-0 right-0 z-40' : ''}`}
+          style={{
+            width: responsive.isMobile
+              ? inspectorWidth > 0
+                ? inspectorWidth
+                : 280
+              : inspectorWidth,
+            display: responsive.isMobile && inspectorWidth === 0 ? 'none' : 'flex',
+          }}
+        >
+          {/* 拖拽调整宽度的 Handle（左边缘，200-480 clamp） */}
+          <div
+            className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 z-50 transition-colors opacity-0 group-hover/inspector:opacity-100"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              const startX = e.clientX;
+              const startWidth = inspectorWidth;
+              const handleMouseMove = (moveEvent: MouseEvent) => {
+                const newWidth = Math.max(
+                  200,
+                  Math.min(480, startWidth + (startX - moveEvent.clientX)),
+                );
+                setInspectorWidth(newWidth);
+              };
+              const handleMouseUp = () => {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+              };
+              document.addEventListener('mousemove', handleMouseMove);
+              document.addEventListener('mouseup', handleMouseUp);
+            }}
+          />
+
+          <InspectorPanel
+            activeFile={activeFile}
+            layers={layers}
+            selectedLayerId={selectedLayerId}
+            setSelectedLayerId={setSelectedLayerId}
+            layerStats={layerStats}
+            onLayerRemove={(id) =>
+              updateLayers((prev) => prev.filter((l) => l.id !== id && l.groupId !== id))
+            }
+            onLayerToggle={(id) =>
+              updateLayers((prev) =>
+                prev.map((l) => (l.id === id ? { ...l, enabled: !l.enabled } : l)),
+              )
+            }
+            onLayerUpdate={(id, update) =>
+              updateLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...update } : l)))
+            }
+            onLayerDrop={(draggedId, targetId, position) => {
+              handleDrop(draggedId, targetId, position);
+            }}
+            onAddLayer={addLayer}
+            onJumpToLine={(idx) => handleJumpToLine(idx, activeFile?.lineCount || 0)}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={undo}
+            onRedo={redo}
+            presets={presets}
+            onPresetApply={applyPreset}
+            onPresetDelete={(id) => {
+              const next = presets.filter((p) => p.id !== id);
+              setPresets(next);
+              localStorage.setItem('loglayer_presets', JSON.stringify(next));
+            }}
+            onSavePresetWithName={handleSavePresetWithName}
+            saveStatus={saveStatus}
+            bookmarks={bookmarks}
+            bookmarkPreviews={bookmarkPreviews}
+            onToggleBookmark={handleToggleBookmark}
+            onClearBookmarks={handleClearBookmarks}
+            onJumpToBookmark={(idx) =>
+              handleJumpToBookmark(idx, (visualIdx) =>
+                handleJumpToLine(visualIdx, activeFile?.lineCount || 0),
+              )
+            }
+            logLevelStats={logLevelStats}
+          />
         </div>
       </div>
 
@@ -941,7 +1133,7 @@ const AppContent: React.FC = () => {
         isLayerProcessing={isLayerProcessing}
         operationStatus={operationStatus}
         searchMatchCount={searchMatchCount}
-        currentLine={(highlightedIndex !== null) ? highlightedIndex + 1 : undefined}
+        currentLine={highlightedIndex !== null ? highlightedIndex + 1 : undefined}
         pendingCliFiles={pendingCliFiles}
         isWatching={isWatching}
         hasNewContent={hasNewContent}
@@ -955,7 +1147,13 @@ const AppContent: React.FC = () => {
         onOpenChange={handleRemotePickerClose}
         onSelect={handleRemotePathSelected}
         mode={remotePickerMode}
-        title={remotePickerMode === 'folder' ? '选择文件夹' : remotePickerMode === 'file' ? '选择文件' : '选择路径'}
+        title={
+          remotePickerMode === 'folder'
+            ? '选择文件夹'
+            : remotePickerMode === 'file'
+              ? '选择文件'
+              : '选择路径'
+        }
         listDirectory={remoteListDirectory}
       />
 
@@ -967,17 +1165,16 @@ const AppContent: React.FC = () => {
       />
 
       {/* 设置面板 */}
-      <SettingsPanel
-        isOpen={isSettingsVisible}
-        onClose={() => setIsSettingsVisible(false)}
-      />
+      <SettingsPanel isOpen={isSettingsVisible} onClose={() => setIsSettingsVisible(false)} />
+
+      {/* 诊断浮层（Ctrl+Shift+D） */}
+      <DebugOverlay visible={isDebugVisible} onClose={() => setIsDebugVisible(false)} />
 
       {/* 快捷键参考面板 */}
       <KeyboardShortcutsPanel
         isOpen={isShortcutsVisible}
         onClose={() => setIsShortcutsVisible(false)}
       />
-      
     </div>
   );
 };

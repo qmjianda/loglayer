@@ -117,16 +117,39 @@ export interface Theme {
 const THEMES: Theme[] = [
   { id: 'dark', name: 'Dark', colors: DARK_THEME, logViewer: LOG_VIEWER_COLORS.DARK },
   { id: 'light', name: 'Light', colors: LIGHT_THEME, logViewer: LOG_VIEWER_COLORS.LIGHT },
-  { id: 'monokai', name: 'Monokai', colors: THEME_PRESETS.monokai.colors, logViewer: THEME_PRESETS.monokai.logViewer },
-  { id: 'dracula', name: 'Dracula', colors: THEME_PRESETS.dracula.colors, logViewer: THEME_PRESETS.dracula.logViewer },
-  { id: 'nord', name: 'Nord', colors: THEME_PRESETS.nord.colors, logViewer: THEME_PRESETS.nord.logViewer },
-  { id: 'githubDark', name: 'GitHub Dark', colors: THEME_PRESETS.githubDark.colors, logViewer: THEME_PRESETS.githubDark.logViewer },
+  {
+    id: 'monokai',
+    name: 'Monokai',
+    colors: THEME_PRESETS.monokai.colors,
+    logViewer: THEME_PRESETS.monokai.logViewer,
+  },
+  {
+    id: 'dracula',
+    name: 'Dracula',
+    colors: THEME_PRESETS.dracula.colors,
+    logViewer: THEME_PRESETS.dracula.logViewer,
+  },
+  {
+    id: 'nord',
+    name: 'Nord',
+    colors: THEME_PRESETS.nord.colors,
+    logViewer: THEME_PRESETS.nord.logViewer,
+  },
+  {
+    id: 'githubDark',
+    name: 'GitHub Dark',
+    colors: THEME_PRESETS.githubDark.colors,
+    logViewer: THEME_PRESETS.githubDark.logViewer,
+  },
 ];
 
-const themesById: Record<ThemeMode, Theme> = THEMES.reduce((acc, theme) => {
-  acc[theme.id] = theme;
-  return acc;
-}, {} as Record<ThemeMode, Theme>);
+const themesById: Record<ThemeMode, Theme> = THEMES.reduce(
+  (acc, theme) => {
+    acc[theme.id] = theme;
+    return acc;
+  },
+  {} as Record<ThemeMode, Theme>,
+);
 
 export function getThemeColors(mode: ThemeMode): typeof DARK_THEME {
   return themesById[mode]?.colors || DARK_THEME;
@@ -154,25 +177,25 @@ export function isValidTheme(id: string): id is ThemeMode {
 
 export function setCssVariables(theme: Theme): void {
   const root = document.documentElement;
-  
+
   root.style.setProperty('--bg-primary', theme.colors.background.primary);
   root.style.setProperty('--bg-secondary', theme.colors.background.secondary);
   root.style.setProperty('--bg-tertiary', theme.colors.background.tertiary);
   root.style.setProperty('--bg-elevated', theme.colors.background.elevated);
-  
+
   root.style.setProperty('--fg-primary', theme.colors.foreground.primary);
   root.style.setProperty('--fg-secondary', theme.colors.foreground.secondary);
   root.style.setProperty('--fg-muted', theme.colors.foreground.muted);
-  
+
   root.style.setProperty('--border-default', theme.colors.border.default);
   root.style.setProperty('--border-subtle', theme.colors.border.subtle);
-  
+
   root.style.setProperty('--color-primary', theme.colors.color.primary);
   root.style.setProperty('--color-success', theme.colors.color.success);
   root.style.setProperty('--color-warning', theme.colors.color.warning);
   root.style.setProperty('--color-error', theme.colors.color.error);
   root.style.setProperty('--color-info', theme.colors.color.info);
-  
+
   root.style.setProperty('--input-background', theme.colors.input.background);
   root.style.setProperty('--input-hover', theme.colors.input.hover);
   root.style.setProperty('--input-active', theme.colors.input.active);

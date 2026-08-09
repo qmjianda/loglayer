@@ -33,8 +33,11 @@ LARGE_LOG = os.path.join(PROJECT_ROOT, "tests", "logs", "large_test.log")
 # 后端就绪探针端点
 READY_ENDPOINT = f"http://{BACKEND_HOST}:{BACKEND_PORT}/api/platform"
 
+# 复用已有实例的开关：LOGLAYER_E2E_REUSE=1 时跳过杀进程/重启，直接探测复用
+REUSE_ENV = "LOGLAYER_E2E_REUSE"
 
-def _wait_port(host, port, timeout=30):
+
+def _wait_port(host, port, timeout=15):
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -42,6 +45,24 @@ def _wait_port(host, port, timeout=30):
                 return True
         except OSError:
             time.sleep(0.3)
+    return False
+
+
+def _wait_all(checks: dict, timeout: int = 15) -> bool:
+    """并行探测多个就绪条件：轮询所有检查项，全部通过返回 True，超时返回 False。
+
+    checks 为 {名称: 无参返回 bool 的可调用对象}。避免多个就绪条件串行等待，
+    正常启动 <5s，失败时最多等 timeout 秒即可给出明确结论。
+    """
+    deadline = time.time() + timeout
+    pending = dict(checks)
+    while time.time() < deadline:
+        for name, check in list(pending.items()):
+            if check():
+                pending.pop(name)
+        if not pending:
+            return True
+        time.sleep(0.3)
     return False
 
 
@@ -151,7 +172,7 @@ def kill_existing_servers():
             time.sleep(0.3)
 
 
-def _wait_http(url, timeout=30):
+def _wait_http(url, timeout=15):
     import urllib.request
 
     deadline = time.time() + timeout
@@ -213,53 +234,68 @@ class ServerProc:
 def servers():
     """启动 backend + vite，测试会话结束时关闭。
 
-    启动前会强制杀掉所有占用 12345/3000 端口的既有前后端进程，
-    确保测试始终基于干净、最新的代码实例，不被手动启动的旧实例干扰。
+    默认行为：启动前强制杀掉占用 12345/3000 端口的既有前后端进程，
+    确保测试基于干净、最新的代码实例（结果可信优先）。
+    设置环境变量 LOGLAYER_E2E_REUSE=1 时跳过杀进程/重启，直接复用已在
+    运行的实例（快，但需自行保证服务代码与当前工作区代码一致）。
     """
     proc_dir = "/tmp/opencode/e2e"
     os.makedirs(proc_dir, exist_ok=True)
 
-    # 强制清理既有实例（用户手动启动的旧前后端必须终止）
-    kill_existing_servers()
-    # 等待端口完全释放
-    time.sleep(1)
+    reuse = os.environ.get(REUSE_ENV) == "1"
+    started_backend = False
+    started_vite = False
+    backend: ServerProc | None = None
+    vite: ServerProc | None = None
 
-    backend = ServerProc(
-        [sys.executable, BACKEND_MAIN, "--no-ui", LARGE_LOG],
-        PROJECT_ROOT,
-        os.path.join(proc_dir, "backend.log"),
-    )
-    vite = ServerProc(
-        ["npx", "vite", "--port", str(VITE_PORT), "--strictPort"],
-        PROJECT_ROOT,
-        os.path.join(proc_dir, "vite.log"),
-    )
+    if not reuse:
+        # 强制清理既有实例（用户手动启动的旧前后端必须终止）
+        kill_existing_servers()
+        # 等待端口完全释放
+        time.sleep(1)
 
-    backend.start()
-    started_backend = True
-    vite.start()
-    started_vite = True
+        backend = ServerProc(
+            [sys.executable, BACKEND_MAIN, "--no-ui"],
+            PROJECT_ROOT,
+            os.path.join(proc_dir, "backend.log"),
+        )
+        vite = ServerProc(
+            ["npx", "vite", "--port", str(VITE_PORT), "--strictPort"],
+            PROJECT_ROOT,
+            os.path.join(proc_dir, "vite.log"),
+        )
+        backend.start()
+        started_backend = True
+        vite.start()
+        started_vite = True
 
     try:
-        if not _wait_port(BACKEND_HOST, BACKEND_PORT, timeout=40):
-            raise RuntimeError(
-                f"Backend did not start on {BACKEND_PORT}.\n{backend.read_log()}"
-            )
-        if not _wait_http(READY_ENDPOINT, timeout=40):
-            raise RuntimeError(f"Backend API not ready.\n{backend.read_log()}")
-        if not _wait_port(BACKEND_HOST, VITE_PORT, timeout=40):
-            raise RuntimeError(f"Vite did not start on {VITE_PORT}.\n{vite.read_log()}")
+        checks = {
+            "backend port": lambda: _wait_port(BACKEND_HOST, BACKEND_PORT),
+            "backend api": lambda: _wait_http(READY_ENDPOINT),
+            "vite port": lambda: _wait_port(BACKEND_HOST, VITE_PORT),
+        }
+        if not _wait_all(checks, timeout=15):
+            details = []
+            if backend is not None:
+                details.append(f"\nbackend log:\n{backend.read_log()}")
+            if vite is not None:
+                details.append(f"\nvite log:\n{vite.read_log()}")
+            if reuse:
+                details.append("\n(reuse 模式：请确认 12345/3000 端口已有服务在运行)")
+            raise RuntimeError("前后端未在 15s 内就绪。" + "".join(details))
 
         yield {
             "backend_proc": backend,
             "vite_proc": vite,
             "started_backend": started_backend,
             "started_vite": started_vite,
+            "reused": reuse,
         }
     finally:
-        if started_backend:
+        if backend is not None:
             backend.stop()
-        if started_vite:
+        if vite is not None:
             vite.stop()
 
 
@@ -275,6 +311,17 @@ def large_log_path():
     return LARGE_LOG
 
 
+@pytest.fixture(scope="session")
+def large_log_lines(large_log_path):
+    """大日志行数（会话内只统计一次，与 backend 按 \\n 索引一致）。"""
+    import subprocess
+
+    result = subprocess.run(
+        ["wc", "-l", large_log_path], capture_output=True, text=True, check=True
+    )
+    return int(result.stdout.split()[0])
+
+
 @pytest.fixture()
 def browser():
     """每个测试一个独立浏览器上下文。"""
@@ -288,6 +335,7 @@ def browser():
 def page(browser, app_url):
     """新页面并监听前端错误（pageerror / console error）。"""
     ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    ctx.grant_permissions(["clipboard-read", "clipboard-write"])
     pg = ctx.new_page()
     collected_errors: list[str] = []
 
@@ -299,7 +347,9 @@ def page(browser, app_url):
         else None,
     )
 
-    pg.goto(app_url, wait_until="networkidle", timeout=60000)
+    pg.goto(app_url, wait_until="domcontentloaded", timeout=30000)
+    # 等待应用外壳就绪（「浏览并打开」按钮始终渲染，见 UnifiedPanel.tsx）
+    pg.wait_for_selector('button:has-text("浏览并打开")', timeout=30000)
 
     # 将错误收集器挂到 page 上，供断言读取
     pg._collected_errors = collected_errors  # type: ignore[attr-defined]

@@ -11,11 +11,11 @@ React state 仍是旧值 —— 表现为"切 tab 后进度跳回首行"。
 """
 
 import os
+import tempfile
 
 import pytest
 
 from . import helpers
-from .conftest import LARGE_LOG
 
 pytestmark = pytest.mark.e2e
 
@@ -71,13 +71,15 @@ def _drag_tab_to_split_right(page, tab_name):
 
 
 @pytest.mark.usefixtures("frontend_errors")
-def test_split_switch_tab_preserves_scroll_position(page, frontend_errors):
+def test_split_switch_tab_preserves_scroll_position(page, frontend_errors, tmp_path):
     """回归：分屏后切换 tab，面板滚动位置必须保持（不跳回首行）。"""
-    first_name = os.path.basename(LARGE_LOG)
+    # 第一个文件：临时小文件（滚动位置保持与文件大小无关，避免大文件索引成本）
+    first_log = tmp_path / "first.log"
+    first_log.write_text("".join(f"first line {i}\n" for i in range(200)), encoding="utf-8")
+    first_name = first_log.name
     second_name = os.path.basename(SECOND_LOG)
 
-    # backend 已 CLI 预加载第一个文件（large_test.log）
-    helpers.wait_for_tab(page, first_name, timeout=60000)
+    helpers.open_file_via_picker(page, str(first_log), timeout=120000)
 
     # 打开第二个文件（与第一个在同一组内堆叠成两个 tab）
     helpers.open_file_via_picker(page, SECOND_LOG, timeout=120000)

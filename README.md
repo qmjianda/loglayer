@@ -11,7 +11,7 @@ LogLayer is a high-performance log analysis tool designed to handle massive log 
 
 ### 🚀 Key Features
 - **Lightning-Fast Indexing**: Leverages `mmap` and multi-threaded indexing to parse 1GB+ logs in seconds.
-- **O(1) Virtual Scrolling**: High-performance virtualization ensures consistent 60FPS UI even when viewing millions of lines.
+- **DOM Virtual Scrolling**: `react-virtuoso` virtualization with preloading and memoized rows keeps the UI smooth even when viewing millions of lines.
 - **Native Search (ripgrep)**: Integrated with `ripgrep` for blazing-fast, case-insensitive searching across massive datasets.
 - **Layered Pipeline Engine**: A Python-powered backend pipeline that supports multiple FILTER and HIGHLIGHT layers applied in real-time.
 - **Workspace Session Persistence**: Automatically saves and restores your opened files and layer configurations into a `.loglayer/` folder.
@@ -61,7 +61,7 @@ LogLayer 是一款专门针对海量日志文件（1GB+）设计的高性能日�
 
 ### 🚀 核心特性
 - **极速索引**: 利用 `mmap` 和多线程偏移量索引技术，数秒内即可载入 GB 级日志。
-- **O(1) 虚拟化渲染**: 高性能虚拟列表确保在处理数百万行日志时，界面依然保持 60FPS 的流畅度。
+- **DOM 虚拟滚动**: 基于 `react-virtuoso` 的虚拟化渲染，配合预加载与 memo 行优化，处理数百万行日志时界面依然流畅。
 - **原生搜索 (ripgrep)**: 集成 `ripgrep`，在大规模数据集中提供瞬间响应的全文检索。
 - **图层流水线引擎**: 基于 Python 后端的处理流水线，支持多路“过滤器（FILTER）”和“高亮（HIGHLIGHT）”图层叠加。
 - **工作区会话持久化**: 自动保存并恢复已打开的文件列表和图层配置（存储于 `.loglayer/` 目录）。

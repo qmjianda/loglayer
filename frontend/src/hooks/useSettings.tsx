@@ -111,7 +111,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   }, [settings.theme, settings.fontSize, settings.lineHeight, isLoaded]);
 
   const saveSettings = useCallback((newSettings: Partial<AppSettings>) => {
-    setSettings(prev => {
+    setSettings((prev) => {
       const updated = { ...prev, ...newSettings };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
@@ -122,16 +122,21 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     });
   }, []);
 
-  const updateSetting = useCallback(<K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
-    saveSettings({ [key]: value });
-  }, [saveSettings]);
+  const updateSetting = useCallback(
+    <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+      saveSettings({ [key]: value });
+    },
+    [saveSettings],
+  );
 
   const resetToDefault = useCallback(() => {
     saveSettings(DEFAULT_SETTINGS);
   }, [saveSettings]);
 
   return (
-    <SettingsContext.Provider value={{ settings, resolvedTheme, isLoaded, updateSetting, resetToDefault }}>
+    <SettingsContext.Provider
+      value={{ settings, resolvedTheme, isLoaded, updateSetting, resetToDefault }}
+    >
       {children}
     </SettingsContext.Provider>
   );

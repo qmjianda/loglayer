@@ -10,7 +10,7 @@ interface StatusBarProps {
   size: number;
   isProcessing?: boolean;
   isLayerProcessing?: boolean;
-  operationStatus?: { op: string, progress: number, error?: string } | null;
+  operationStatus?: { op: string; progress: number; error?: string } | null;
   searchMatchCount?: number;
   currentLine?: number;
   pendingCliFiles?: number;
@@ -21,12 +21,21 @@ interface StatusBarProps {
   onOpenShortcuts?: () => void;
 }
 
-export const StatusBar: React.FC<StatusBarProps> = ({ 
-  lines, totalLines, size, isProcessing, isLayerProcessing, 
-  operationStatus, searchMatchCount, currentLine, pendingCliFiles,
+export const StatusBar: React.FC<StatusBarProps> = ({
+  lines,
+  totalLines,
+  size,
+  isProcessing,
+  isLayerProcessing,
+  operationStatus,
+  searchMatchCount,
+  currentLine,
+  pendingCliFiles,
   performanceMetrics,
-  isWatching, hasNewContent,
-  onOpenSettings, onOpenShortcuts 
+  isWatching,
+  hasNewContent,
+  onOpenSettings,
+  onOpenShortcuts,
 }) => {
   const { widgets, widgetData } = usePluginWidgets('statusbar');
   const { settings } = useSettings();
@@ -43,28 +52,51 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   const getStatusMessage = () => {
     if (operationStatus) {
       if (operationStatus.error) return `错误: ${operationStatus.error}`;
-      const prefix = operationStatus.op === 'indexing' ? '正在建立索引' :
-        operationStatus.op === 'filtering' ? '正在过滤日志' :
-          operationStatus.op === 'searching' ? '正在搜索' : '正在处理';
+      const prefix =
+        operationStatus.op === 'indexing'
+          ? '正在建立索引'
+          : operationStatus.op === 'filtering'
+            ? '正在过滤日志'
+            : operationStatus.op === 'searching'
+              ? '正在搜索'
+              : '正在处理';
       return `${prefix}... ${operationStatus.progress > 0 ? `(${Math.round(operationStatus.progress)}%)` : ''}`;
     }
     if (isLayerProcessing && isProcessing) return '正在并行处理数据...';
     if (isProcessing) return '正在加载流式日志...';
     if (isLayerProcessing) return '正在刷新处理管道...';
-    if (pendingCliFiles && pendingCliFiles > 0) return `正在打开文件... (${pendingCliFiles} 个待处理)`;
+    if (pendingCliFiles && pendingCliFiles > 0)
+      return `正在打开文件... (${pendingCliFiles} 个待处理)`;
     return '就绪';
   };
 
   return (
-    <div className={`h-6 bg-theme-active text-white flex items-center justify-between px-3 text-[11px] font-medium shrink-0 transition-colors duration-300`}>
+    <div
+      className={`h-6 bg-theme-active text-white flex items-center justify-between px-3 text-[11px] font-medium shrink-0 transition-colors duration-300`}
+    >
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-1.5 hover:bg-white/10 px-1 rounded transition-colors">
-          {(isProcessing || isLayerProcessing) ? (
-            <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" strokeLinecap="round" />
+          {isProcessing || isLayerProcessing ? (
+            <svg
+              className="w-3.5 h-3.5 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+            >
+              <path
+                d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"
+                strokeLinecap="round"
+              />
             </svg>
           ) : (
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth="3"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           )}
@@ -78,14 +110,12 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
             </span>
-            <span className="text-xs">
-              {hasNewContent ? '新内容可用' : '监视中'}
-            </span>
+            <span className="text-xs">{hasNewContent ? '新内容可用' : '监视中'}</span>
           </div>
         )}
 
         {/* Plugin Dynamic Widgets */}
-        {widgets.map(w => {
+        {widgets.map((w) => {
           const data = widgetData[w.type];
           if (!data) return null;
           return (
@@ -95,14 +125,18 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               title={data.tooltip || w.display_name}
               style={{ color: data.color }}
             >
-              {data.icon && <span className="mr-1">{/* Icon render support can be added here */}</span>}
+              {data.icon && (
+                <span className="mr-1">{/* Icon render support can be added here */}</span>
+              )}
               <span className="font-medium whitespace-nowrap">{data.text || w.display_name}</span>
             </div>
           );
         })}
 
-        <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors opacity-80">UTF-8</div>
-        
+        <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors opacity-80">
+          UTF-8
+        </div>
+
         {showPerformance && performanceMetrics && (
           <PerformanceIndicator metrics={performanceMetrics} visible={true} />
         )}
@@ -110,7 +144,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       <div className="flex items-center space-x-6">
         {searchMatchCount !== undefined && searchMatchCount > 0 && (
           <div className="bg-yellow-500/20 px-1.5 py-0.5 rounded text-yellow-200 border border-yellow-500/30 flex items-center space-x-1">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                clipRule="evenodd"
+              />
+            </svg>
             <span>{searchMatchCount.toLocaleString()} matches</span>
           </div>
         )}
@@ -126,11 +166,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           )}
         </div>
         <div className="opacity-90">Size: {formatSize(size || 0)}</div>
-        <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors hidden sm:block">Tab Size: 2</div>
+        <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors hidden sm:block">
+          Tab Size: 2
+        </div>
         <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors font-mono whitespace-nowrap">
           Ln {currentLine || 1}, Col 1
         </div>
-        
+
         {/* 功能按钮 */}
         <div className="flex items-center space-x-1 ml-2">
           <button

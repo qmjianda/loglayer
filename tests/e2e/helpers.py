@@ -48,12 +48,12 @@ def open_file_via_picker(page, file_path: str, timeout: int = 60000):
 
     inp = page.locator('.rpp-input').first
     inp.fill(directory)
-    page.wait_for_timeout(1200)
+    # 等待目录列表加载出目标文件项（替代固定 sleep）
+    item = page.locator(f'.rpp-item:has-text("{file_name}")').first
+    item.wait_for(state="visible", timeout=15000)
 
     # 点击文件项
-    item = page.locator(f'.rpp-item:has-text("{file_name}")').first
     item.click(timeout=15000)
-    page.wait_for_timeout(2000)
 
     wait_for_log_canvas(page, timeout=timeout)
     wait_for_tab(page, file_name, timeout=timeout)

@@ -14,6 +14,11 @@ class SearchPipeline:
     """
 
     def get_search_match_index(self, file_id: str, rank: int) -> int:
+        """rank → 可见行视觉索引。
+
+        `search_matches` 存物理行号，返回前换算为视觉索引（无过滤时二者相等），
+        保持对前端滚动语义的兼容。
+        """
         if file_id not in self._sessions:
             return -1
         session = self._sessions[file_id]
@@ -21,12 +26,17 @@ class SearchPipeline:
             return -1
         if rank < 0 or rank >= len(session.search_matches):
             return -1
-        return session.search_matches[rank]
+        physical = session.search_matches[rank]
+        return self.physical_to_visual_index(file_id, physical)
 
     def get_nearest_search_rank(
         self, file_id: str, current_index: int, direction: str
     ) -> int:
-        """Find the rank of the nearest search match based on the current visible index."""
+        """基于当前可见行索引，返回最近搜索匹配的 rank。
+
+        `current_index` 为可见行视觉索引，先换算为物理行号再对
+        `search_matches`（物理行号，有序）做 bisect。
+        """
         if file_id not in self._sessions:
             return -1
         session = self._sessions[file_id]
@@ -34,8 +44,15 @@ class SearchPipeline:
         if matches is None or len(matches) == 0:
             return -1
 
-        # search_matches contains indices in the visible list
-        rank = bisect.bisect_right(matches, current_index)
+        if (
+            session.visible_indices is not None
+            and 0 <= current_index < len(session.visible_indices)
+        ):
+            current_physical = session.visible_indices[current_index]
+        else:
+            current_physical = current_index
+
+        rank = bisect.bisect_right(matches, current_physical)
 
         if direction == "next":
             if rank < len(matches):
@@ -45,7 +62,7 @@ class SearchPipeline:
         else:  # prev
             target_rank = rank - 1
             if target_rank >= 0:
-                if matches[target_rank] == current_index:
+                if matches[target_rank] == current_physical:
                     target_rank -= 1
 
                 if target_rank >= 0:
@@ -58,6 +75,7 @@ class SearchPipeline:
     def get_search_matches_range(
         self, file_id: str, start_rank: int, count: int
     ) -> str:
+        """批量拉取 rank 区间内的匹配物理行号（JSON 数组）。"""
         if file_id not in self._sessions:
             return "[]"
         session = self._sessions[file_id]

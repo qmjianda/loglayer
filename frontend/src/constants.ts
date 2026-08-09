@@ -51,7 +51,7 @@ export function computeGutterWidth(
   rawLineCount: number,
   totalLines: number,
   virtualVisible: boolean,
-  fontSize = 12
+  fontSize = 12,
 ): number {
   const char = gutterCharWidth(fontSize);
   const star = gutterStarSlot(fontSize);

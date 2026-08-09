@@ -11,6 +11,7 @@ import { getLogViewerColors } from '../theme';
 import { AppSettings } from '../hooks/useSettings';
 import { detectJson } from '../utils/jsonTree';
 import { LogRow } from './logViewer/LogRow';
+import { computeRevealScrollTop } from '../utils/revealScroll';
 
 interface LogViewerProps {
   totalLines: number;
@@ -34,7 +35,7 @@ interface LogViewerProps {
   updateTrigger?: number;
   /** 当前文件的图层列表（前端渲染器按此计算图层高亮/行样式，替代后端逐行计算） */
   layers?: LogLayer[];
-  layerStats?: Record<string, { count: number, distribution: number[] }>;
+  layerStats?: Record<string, { count: number; distribution: number[] }>;
   bookmarks?: Record<number, string>;
   settings?: AppSettings;
   resolvedTheme?: 'dark' | 'light';
@@ -102,8 +103,18 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     viewportHeightRef.current = viewportHeight;
   }, [viewportHeight]);
 
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, text: string, lineIndex?: number } | null>(null);
-  const [commentPopover, setCommentPopover] = useState<{ x: number, y: number, lineIndex: number, comment: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    text: string;
+    lineIndex?: number;
+  } | null>(null);
+  const [commentPopover, setCommentPopover] = useState<{
+    x: number;
+    y: number;
+    lineIndex: number;
+    comment: string;
+  } | null>(null);
   const [expandedJsonLine, setExpandedJsonLine] = useState<number | null>(null);
   const [showGoToLine, setShowGoToLine] = useState(false);
 
@@ -156,21 +167,24 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const theme = resolvedTheme ?? 'dark';
   const colors = getLogViewerColors(theme as 'dark' | 'light');
 
-  const fontFamily = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+  const fontFamily =
+    '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
   // === 滚动缩放（亿行支持，仅非 wordWrap 固定行高模式生效） ===
   const realTotalHeight = totalLines * lineHeight;
   const useScaling = realTotalHeight > MAX_SCROLL_HEIGHT;
   // spacer 高度：缩放时用上限，非缩放时至少覆盖视口（避免短文件出现假滚动条）
   const scaledHeight = useScaling ? MAX_SCROLL_HEIGHT : realTotalHeight;
-  const virtualTotalHeight = Math.max(viewportHeight, scaledHeight) + (scaledHeight > viewportHeight ? SCROLL_MARGIN : 0);
+  const virtualTotalHeight =
+    Math.max(viewportHeight, scaledHeight) + (scaledHeight > viewportHeight ? SCROLL_MARGIN : 0);
 
   // 物理 scrollTop → 逻辑 scrollTop
   const maxPhysicalScroll = Math.max(0, virtualTotalHeight - viewportHeight);
   const maxLogicalScroll = Math.max(0, realTotalHeight - viewportHeight);
-  const logicalScrollTop = useScaling && maxPhysicalScroll > 0
-    ? (scrollTop / maxPhysicalScroll) * maxLogicalScroll
-    : scrollTop;
+  const logicalScrollTop =
+    useScaling && maxPhysicalScroll > 0
+      ? (scrollTop / maxPhysicalScroll) * maxLogicalScroll
+      : scrollTop;
 
   const topVisibleLine = Math.max(0, Math.floor(logicalScrollTop / lineHeight));
   const visibleRows = Math.max(1, Math.ceil(viewportHeight / lineHeight));
@@ -185,7 +199,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const desiredWindowStart = Math.max(0, Math.min(topVisibleLine - windowBuffer, maxWindowStart));
 
   useEffect(() => {
-    setWindowStart(prev => {
+    setWindowStart((prev) => {
       if (Math.abs(desiredWindowStart - prev) >= windowBuffer * 0.5) {
         return desiredWindowStart;
       }
@@ -340,20 +354,26 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         const count = end - start;
         const lines = await readProcessedLines(fileId, start, count);
         if (ignore) return;
-        setBridgedLines(prev => {
+        setBridgedLines((prev) => {
           const next = new Map(prev);
           lines.forEach((line, idx) => next.set(start + idx, line));
           if (next.size > LOG_VIEWER.MAX_CACHED_LINES) {
             const center = Math.floor((start + end) / 2);
             for (const key of next.keys()) {
-              if (Math.abs(Number(key) - center) > LOG_VIEWER.CACHE_CLEAR_DISTANCE) next.delete(key);
+              if (Math.abs(Number(key) - center) > LOG_VIEWER.CACHE_CLEAR_DISTANCE)
+                next.delete(key);
             }
           }
           return next;
         });
-      } catch (e) { console.error('Failed to fetch lines:', e); }
+      } catch (e) {
+        console.error('Failed to fetch lines:', e);
+      }
     }, FETCH_DEBOUNCE_MS);
-    return () => { ignore = true; clearTimeout(timer); };
+    return () => {
+      ignore = true;
+      clearTimeout(timer);
+    };
   }, [fetchStart, fetchEnd, fileId, totalLines, updateTrigger, FETCH_DEBOUNCE_MS]);
 
   // === 可视范围上报 ===
@@ -361,16 +381,36 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     onVisibleRangeChange?.(fetchStart, fetchEnd);
   }, [fetchStart, fetchEnd, onVisibleRangeChange]);
 
-  // === 外部 scrollToIndex 定位 ===
+  // === 外部 scrollToIndex 定位（对齐 VS Code：安全区外完整可见时不滚动，否则居中） ===
   useEffect(() => {
     if (scrollToIndex !== null && scrollToIndex !== undefined && containerRef.current) {
-      const targetLogical = Math.max(0, scrollToIndex * lineHeight - (viewportHeight / 3));
-      const targetPhysical = useScaling && maxLogicalScroll > 0
-        ? (targetLogical / maxLogicalScroll) * maxPhysicalScroll
-        : targetLogical;
-      containerRef.current.scrollTo({ top: targetPhysical, behavior: 'auto' });
+      const top = computeRevealScrollTop(
+        topVisibleLine,
+        visibleRows,
+        viewportHeight,
+        lineHeight,
+        scrollToIndex,
+        maxLogicalScroll,
+        maxPhysicalScroll,
+        useScaling,
+      );
+      if (top !== null) {
+        containerRef.current.scrollTo({ top, behavior: 'auto' });
+        // 同步 ref，防止滚动看门狗把「程序化滚动到顶(top=0)」误判为 dockview 归零而拉回旧位置
+        scrollStateRef.current.top = top;
+      }
     }
-  }, [scrollToIndex, totalLines, viewportHeight, useScaling, maxLogicalScroll, maxPhysicalScroll, lineHeight]);
+  }, [
+    scrollToIndex,
+    totalLines,
+    viewportHeight,
+    useScaling,
+    maxLogicalScroll,
+    maxPhysicalScroll,
+    lineHeight,
+    topVisibleLine,
+    visibleRows,
+  ]);
 
   // === 原生选择：向父组件报告选中文本 ===
   useEffect(() => {
@@ -389,14 +429,34 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   }, [onSelectedTextChange]);
 
   // === 键盘导航 ===
-  const scrollToLine = useCallback((index: number) => {
-    if (!containerRef.current) return;
-    const targetLogical = Math.max(0, index * lineHeight - (viewportHeight / 3));
-    const targetPhysical = useScaling && maxLogicalScroll > 0
-      ? (targetLogical / maxLogicalScroll) * maxPhysicalScroll
-      : targetLogical;
-    containerRef.current.scrollTo({ top: targetPhysical, behavior: 'auto' });
-  }, [useScaling, maxLogicalScroll, maxPhysicalScroll, lineHeight, viewportHeight]);
+  const scrollToLine = useCallback(
+    (index: number) => {
+      if (!containerRef.current) return;
+      const top = computeRevealScrollTop(
+        topVisibleLine,
+        visibleRows,
+        viewportHeight,
+        lineHeight,
+        index,
+        maxLogicalScroll,
+        maxPhysicalScroll,
+        useScaling,
+      );
+      if (top !== null) {
+        containerRef.current.scrollTo({ top, behavior: 'auto' });
+        scrollStateRef.current.top = top;
+      }
+    },
+    [
+      useScaling,
+      maxLogicalScroll,
+      maxPhysicalScroll,
+      lineHeight,
+      viewportHeight,
+      topVisibleLine,
+      visibleRows,
+    ],
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -441,7 +501,12 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     const index = lineEl ? Number(lineEl.dataset.logIndex) : null;
     const sel = window.getSelection();
     const selectedText = sel ? sel.toString().trim() : '';
-    setContextMenu({ x: e.clientX, y: e.clientY, text: selectedText, lineIndex: index ?? undefined });
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      text: selectedText,
+      lineIndex: index ?? undefined,
+    });
   };
 
   // === gutter 点击切换书签 / 内容点击选中行 ===
@@ -461,7 +526,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           x: rect.left + gutterWidth,
           y: e.clientY,
           lineIndex: phys,
-          comment: comment || ''
+          comment: comment || '',
         });
       } else {
         onToggleBookmark?.(phys);
@@ -500,20 +565,19 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           className="absolute top-0 left-0 flex items-center justify-center text-gray-500 text-sm"
           style={{ height: viewportHeight || 400, width: '100%' }}
         >
-          {isIndexing
-            ? <>正在构建索引... {Math.round(indexingProgress)}%</>
-            : isSearching
-              ? <>正在搜索... {totalLines.toLocaleString()} 行待处理</>
-              : <>Loading lines...</>}
+          {isIndexing ? (
+            <>正在构建索引... {Math.round(indexingProgress)}%</>
+          ) : isSearching ? (
+            <>正在搜索... {totalLines.toLocaleString()} 行待处理</>
+          ) : (
+            <>Loading lines...</>
+          )}
         </div>
       )}
 
       {/* 内容视口：translateY(scrollTop) 抵消物理滚动使内容固定，窗口内行用绝对定位渲染 */}
       {isContentReady && (
-        <div
-          className="absolute top-0 left-0"
-          style={{ height: viewportHeight, width: '100%' }}
-        >
+        <div className="absolute top-0 left-0" style={{ height: viewportHeight, width: '100%' }}>
           <ErrorBoundary>
             {/* 窗口内行：translateY(scrollTop - windowOffsetPx) 使窗口内容对齐到视口（视口在 content 坐标 scrollTop 处） */}
             <div
@@ -557,7 +621,15 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       {showRuler && totalLines > 0 && (
         <div
           className="absolute right-0 top-0"
-          style={{ width: 12, height: viewportHeight, backgroundColor: colors.RULER, pointerEvents: 'none', zIndex: 5, overflow: 'hidden', transform: `translateY(${scrollTop}px)` }}
+          style={{
+            width: 12,
+            height: viewportHeight,
+            backgroundColor: colors.RULER,
+            pointerEvents: 'none',
+            zIndex: 5,
+            overflow: 'hidden',
+            transform: `translateY(${scrollTop}px)`,
+          }}
         >
           {Object.entries(layerStats).map(([id, stats]: [string, any]) => {
             const color = id === 'search' ? colors.SEARCH_HIGHLIGHT : colors.LAYER_HIGHLIGHT;
@@ -580,13 +652,20 @@ export const LogViewer: React.FC<LogViewerProps> = ({
               );
             });
           })}
-          {Object.keys(bookmarks).map(idx => {
+          {Object.keys(bookmarks).map((idx) => {
             // 书签锚定物理行号：ruler 位置以原始行数为基准
             const yPos = (Number(idx) / Math.max(1, rawCount)) * viewportHeight;
             return (
               <div
                 key={`bm-${idx}`}
-                style={{ position: 'absolute', left: 0, top: yPos, height: 2, width: 12, backgroundColor: colors.BOOKMARK_INDICATOR }}
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: yPos,
+                  height: 2,
+                  width: 12,
+                  backgroundColor: colors.BOOKMARK_INDICATOR,
+                }}
               />
             );
           })}
@@ -604,74 +683,151 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         </div>
       )}
 
-      {contextMenu && createPortal(
-        <div
-          className="context-menu-popup fixed bg-theme-surface border border-theme-default shadow-2xl rounded py-1 min-w-[160px] z-[1000] text-[12px] select-none"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          {contextMenu.text && (
-            <>
-              <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { navigator.clipboard.writeText(contextMenu.text); setContextMenu(null); }}>复制选中内容</button>
-              <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onSendToAI?.(contextMenu.text); setContextMenu(null); }}>发送给 AI</button>
-              <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onAddLayer?.(LayerType.HIGHLIGHT, { query: contextMenu.text, color: '#facc15' }); setContextMenu(null); }}>以此高亮</button>
-              <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { onAddLayer?.(LayerType.FILTER, { query: contextMenu.text }); setContextMenu(null); }}>以此过滤</button>
-              {detectJson(contextMenu.text).valid && (
-                <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => { setExpandedJsonLine(contextMenu.lineIndex ?? null); setContextMenu(null); }}>展开 JSON</button>
-              )}
-              <div className="h-[1px] bg-theme-subtle my-1" />
-            </>
-          )}
-          <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => {
-            const line = bridgedLines.get(contextMenu.lineIndex!);
-            const phys = line && typeof line !== 'string' ? (line as LogLine).index : contextMenu.lineIndex!;
-            onToggleBookmark?.(phys);
-            setContextMenu(null);
-          }}>切换书签</button>
-          <button className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200" onClick={() => {
-            const line = bridgedLines.get(contextMenu.lineIndex!);
-            navigator.clipboard.writeText(typeof line === 'string' ? line : (line as LogLine)?.content || '');
-            setContextMenu(null);
-          }}>复制整行</button>
-        </div>,
-        document.body
-      )}
-
-      {commentPopover && createPortal(
-        <BookmarkPopover
-          x={commentPopover.x}
-          y={commentPopover.y}
-          lineIndex={commentPopover.lineIndex}
-          initialComment={commentPopover.comment}
-          onSave={async (c) => { await onUpdateBookmarkComment?.(commentPopover.lineIndex, c); setCommentPopover(null); }}
-          onRemove={() => { onToggleBookmark?.(commentPopover.lineIndex); setCommentPopover(null); }}
-          onClose={() => setCommentPopover(null)}
-        />,
-        document.body
-      )}
-
-      {expandedJsonLine !== null && createPortal(
-        <div className="fixed bottom-4 right-4 w-96 max-h-64 overflow-auto bg-theme-surface border border-theme-default shadow-2xl rounded z-[1000]">
-          <div className="flex justify-between items-center px-3 py-2 border-b border-theme-subtle">
-            <span className="text-sm font-medium text-theme-primary">JSON 展开 (行 {expandedJsonLine + 1})</span>
-            <button onClick={() => setExpandedJsonLine(null)} className="text-theme-muted hover:text-theme-primary">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+      {contextMenu &&
+        createPortal(
+          <div
+            className="context-menu-popup fixed bg-theme-surface border border-theme-default shadow-2xl rounded py-1 min-w-[160px] z-[1000] text-[12px] select-none"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {contextMenu.text && (
+              <>
+                <button
+                  className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200"
+                  onClick={() => {
+                    navigator.clipboard.writeText(contextMenu.text);
+                    setContextMenu(null);
+                  }}
+                >
+                  复制选中内容
+                </button>
+                <button
+                  className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200"
+                  onClick={() => {
+                    onSendToAI?.(contextMenu.text);
+                    setContextMenu(null);
+                  }}
+                >
+                  发送给 AI
+                </button>
+                <button
+                  className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200"
+                  onClick={() => {
+                    onAddLayer?.(LayerType.HIGHLIGHT, {
+                      query: contextMenu.text,
+                      color: '#facc15',
+                    });
+                    setContextMenu(null);
+                  }}
+                >
+                  以此高亮
+                </button>
+                <button
+                  className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200"
+                  onClick={() => {
+                    onAddLayer?.(LayerType.FILTER, { query: contextMenu.text });
+                    setContextMenu(null);
+                  }}
+                >
+                  以此过滤
+                </button>
+                {detectJson(contextMenu.text).valid && (
+                  <button
+                    className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200"
+                    onClick={() => {
+                      setExpandedJsonLine(contextMenu.lineIndex ?? null);
+                      setContextMenu(null);
+                    }}
+                  >
+                    展开 JSON
+                  </button>
+                )}
+                <div className="h-[1px] bg-theme-subtle my-1" />
+              </>
+            )}
+            <button
+              className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200"
+              onClick={() => {
+                const line = bridgedLines.get(contextMenu.lineIndex!);
+                const phys =
+                  line && typeof line !== 'string'
+                    ? (line as LogLine).index
+                    : contextMenu.lineIndex!;
+                onToggleBookmark?.(phys);
+                setContextMenu(null);
+              }}
+            >
+              切换书签
             </button>
-          </div>
-          <div className="p-2">
-            {(() => {
-              const line = bridgedLines.get(expandedJsonLine);
-              const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
-              const { valid, data } = detectJson(content);
-              if (!valid) return <div className="text-red-400">无效的 JSON</div>;
-              return <JsonTreeView jsonString={JSON.stringify(data, null, 2)} />;
-            })()}
-          </div>
-        </div>,
-        document.body
-      )}
+            <button
+              className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200"
+              onClick={() => {
+                const line = bridgedLines.get(contextMenu.lineIndex!);
+                navigator.clipboard.writeText(
+                  typeof line === 'string' ? line : (line as LogLine)?.content || '',
+                );
+                setContextMenu(null);
+              }}
+            >
+              复制整行
+            </button>
+          </div>,
+          document.body,
+        )}
+
+      {commentPopover &&
+        createPortal(
+          <BookmarkPopover
+            x={commentPopover.x}
+            y={commentPopover.y}
+            lineIndex={commentPopover.lineIndex}
+            initialComment={commentPopover.comment}
+            onSave={async (c) => {
+              await onUpdateBookmarkComment?.(commentPopover.lineIndex, c);
+              setCommentPopover(null);
+            }}
+            onRemove={() => {
+              onToggleBookmark?.(commentPopover.lineIndex);
+              setCommentPopover(null);
+            }}
+            onClose={() => setCommentPopover(null)}
+          />,
+          document.body,
+        )}
+
+      {expandedJsonLine !== null &&
+        createPortal(
+          <div className="fixed bottom-4 right-4 w-96 max-h-64 overflow-auto bg-theme-surface border border-theme-default shadow-2xl rounded z-[1000]">
+            <div className="flex justify-between items-center px-3 py-2 border-b border-theme-subtle">
+              <span className="text-sm font-medium text-theme-primary">
+                JSON 展开 (行 {expandedJsonLine + 1})
+              </span>
+              <button
+                onClick={() => setExpandedJsonLine(null)}
+                className="text-theme-muted hover:text-theme-primary"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="p-2">
+              {(() => {
+                const line = bridgedLines.get(expandedJsonLine);
+                const content = typeof line === 'string' ? line : (line as LogLine)?.content || '';
+                const { valid, data } = detectJson(content);
+                if (!valid) return <div className="text-red-400">无效的 JSON</div>;
+                return <JsonTreeView jsonString={JSON.stringify(data, null, 2)} />;
+              })()}
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {showGoToLine && (
         <EditorGoToLineWidget
@@ -691,14 +847,20 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           onClick={() => onScrollToNewContent()}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 14l-7 7m0 0l-7-7m7 7V3"
+            />
           </svg>
           <span>有新内容，点击滚动到底部</span>
         </button>
       )}
 
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-        {totalLines > 0 && `日志视图，共 ${totalLines.toLocaleString()} 行。当前显示第 ${windowStart + 1} 到 ${windowEnd} 行`}
+        {totalLines > 0 &&
+          `日志视图，共 ${totalLines.toLocaleString()} 行。当前显示第 ${windowStart + 1} 到 ${windowEnd} 行`}
       </div>
     </div>
   );

@@ -18,13 +18,14 @@ export default defineConfig(({ mode }) => {
         '/ws': {
           target: 'ws://127.0.0.1:12345',
           ws: true,
-        }
-      }
+        },
+      },
     },
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      'process.env.VITE_TIMING': JSON.stringify(env.VITE_TIMING),
     },
     build: {
       outDir: '../dist',
@@ -33,7 +34,11 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './frontend/src'),
-      }
-    }
+      },
+    },
+    test: {
+      environment: 'jsdom',
+      include: ['src/**/*.test.{ts,tsx}'],
+    },
   };
 });

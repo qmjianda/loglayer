@@ -15,11 +15,7 @@ interface CommandPaletteProps {
   onClose: () => void;
 }
 
-export const CommandPalette: React.FC<CommandPaletteProps> = ({
-  commands,
-  isOpen,
-  onClose
-}) => {
+export const CommandPalette: React.FC<CommandPaletteProps> = ({ commands, isOpen, onClose }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -27,15 +23,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const filteredCommands = useMemo(() => {
     if (!query.trim()) return commands;
     const lowerQuery = query.toLowerCase();
-    return commands.filter(cmd => 
-      cmd.label.toLowerCase().includes(lowerQuery) ||
-      cmd.category?.toLowerCase().includes(lowerQuery)
+    return commands.filter(
+      (cmd) =>
+        cmd.label.toLowerCase().includes(lowerQuery) ||
+        cmd.category?.toLowerCase().includes(lowerQuery),
     );
   }, [commands, query]);
 
   const groupedCommands = useMemo(() => {
     const groups: Record<string, Command[]> = {};
-    filteredCommands.forEach(cmd => {
+    filteredCommands.forEach((cmd) => {
       const category = cmd.category || 'Other';
       if (!groups[category]) groups[category] = [];
       groups[category].push(cmd);
@@ -58,10 +55,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex(prev => Math.min(prev + 1, filteredCommands.length - 1));
+      setSelectedIndex((prev) => Math.min(prev + 1, filteredCommands.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex(prev => Math.max(prev - 1, 0));
+      setSelectedIndex((prev) => Math.max(prev - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
       const cmd = filteredCommands[selectedIndex];
@@ -88,7 +85,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             ref={inputRef}
             type="text"
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a command..."
             className="w-full bg-transparent text-white text-sm px-3 py-2 outline-none placeholder:text-gray-500"
@@ -100,7 +97,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-gray-500 bg-dark-3">
                 {category}
               </div>
-              {cmds.map(cmd => {
+              {cmds.map((cmd) => {
                 const idx = currentIndex++;
                 const isSelected = idx === selectedIndex;
                 const isDisabled = cmd.enabled === false;
@@ -119,18 +116,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <span>{cmd.label}</span>
-                    {cmd.shortcut && (
-                      <span className="text-xs text-gray-500">{cmd.shortcut}</span>
-                    )}
+                    {cmd.shortcut && <span className="text-xs text-gray-500">{cmd.shortcut}</span>}
                   </button>
                 );
               })}
             </div>
           ))}
           {filteredCommands.length === 0 && (
-            <div className="px-3 py-4 text-center text-gray-500 text-sm">
-              No commands found
-            </div>
+            <div className="px-3 py-4 text-center text-gray-500 text-sm">No commands found</div>
           )}
         </div>
       </div>

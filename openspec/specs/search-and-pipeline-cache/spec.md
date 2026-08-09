@@ -1,0 +1,79 @@
+# search-and-pipeline-cache Specification
+
+## Purpose
+TBD - created by archiving change logviewer-architecture-revamp. Update Purpose after archive.
+## Requirements
+### Requirement: 搜索与过滤管线解耦
+系统 SHALL 将搜索匹配计算与过滤管线解耦：修改搜索词只触发搜索计算，不重跑过滤管线；修改图层配置只重跑过滤管线，不重算搜索。
+
+#### Scenario: 修改搜索词不重跑过滤
+- **WHEN** 用户修改搜索词而图层配置未变
+- **THEN** 仅重新计算搜索匹配，过滤结果（可见行集）复用，不重跑过滤管线
+
+#### Scenario: 修改图层不重算搜索
+- **WHEN** 用户修改图层配置而搜索词未变
+- **THEN** 仅重跑过滤管线，搜索匹配结果复用
+
+### Requirement: 搜索请求时计算
+系统 SHALL 将搜索匹配计算改为请求时执行：输入搜索词时前端即时高亮（不触发后端搜索），仅在需要导航（F3/Enter/跳转）时按需计算匹配并缓存。
+
+#### Scenario: 输入搜索词不触发后端计算
+- **WHEN** 用户在查找条输入搜索词
+- **THEN** 前端对可见行即时高亮，后端不执行搜索匹配计算
+
+#### Scenario: 导航时计算匹配
+- **WHEN** 用户按 F3 或 Enter 请求导航
+- **THEN** 后端计算（或从缓存读取）匹配结果并返回，前端据此跳转
+
+### Requirement: 搜索结果缓存
+系统 SHALL 按 `(file_hash, query_hash)` 缓存搜索结果；缓存存物理行号（不存视觉索引），导航时换算为可见行索引；相同文件相同搜索词再次请求时直接命中缓存。
+
+#### Scenario: 相同搜索词缓存命中
+- **WHEN** 对同一文件使用相同配置再次搜索
+- **THEN** 直接从缓存返回匹配结果，不重新扫描文件
+
+#### Scenario: 缓存存物理行号
+- **WHEN** 搜索匹配结果写入缓存
+- **THEN** 存储的是物理行号，过滤配置变化后仍可通过物理行号换算有效可见索引
+
+#### Scenario: 文件变更使搜索缓存失效
+- **WHEN** 文件内容变化（哈希不一致）
+- **THEN** 该文件的搜索缓存失效并重新计算
+
+### Requirement: 过滤结果缓存
+系统 SHALL 按 `(file_hash, layers_hash)` 缓存过滤结果（可见行集），文件或图层配置未变时直接复用。
+
+#### Scenario: 相同图层配置缓存命中
+- **WHEN** 对同一文件使用相同图层配置重新同步
+- **THEN** 直接从缓存恢复可见行集，不重跑过滤管线
+
+#### Scenario: 图层配置变更使缓存失效
+- **WHEN** 图层配置变化（layers_hash 不一致）
+- **THEN** 该图层配置的过滤缓存失效并重新计算
+
+### Requirement: 分层缓存存储
+系统 SHALL 采用两级缓存存储：热数据放内存 LRU，冷数据放 SQLite（沿用分块 + zlib 压缩与 LRU 淘汰模式），并有字节上限保护。
+
+#### Scenario: 热数据内存缓存
+- **WHEN** 高频访问的搜索结果
+- **THEN** 结果在内存 LRU 中，读取无磁盘 IO
+
+#### Scenario: 冷数据持久化
+- **WHEN** 搜索结果从内存淘汰或跨会话复用
+- **THEN** 结果以压缩形式存于 SQLite，可在后续会话恢复
+
+#### Scenario: 缓存字节上限
+- **WHEN** 缓存总占用超过设定上限
+- **THEN** 系统按 LRU 淘汰最久未用的条目，保护内存不失控
+
+### Requirement: 管线取消与替换
+系统 SHALL 支持管线取消/replace：新任务取代旧任务，同一会话内不排队执行过期任务，及时释放资源。
+
+#### Scenario: 新任务取代旧任务
+- **WHEN** 搜索词快速连续变化触发多次计算
+- **THEN** 仅执行最新一次计算，前序任务被取消
+
+#### Scenario: 取消任务释放资源
+- **WHEN** 管线任务被取消
+- **THEN** 其子进程与内存被回收，不成为僵尸任务
+

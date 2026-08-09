@@ -15,7 +15,7 @@ export function isSQLLikeQuery(input: string): boolean {
     /\s+LIKE\s+/i,
     /\s+IN\s+\(/i,
   ];
-  return sqlPatterns.some(pattern => pattern.test(input));
+  return sqlPatterns.some((pattern) => pattern.test(input));
 }
 
 export function parseSQLQuery(input: string): SQLQueryResult {
@@ -48,7 +48,7 @@ export function parseSQLQuery(input: string): SQLQueryResult {
     return {
       isSQL: true,
       regex: '',
-      error: e instanceof Error ? e.message : 'Invalid SQL-like query'
+      error: e instanceof Error ? e.message : 'Invalid SQL-like query',
     };
   }
 }

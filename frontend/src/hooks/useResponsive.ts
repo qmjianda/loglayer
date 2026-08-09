@@ -48,7 +48,7 @@ export function useResponsive(): ResponsiveState {
     const updateState = () => {
       const width = window.innerWidth;
       const height = window.innerHeight;
-      
+
       setState({
         width,
         height,

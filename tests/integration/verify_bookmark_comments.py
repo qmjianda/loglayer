@@ -32,11 +32,15 @@ def test_bookmark_layer_serialization():
     assert 10 in layer_old.bookmarks
     assert layer_old.bookmarks[10] == ""
 
-    # 3. Test get_row_style
-    style = layer.get_row_style("some content", 10)
-    print(f"Row style for index 10: {style}")
-    assert style["isBookmarked"] is True
-    assert style["bookmarkComment"] == "Test Comment 10"
+    # 3. Test comment set/clear (数据层语义，视觉渲染已前移到前端)
+    layer.set_comment(10, "Updated Comment")
+    assert layer.bookmarks[10] == "Updated Comment"
+    assert layer.bookmarks[20] == ""
+
+    layer.toggle(10)
+    assert 10 not in layer.bookmarks
+    layer.toggle(10)
+    assert layer.bookmarks[10] == ""
 
     print("Success: BookmarkLayer tests passed!")
 

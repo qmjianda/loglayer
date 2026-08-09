@@ -1,7 +1,14 @@
 import os
 import importlib.util
 import inspect
-from loglayer.core import DataProcessingLayer, RenderingLayer, UIWidget, LayerCategory
+from loglayer.core import (
+    DataProcessingLayer,
+    RenderingLayer,
+    UIWidget,
+    LayerCategory,
+    LayerStage,
+    derive_engine,
+)
 from loglayer.storage import StorageRegistry
 
 class LayerRegistry:
@@ -84,13 +91,16 @@ class LayerRegistry:
                     print(f"[Registry] Error loading plugin {filename}: {e}")
 
     def _get_layer_info(self, tid, cls, is_builtin):
-        """生成单个图层的元信息"""
+        """生成单个图层的元信息（协议 v2：engine 由 category/stage 派生，图层不自声明）"""
+        category = getattr(cls, "category", LayerCategory.PROCESSING)
+        stage = getattr(cls, "stage", LayerStage.LOGIC)
         return {
             "type": tid,
             "display_name": cls.display_name,
             "description": cls.description,
             "icon": getattr(cls, "icon", "default"),
-            "category": getattr(cls, "category", LayerCategory.PROCESSING),
+            "category": category,
+            "engine": derive_engine(category, stage),
             "ui_schema": cls.get_ui_schema(),
             "is_builtin": is_builtin
         }

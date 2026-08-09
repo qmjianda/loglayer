@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAISettings, AIProviderType } from '../../hooks/useAISettings';
 import { getLogLevelStats } from '../../bridge_client';
-import { LogLevelStats } from '../StatsPanel';
+import { LogLevelStats } from '../../types';
 
 interface AISettingsPanelProps {
   onClose?: () => void;
@@ -15,12 +15,14 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
     updateSettings,
     testConnection,
     availableModels,
-    loadModels
+    loadModels,
   } = useAISettings();
 
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [testResult, setTestResult] = useState<{ connected: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ connected: boolean; message: string } | null>(
+    null,
+  );
   const [isTesting, setIsTesting] = useState(false);
 
   useEffect(() => {
@@ -57,11 +59,7 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
   ];
 
   if (isLoading) {
-    return (
-      <div className="p-4 text-center text-theme-muted">
-        加载中...
-      </div>
-    );
+    return <div className="p-4 text-center text-theme-muted">加载中...</div>;
   }
 
   return (
@@ -70,8 +68,18 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
         <h2 className="text-lg font-medium text-theme-primary">AI 设置</h2>
         {onClose && (
           <button onClick={onClose} className="p-1 hover:bg-theme-elevated rounded">
-            <svg className="w-5 h-5 text-theme-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-5 h-5 text-theme-muted"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         )}
@@ -81,7 +89,7 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
       <div className="space-y-2">
         <label className="block text-sm font-medium text-theme-primary">AI Provider</label>
         <div className="space-y-2">
-          {providerOptions.map(opt => (
+          {providerOptions.map((opt) => (
             <label
               key={opt.value}
               className={`flex items-start p-3 rounded border cursor-pointer transition-colors ${
@@ -127,8 +135,10 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
             {settings.provider === 'ollama' && (
               <>
                 {availableModels.length > 0 ? (
-                  availableModels.map(m => (
-                    <option key={m} value={m}>{m}</option>
+                  availableModels.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
                   ))
                 ) : (
                   <>
@@ -147,7 +157,9 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
       {/* Base URL (for OpenAI compatible APIs) */}
       {settings.provider === 'openai' && (
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-theme-primary">API 地址 (Base URL)</label>
+          <label className="block text-sm font-medium text-theme-primary">
+            API 地址 (Base URL)
+          </label>
           <input
             type="text"
             value={settings.baseUrl || ''}
@@ -172,9 +184,7 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
             placeholder="http://localhost:11434"
             className="w-full px-3 py-2 bg-theme-surface border border-theme-default rounded text-sm text-theme-primary placeholder-theme-muted focus:border-blue-500 focus:outline-none"
           />
-          <p className="text-xs text-theme-muted">
-            Ollama 服务地址，默认: http://localhost:11434
-          </p>
+          <p className="text-xs text-theme-muted">Ollama 服务地址，默认: http://localhost:11434</p>
         </div>
       )}
 
@@ -198,12 +208,27 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
               >
                 {showApiKey ? (
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                    />
                   </svg>
                 ) : (
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
                   </svg>
                 )}
               </button>
@@ -216,9 +241,7 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
               保存
             </button>
           </div>
-          <p className="text-xs text-theme-muted">
-            API Key 将安全存储在系统密钥链中
-          </p>
+          <p className="text-xs text-theme-muted">API Key 将安全存储在系统密钥链中</p>
         </div>
       )}
 
@@ -226,7 +249,9 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ onClose }) => 
       <div className="space-y-2">
         <label className="block text-sm font-medium text-theme-primary">连接状态</label>
         <div className="flex items-center gap-3">
-          <div className={`w-3 h-3 rounded-full ${settings.isConnected ? 'bg-green-500' : 'bg-orange-500'}`} />
+          <div
+            className={`w-3 h-3 rounded-full ${settings.isConnected ? 'bg-green-500' : 'bg-orange-500'}`}
+          />
           <span className="text-sm text-theme-secondary">
             {settings.isConnected ? '已连接' : '未连接'}
           </span>

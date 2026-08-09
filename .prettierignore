@@ -1,0 +1,6 @@
+dist
+dist-ssr
+build
+node_modules
+frontend/dist
+*.log

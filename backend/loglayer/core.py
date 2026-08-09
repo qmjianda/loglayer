@@ -24,6 +24,15 @@ class LayerStage:
     NATIVE = "native"  # 使用 ripgrep 执行 (极速)
     LOGIC = "logic"    # 使用 Python 执行 (灵活)
 
+def derive_engine(category: str, stage: str) -> str:
+    """图层类别即执行位置（协议 v2）：渲染层 → frontend，native 阶段 → native，其余 → logic。
+    图层不得自行声明执行位置，engine 一律由此派生。"""
+    if category == LayerCategory.RENDERING:
+        return "frontend"
+    if stage == LayerStage.NATIVE:
+        return "native"
+    return "logic"
+
 # ============================================================
 # 1. 过滤层 (Filtering Layer) - 仅决定可见性
 # ============================================================
@@ -92,7 +101,10 @@ class RenderingLayer(Component):
 # ============================================================
 
 class DataProcessingLayer(FilterLayer, TransformLayer):
-    """旧的处理层基类 (合并了过滤和转换)"""
+    """[DEPRECATED] 旧的处理层基类 (合并了过滤和转换)。
+    图层协议 v2 起按类别区分 FilterLayer/TransformLayer；本类仅为兼容旧插件保留，
+    Phase 2 结束后移除。新图层请直接继承 FilterLayer / TransformLayer / RenderingLayer。
+    """
     category = "processing"
 
     def process_line(self, content: str) -> Any:

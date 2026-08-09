@@ -15,15 +15,37 @@ npm install   # 项目根
 ## 运行
 
 ```bash
-# 运行全部 e2e
+# 推荐：一键编排（默认 light，不含 1.3GB 大文件测试）
+npm run e2e
+
+# 大文件专项（4 个 heavy 测试，需 tests/logs/large_test.log，峰值内存高）
+npm run e2e -- --heavy
+
+# 首次初始化：装 playwright/浏览器/npm 依赖、生成大日志
+npm run e2e -- --setup
+
+# 复用已在跑的 backend(12345)+vite(3000)，跳过杀进程/重启
+npm run e2e -- --reuse
+
+# 直接跑全部（等价 light + heavy；conftest 自动起服务）
 python3 -m pytest tests/e2e -v
 
-# 运行单个
+# 单个文件 / 单测
 python3 -m pytest tests/e2e/test_large_file_rendering.py -v
 ```
 
-conftest 会自动检测端口：若你已手动启动 backend(12345)/vite(3000)，则**复用现有实例**，
-不会重复启动。
+## 服务生命周期（重要）
+
+conftest **默认会强制杀掉**占用 12345/3000 端口的既有 backend/vite 进程再启动，
+保证测试基于最新代码（结果可信优先）。**不会**自动复用已在跑的实例。
+
+需要复用已在运行的实例时（省去杀进程/重启，但请自行保证服务代码为最新）：
+
+```bash
+LOGLAYER_E2E_REUSE=1 python3 -m pytest tests/e2e -v
+# 或
+npm run e2e -- --reuse
+```
 
 ## 测试用例
 

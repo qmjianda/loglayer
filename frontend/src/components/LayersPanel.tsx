@@ -11,14 +11,27 @@ interface LayersPanelProps {
   onRemove: (id: string) => void;
   onToggle: (id: string) => void;
   onUpdate: (id: string, update: any) => void;
-  onDrop: (draggedId: string, targetId: string | null, position: 'inside' | 'before' | 'after') => void;
+  onDrop: (
+    draggedId: string,
+    targetId: string | null,
+    position: 'inside' | 'before' | 'after',
+  ) => void;
   onJumpToLine?: (index: number) => void;
   isReadOnly?: boolean;
   fileId?: string | null;
 }
 
 export const LayersPanel: React.FC<LayersPanelProps> = ({
-  layers, stats, selectedId, onSelect, onRemove, onToggle, onUpdate, onDrop, isReadOnly = false, fileId
+  layers,
+  stats,
+  selectedId,
+  onSelect,
+  onRemove,
+  onToggle,
+  onUpdate,
+  onDrop,
+  isReadOnly = false,
+  fileId,
 }) => {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
@@ -32,7 +45,12 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   const handleDragStart = (e: React.DragEvent, id: string) => {
     // Only allow dragging from a specific handle or if not clicking on controls
     const target = e.target as HTMLElement;
-    if (target.closest('.no-drag') || target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.closest('button')) {
+    if (
+      target.closest('.no-drag') ||
+      target.tagName === 'INPUT' ||
+      target.tagName === 'BUTTON' ||
+      target.closest('button')
+    ) {
       e.preventDefault();
       return;
     }
@@ -85,7 +103,8 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     e.stopPropagation();
     if (isReadOnly) return;
 
-    const draggedId = e.dataTransfer.getData('layerId') || (window as any).__draggedLayerId || draggedLayerId;
+    const draggedId =
+      e.dataTransfer.getData('layerId') || (window as any).__draggedLayerId || draggedLayerId;
 
     if (draggedId && draggedId !== targetId && dropPosition) {
       onDrop(draggedId, targetId, dropPosition);
@@ -102,16 +121,86 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     const iconKey = entry?.icon || 'default';
 
     const ICON_LIBRARY: Record<string, React.ReactNode> = {
-      filter: <svg className="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M3 4h18l-7 9v6l-4 2V13L3 4z" /></svg>,
-      highlight: <svg className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21a9 9 0 110-18 9 9 0 010 18z" /></svg>,
-      range: <svg className="w-3.5 h-3.5 text-teal-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M7 8l-4 4 4 4M17 8l4 4-4 4M13 4l-2 16" /></svg>,
-      time: <svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-      transform: <svg className="w-3.5 h-3.5 text-orange-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M4 4h16v16H4V4zm4 4h8v8H8V8z" /></svg>,
-      folder: <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>,
-      level: <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
-      rowtint: <svg className="w-3.5 h-3.5 text-pink-400" fill="currentColor" viewBox="0 0 24 24"><path d="M4 5h16v3H4V5zm0 5h16v3H4v-3zm0 5h16v3H4v-3z" /></svg>,
-      bookmark: <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" /></svg>,
-      default: <svg className="w-3.5 h-3.5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+      filter: (
+        <svg
+          className="w-3.5 h-3.5 text-blue-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          viewBox="0 0 24 24"
+        >
+          <path d="M3 4h18l-7 9v6l-4 2V13L3 4z" />
+        </svg>
+      ),
+      highlight: (
+        <svg className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 21a9 9 0 110-18 9 9 0 010 18z" />
+        </svg>
+      ),
+      range: (
+        <svg
+          className="w-3.5 h-3.5 text-teal-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          viewBox="0 0 24 24"
+        >
+          <path d="M7 8l-4 4 4 4M17 8l4 4-4 4M13 4l-2 16" />
+        </svg>
+      ),
+      time: (
+        <svg
+          className="w-3.5 h-3.5 text-purple-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          viewBox="0 0 24 24"
+        >
+          <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      transform: (
+        <svg
+          className="w-3.5 h-3.5 text-orange-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          viewBox="0 0 24 24"
+        >
+          <path d="M4 4h16v16H4V4zm4 4h8v8H8V8z" />
+        </svg>
+      ),
+      folder: (
+        <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+        </svg>
+      ),
+      level: (
+        <svg
+          className="w-3.5 h-3.5 text-red-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          viewBox="0 0 24 24"
+        >
+          <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      ),
+      rowtint: (
+        <svg className="w-3.5 h-3.5 text-pink-400" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M4 5h16v3H4V5zm0 5h16v3H4v-3zm0 5h16v3H4v-3z" />
+        </svg>
+      ),
+      bookmark: (
+        <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+        </svg>
+      ),
+      default: (
+        <svg className="w-3.5 h-3.5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      ),
     };
 
     if (layer.type === LayerType.FOLDER) return ICON_LIBRARY.folder;
@@ -137,7 +226,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     const isDragOver = dragOverId === layer.id;
     const isFolder = layer.type === LayerType.FOLDER;
     const isEditing = editingId === layer.id;
-    const parent = layer.groupId ? layers.find(l => l.id === layer.groupId) : null;
+    const parent = layer.groupId ? layers.find((l) => l.id === layer.groupId) : null;
     const effectivelyDisabled = !layer.enabled || (parent && !parent.enabled);
     const registryEntry = registry[layer.type];
     const layerCount = stats[layer.id]?.count || 0;
@@ -154,7 +243,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
       <div
         key={layer.id}
         draggable={!isEditing && !isInputActive && !isReadOnly}
-        onDragStart={(e) => isReadOnly ? e.preventDefault() : handleDragStart(e, layer.id)}
+        onDragStart={(e) => (isReadOnly ? e.preventDefault() : handleDragStart(e, layer.id))}
         onDragEnd={handleDragEnd}
         onDragOver={(e) => handleDragOver(e, layer.id, layer.type)}
         onDragLeave={(e) => {
@@ -176,7 +265,13 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           onClick={(e) => {
             if (isReadOnly) return;
             const target = e.target as HTMLElement;
-            if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.closest('button') || target.closest('.no-drag')) return;
+            if (
+              target.tagName === 'INPUT' ||
+              target.tagName === 'BUTTON' ||
+              target.closest('button') ||
+              target.closest('.no-drag')
+            )
+              return;
 
             if (selectedId !== layer.id) {
               onSelect(layer.id);
@@ -194,14 +289,21 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           }}
         >
           {/* Collapse toggle arrow */}
-          <div className={`no-drag w-5 h-5 flex items-center justify-center shrink-0 text-gray-500 transition-transform cursor-pointer hover:text-gray-300
-            ${(isFolder ? layer.isCollapsed : (!isSelected || layer.isCollapsed)) ? '-rotate-90' : ''}`}
+          <div
+            className={`no-drag w-5 h-5 flex items-center justify-center shrink-0 text-gray-500 transition-transform cursor-pointer hover:text-gray-300
+            ${(isFolder ? layer.isCollapsed : !isSelected || layer.isCollapsed) ? '-rotate-90' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               onUpdate(layer.id, { isCollapsed: !layer.isCollapsed });
             }}
           >
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
           </div>
 
           {/* Drag Handle Icon (visible on hover) */}
@@ -211,7 +313,9 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
             </svg>
           </div>
 
-          <div className="shrink-0 w-6 h-6 flex items-center justify-center">{getLayerIcon(layer)}</div>
+          <div className="shrink-0 w-6 h-6 flex items-center justify-center">
+            {getLayerIcon(layer)}
+          </div>
 
           {/* Name/Edit area */}
           <div className="flex-1 min-w-0 flex items-center">
@@ -229,10 +333,12 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                     setIsInputActive(false);
                   }
                 }}
-                onMouseDown={e => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
               />
             ) : (
-              <span className={`text-[11px] truncate leading-tight flex-1 ${isFolder ? 'font-bold text-gray-300' : 'text-gray-400'} ${isSelected ? 'text-white' : ''}`}>
+              <span
+                className={`text-[11px] truncate leading-tight flex-1 ${isFolder ? 'font-bold text-gray-300' : 'text-gray-400'} ${isSelected ? 'text-white' : ''}`}
+              >
                 {layer.name}
               </span>
             )}
@@ -247,18 +353,31 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           {/* Actions - Visible on Hover OR if Selected */}
           <div className="no-drag flex items-center">
             <button
-              onClick={(e) => { e.stopPropagation(); onUpdate(layer.id, { enabled: !layer.enabled }); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdate(layer.id, { enabled: !layer.enabled });
+              }}
               className={`p-1.5 ${layer.enabled ? 'text-blue-500' : 'text-gray-400'} hover:bg-white/5 rounded`}
               title={layer.enabled ? '禁用' : '启用'}
             >
-              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" /></svg>
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
+              </svg>
             </button>
             <button
-              onClick={(e) => { e.stopPropagation(); onRemove(layer.id); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(layer.id);
+              }}
               className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
               title="删除"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeWidth="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
             </button>
           </div>
         </div>
@@ -272,15 +391,17 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
         )}
 
         {/* Nested Content Wrapper */}
-        <div className={`flex flex-col ${(isFolder ? layer.isCollapsed : (!isSelected || layer.isCollapsed)) ? 'h-0 overflow-hidden' : ''}`}>
+        <div
+          className={`flex flex-col ${(isFolder ? layer.isCollapsed : !isSelected || layer.isCollapsed) ? 'h-0 overflow-hidden' : ''}`}
+        >
           {/* Config Form (only for non-folders) */}
           {!isFolder && isSelected && registryEntry && (
             <div
               className="no-drag px-3 pb-3 space-y-3 border-t border-black/10 pt-3 bg-black/5"
               onMouseEnter={() => setIsInputActive(true)}
               onMouseLeave={() => setIsInputActive(false)}
-              onMouseDown={e => e.stopPropagation()}
-              onDragOver={e => e.preventDefault()} // Prevent parent drag highlighting here
+              onMouseDown={(e) => e.stopPropagation()}
+              onDragOver={(e) => e.preventDefault()} // Prevent parent drag highlighting here
             >
               <DynamicForm
                 registryEntry={registryEntry}
@@ -300,11 +421,13 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
 
   const renderRecursive = (parentId: string | undefined = undefined, depth: number = 0) => {
     return layers
-      .filter(l => l.groupId === parentId)
-      .map(layer => (
+      .filter((l) => l.groupId === parentId)
+      .map((layer) => (
         <React.Fragment key={layer.id}>
           {renderLayerCard(layer, depth)}
-          {layer.type === LayerType.FOLDER && !layer.isCollapsed && renderRecursive(layer.id, depth + 1)}
+          {layer.type === LayerType.FOLDER &&
+            !layer.isCollapsed &&
+            renderRecursive(layer.id, depth + 1)}
         </React.Fragment>
       ));
   };
@@ -312,14 +435,24 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   // === NEW: Categorize layers by category from registry ===
   const RENDERING_TYPES = ['HIGHLIGHT', 'ROWTINT', 'BOOKMARK'];
 
-  const processingLayers = layers.filter(l => !RENDERING_TYPES.includes(l.type) && l.groupId === undefined);
-  const renderingLayers = layers.filter(l => RENDERING_TYPES.includes(l.type) && l.groupId === undefined);
+  const processingLayers = layers.filter(
+    (l) => !RENDERING_TYPES.includes(l.type) && l.groupId === undefined,
+  );
+  const renderingLayers = layers.filter(
+    (l) => RENDERING_TYPES.includes(l.type) && l.groupId === undefined,
+  );
 
-  const ZoneHeader: React.FC<{ title: string; icon: React.ReactNode; count: number }> = ({ title, icon, count }) => (
+  const ZoneHeader: React.FC<{ title: string; icon: React.ReactNode; count: number }> = ({
+    title,
+    icon,
+    count,
+  }) => (
     <div className="flex items-center gap-2 px-3 py-2 bg-theme-base border-b border-[#333] text-[10px] uppercase tracking-wide text-gray-500 font-semibold select-none">
       {icon}
       <span>{title}</span>
-      <span className="ml-auto text-[9px] bg-black/40 px-1.5 py-0.5 rounded text-gray-600 font-mono">{count}</span>
+      <span className="ml-auto text-[9px] bg-black/40 px-1.5 py-0.5 rounded text-gray-600 font-mono">
+        {count}
+      </span>
     </div>
   );
 
@@ -349,13 +482,25 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
         <>
           <ZoneHeader
             title="处理层"
-            icon={<svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 4h18l-7 9v6l-4 2V13L3 4z" /></svg>}
+            icon={
+              <svg
+                className="w-3 h-3 text-blue-400"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path d="M3 4h18l-7 9v6l-4 2V13L3 4z" />
+              </svg>
+            }
             count={processingLayers.length}
           />
-          {processingLayers.map(layer => (
+          {processingLayers.map((layer) => (
             <React.Fragment key={layer.id}>
               {renderLayerCard(layer, 0)}
-              {layer.type === LayerType.FOLDER && !layer.isCollapsed && renderRecursive(layer.id, 1)}
+              {layer.type === LayerType.FOLDER &&
+                !layer.isCollapsed &&
+                renderRecursive(layer.id, 1)}
             </React.Fragment>
           ))}
         </>
@@ -366,13 +511,15 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
         <>
           <ZoneHeader
             title="渲染层"
-            icon={<svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21a9 9 0 110-18 9 9 0 010 18z" /></svg>}
+            icon={
+              <svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21a9 9 0 110-18 9 9 0 010 18z" />
+              </svg>
+            }
             count={renderingLayers.length}
           />
-          {renderingLayers.map(layer => (
-            <React.Fragment key={layer.id}>
-              {renderLayerCard(layer, 0)}
-            </React.Fragment>
+          {renderingLayers.map((layer) => (
+            <React.Fragment key={layer.id}>{renderLayerCard(layer, 0)}</React.Fragment>
           ))}
         </>
       )}

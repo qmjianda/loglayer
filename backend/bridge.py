@@ -15,6 +15,30 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 
+# ==== 性能打点（性能看护，默认关闭；LOGLAYER_TIMING=1 开启）====
+# 统一格式: [Timing] <stage> wall=<epoch_ms> file=<file_id> <duration_ms>ms <extra>
+# wall 与前端 Date.now() 同毫秒时间轴，可跨前后端对齐时间线。
+TIMING_ENABLED = os.environ.get("LOGLAYER_TIMING") == "1"
+
+
+def timing_start() -> Optional[float]:
+    return time.perf_counter() if TIMING_ENABLED else None
+
+
+def timing(stage: str, file_id: str = "", t0: Optional[float] = None, extra: str = "") -> None:
+    if not TIMING_ENABLED:
+        return
+    wall = int(time.time() * 1000)
+    parts = [f"[Timing] {stage}", f"wall={wall}"]
+    if file_id:
+        parts.append(f"file={file_id}")
+    if t0 is not None:
+        parts.append(f"{(time.perf_counter() - t0) * 1000:.1f}ms")
+    if extra:
+        parts.append(extra)
+    print(" ".join(parts))
+
+
 def convert_windows_path_to_linux(windows_path: str) -> str:
     """将 Windows 路径转换为 Linux 路径"""
     if platform.system() != "Windows":
@@ -55,12 +79,11 @@ def resolve_file_path(file_path: str) -> str:
 
 
 class LRUCache:
-    """Simple LRU cache with max size limit. Thread-safe."""
+    """LRU cache with max size limit. Thread-safe, backed by cachetools.LRUCache."""
 
     def __init__(self, max_size: int = 5000):
         self.max_size = max_size
-        self._cache = {}
-        self._access_order = []
+        self._cache = _CachetoolsLRU(maxsize=max_size)
         self._lock = threading.Lock()
 
     def __contains__(self, key):
@@ -69,21 +92,11 @@ class LRUCache:
 
     def __getitem__(self, key):
         with self._lock:
-            if key in self._cache:
-                self._access_order.remove(key)
-                self._access_order.append(key)
-                return self._cache[key]
-            raise KeyError(key)
+            return self._cache[key]
 
     def __setitem__(self, key, value):
         with self._lock:
-            if key in self._cache:
-                self._access_order.remove(key)
-            elif len(self._cache) >= self.max_size:
-                oldest = self._access_order.pop(0)
-                del self._cache[oldest]
             self._cache[key] = value
-            self._access_order.append(key)
 
     def __len__(self):
         with self._lock:
@@ -92,21 +105,22 @@ class LRUCache:
     def clear(self):
         with self._lock:
             self._cache.clear()
-            self._access_order.clear()
 
     def get(self, key, default=None):
-        try:
-            return self[key]
-        except KeyError:
-            return default
+        with self._lock:
+            try:
+                return self._cache[key]
+            except KeyError:
+                return default
 
     def pop(self, key, default=None):
-        try:
-            value = self._cache.pop(key)
-            self._access_order.remove(key)
-            return value
-        except (KeyError, ValueError):
-            return default
+        with self._lock:
+            return self._cache.pop(key, default)
+
+    def items(self):
+        """Snapshot of (key, value) pairs, safe to use outside the lock."""
+        with self._lock:
+            return list(self._cache.items())
 
 
 try:
@@ -121,7 +135,10 @@ from loglayer.core import LayerStage, LayerCategory, ProcessedLine
 from loglayer.vfs import LocalFileProvider
 from loglayer.metadata_cache import SqliteMetadataCache, CachedFileIndex
 from loglayer.workspace_store import WorkspaceStore
+from loglayer.cache_keys import compute_layers_hash, compute_query_hash
+from loglayer.cache_store import CacheStore
 from search_mixin import SearchPipeline, BookmarkPipeline
+from cachetools import LRUCache as _CachetoolsLRU
 
 # Constants
 PROCESS_CLEANUP_TIMEOUT = 0.3  # Seconds to wait for process termination before killing
@@ -302,8 +319,97 @@ class IndexingWorker(CustomThread):
             self.error.emit(str(e))
 
 
+def compute_search_matches(
+    rg_path: str,
+    file_path: str,
+    search_config: Optional[dict],
+    is_cancelled=None,
+) -> "array.array":
+    """独立计算搜索匹配的物理行号，与过滤管线完全解耦。
+
+    返回有序的匹配物理行号数组（`array.array('I')`）。搜索词为空或
+    配置缺失时返回空数组。`is_cancelled` 为可选可调用对象，用于支持
+    管线取消（循环中检查，返回 True 时提前终止）。
+    """
+    if not search_config or not search_config.get("query"):
+        return array.array("I")
+
+    cmd = [
+        rg_path,
+        "--line-number",
+        "--no-heading",
+        "--no-filename",
+        "--color",
+        "never",
+    ]
+    if search_config.get("regex"):
+        cmd.append("-e")
+    else:
+        cmd.append("-F")
+    if not search_config.get("caseSensitive"):
+        cmd.append("-i")
+    if search_config.get("wholeWord"):
+        cmd.append("-w")
+    cmd.append(search_config["query"])
+    cmd.append(file_path)
+
+    matching_physicals = array.array("I")
+    sp = None
+    try:
+        sp = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=False,
+            creationflags=get_creationflags(),
+        )
+        if sp.stdout:
+            for match_line_bytes in sp.stdout:
+                if is_cancelled and is_cancelled():
+                    break
+                match_line = match_line_bytes.decode("utf-8", errors="replace")
+                parts = match_line.split(":", 1)
+                if parts[0].isdigit():
+                    # rg --line-number 输出天然按行号升序且每行至多一次，
+                    # 直接 append 到 array('I')（4B/元素），避免 set() 的高内存开销
+                    matching_physicals.append(int(parts[0]) - 1)
+        if is_cancelled and is_cancelled():
+            try:
+                sp.terminate()
+            except Exception:
+                pass
+        sp.wait(timeout=5)
+    except Exception as e:
+        print(f"[Search] compute_search_matches error: {e}")
+    finally:
+        # 取消/异常路径兜底：确保 rg 子进程被回收，不残留孤儿进程
+        if sp is not None and sp.poll() is None:
+            try:
+                sp.terminate()
+            except Exception:
+                pass
+            try:
+                sp.wait(timeout=2)
+            except Exception:
+                try:
+                    sp.kill()
+                except Exception:
+                    pass
+
+    return matching_physicals
+
+
 class PipelineWorker(CustomThread):
-    def __init__(self, rg_path, file_path, layers, search_config=None):
+    def __init__(
+        self,
+        rg_path,
+        file_path,
+        layers,
+        search_config=None,
+        skip_filter=False,
+        precomputed_visible=None,
+        precomputed_matches=None,
+    ):
         super().__init__()
         self.finished = Signal(object, object)
         self.progress = Signal(float)
@@ -312,66 +418,45 @@ class PipelineWorker(CustomThread):
         self.file_path = file_path
         self.layers = layers
         self.search = search_config
+        self.skip_filter = skip_filter  # True=仅计算搜索匹配，过滤结果复用缓存
+        self.precomputed_visible = precomputed_visible  # skip_filter 时输出的可见行集
+        self.precomputed_matches = precomputed_matches  # 搜索缓存命中时跳过 rg 计算
         self._is_running = True
         self._processes = []
+        # 管线阶段计时（可观测，3.4）：filter_ms/search_ms 由 run() 填充
+        self.timing = {"filter_ms": 0.0, "search_ms": 0.0, "total_ms": 0.0}
 
     def run(self):
+        t_start = time.perf_counter()
         try:
             native_layers = [l for l in self.layers if l.stage == LayerStage.NATIVE]
             logic_layers = [l for l in self.layers if l.stage == LayerStage.LOGIC]
 
-            # 1. Independent search match calculation to avoid filtering the view
-            matching_physicals = set()
-            if self.search and self.search.get("query"):
-                search_cmd = [
+            # 1. 独立搜索匹配计算（物理行号，与过滤管线解耦）
+            #    搜索缓存命中时直接复用，跳过 rg 扫描
+            t_search0 = time.perf_counter()
+            if self.precomputed_matches is not None:
+                search_matches = self.precomputed_matches
+            else:
+                search_matches = compute_search_matches(
                     self.rg_path,
-                    "--line-number",
-                    "--no-heading",
-                    "--no-filename",
-                    "--color",
-                    "never",
-                ]
-                if self.search.get("regex"):
-                    search_cmd.append("-e")
-                else:
-                    search_cmd.append("-F")
-                if not self.search.get("caseSensitive"):
-                    search_cmd.append("-i")
-                if self.search.get("wholeWord"):
-                    search_cmd.append("-w")
-                search_cmd.append(self.search["query"])
-                search_cmd.append(self.file_path)
+                    self.file_path,
+                    self.search,
+                    is_cancelled=self.is_cancelled,
+                )
+            self.timing["search_ms"] = round((time.perf_counter() - t_search0) * 1000, 1)
 
-                try:
-                    sp = subprocess.Popen(
-                        search_cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=False,
-                        creationflags=get_creationflags(),
-                    )
-                    if sp.stdout:
-                        for match_line_bytes in sp.stdout:
-                            if self.is_cancelled():
-                                break
-                            match_line = match_line_bytes.decode(
-                                "utf-8", errors="replace"
-                            )
-                            parts = match_line.split(":", 1)
-                            if parts[0].isdigit():
-                                matching_physicals.add(int(parts[0]) - 1)
-                    sp.wait(timeout=5)
-                except Exception as e:
-                    print(f"[Pipeline] Search match calculation error: {e}")
+            # 1.5 过滤结果缓存命中：跳过过滤管线，直接输出缓存可见行集
+            if self.skip_filter:
+                self.timing["total_ms"] = round((time.perf_counter() - t_start) * 1000, 1)
+                if self._is_running:
+                    self.finished.emit(self.precomputed_visible, search_matches)
+                return
 
             # 2. Quick Exit: If no filters at all, everything is visible
             if not native_layers and not logic_layers:
                 visible_indices = None
-                search_matches = (
-                    array.array("I", sorted(list(matching_physicals)))
-                    if matching_physicals
-                    else array.array("I")
-                )
+                self.timing["total_ms"] = round((time.perf_counter() - t_start) * 1000, 1)
                 if self._is_running:
                     self.finished.emit(visible_indices, search_matches)
                 return
@@ -428,8 +513,6 @@ class PipelineWorker(CustomThread):
             for l in logic_layers:
                 l.reset()
             visible_indices = array.array("I")
-            search_matches = array.array("I")
-            v_idx = 0
             line_count = 0
 
             if last_stdout:
@@ -459,14 +542,15 @@ class PipelineWorker(CustomThread):
 
                     if is_visible:
                         visible_indices.append(physical_idx)
-                        if physical_idx in matching_physicals:
-                            search_matches.append(v_idx)
-                        v_idx += 1
 
                     line_count += 1
                     if line_count % 10000 == 0:
                         self.progress.emit(0)
 
+            self.timing["filter_ms"] = round(
+                max(0, (time.perf_counter() - t_start - self.timing["search_ms"] / 1000) * 1000), 1
+            )
+            self.timing["total_ms"] = round((time.perf_counter() - t_start) * 1000, 1)
             if self._is_running:
                 self.finished.emit(visible_indices, search_matches)
 
@@ -699,11 +783,15 @@ class LogSession:
         self.size = 0
         self.line_offsets = array.array("Q")
         self.visible_indices = None
-        self.search_matches = None
+        self.search_matches = None  # 匹配行的物理行号（有序 array），非视觉索引
         self.layers = []
         self.layer_instances = []  # 处理层实例
         self.rendering_instances = []  # 渲染层实例
         self.search_config = None
+        self.layers_hash = None  # 当前图层配置的缓存 key（sync_layers 时计算）
+        self.query_hash = None  # 当前搜索配置的缓存 key（搜索请求时计算）
+        self._pipeline_from_cache = False  # 本次管线结果来自过滤缓存（写回时跳过）
+        self._search_from_cache = False  # 本次搜索匹配来自搜索缓存（写回时跳过）
         # 分层缓存: processing_cache (过滤/转换结果) + rendering_cache (视觉效果)
         # 使用 LRU Cache 防止内存溢出
         self.processing_cache = {}
@@ -711,11 +799,15 @@ class LogSession:
         self.workers = {}
         # 缓存命中标记：命中后 line_offsets 来自缓存，无需写回
         self.from_cache = False
+        # 性能打点：索引线程启动时刻（LOGLAYER_TIMING=1 时使用）
+        self.index_t0: Optional[float] = None
+        # 性能打点：管线 worker 启动时刻（LOGLAYER_TIMING=1 时使用）
+        self.pipeline_t0: Optional[float] = None
 
     @property
     def cache(self):
         """Backward compatibility - combined view of both caches."""
-        return {**self.processing_cache, **self.rendering_cache._cache}
+        return {**self.processing_cache, **dict(self.rendering_cache.items())}
 
     def close(self, bridge=None):
         for name, worker in list(self.workers.items()):
@@ -761,6 +853,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         self._provider = LocalFileProvider()
         self._workspace_dir = None
         self._cache = None
+        self._cache_store = None  # 统一缓存层（内存 LRU + SQLite），随 _cache 惰性构建
         self._cache_size_mb = 2048
         # 工作区统一持久化存储（`.loglayer/workspace.db`，惰性初始化随工作区切换）
         self._workspace_store = None
@@ -811,6 +904,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         except Exception:
             pass
         self._cache = None
+        self._cache_store = None  # 统一缓存层随 SQLite 缓存一起重建
         # 废弃旧持久化文件（config.json / 首次迁移的 cache.db）
         if folder_path:
             self._cleanup_legacy_files(folder_path)
@@ -880,6 +974,16 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         self._workspace_store = WorkspaceStore(root)
         return self._workspace_store
 
+    def _get_cache_store(self):
+        """获取统一缓存层实例（惰性构建，复用当前 SQLite 缓存）。
+
+        过滤/搜索计算结果缓存：热数据在内存 LRU、冷数据落 SQLite，
+        与 `_cache` 生命周期一致（工作区切换时由 `set_workspace_dir` 重建）。
+        """
+        if self._cache_store is None and self._cache is not None:
+            self._cache_store = CacheStore(self._cache)
+        return self._cache_store
+
     def _current_workspace_store(self, folder_path: Optional[str] = None):
         """切换到指定工作区（可选）并返回其统一存储实例。"""
         if folder_path:
@@ -938,12 +1042,19 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         }
 
     def set_cache_size_mb(self, cache_size_mb: int) -> bool:
-        """更新缓存大小（MB）并触发 LRU 淘汰。"""
+        """更新缓存大小（MB）并触发 LRU 淘汰。
+
+        `cache_size_mb` 同时约束三层：SQLite 磁盘存储、偏移数组内存热缓存、
+        CacheStore 过滤/搜索内存层（按百分比派生，默认 1%）。
+        """
         try:
             self._cache_size_mb = max(1, int(cache_size_mb))
             self._ensure_cache()
             if self._cache is not None:
                 self._cache.set_cache_size(self._cache_size_mb * 1024 * 1024)
+            if self._cache_store is not None:
+                mem_bytes = max(1 * 1024 * 1024, self._cache_size_mb * 1024 * 1024 // 100)
+                self._cache_store.set_memory_budget(mem_bytes)
             return True
         except Exception as e:
             print(f"[Cache] set_cache_size error: {e}")
@@ -1006,6 +1117,9 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
     def _retire_worker(self, worker):
         if not worker:
             return
+        if worker in self._zombie_workers:
+            # 已在待回收列表：缓存命中路径可能残留已退役引用，避免重复入列/重复连接
+            return
         try:
             worker.finished.disconnect()
             worker.error.disconnect()
@@ -1019,6 +1133,15 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         worker.error.connect(lambda *args: self._cleanup_zombie(worker))
         if not worker.isRunning():
             self._cleanup_zombie(worker)
+        else:
+            # stop() 后 run() 不再 emit finished，由监视线程等待线程退出后回收
+            threading.Thread(
+                target=self._reap_worker, args=(worker,), daemon=True
+            ).start()
+
+    def _reap_worker(self, worker):
+        worker.wait(timeout=10)
+        self._cleanup_zombie(worker)
 
     def _cleanup_zombie(self, worker):
         """清理已完成的 zombie worker"""
@@ -1057,6 +1180,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         return os.path.join(path_to_check, exe)
 
     def open_file(self, file_id: str, file_path: str) -> bool:
+        t0_open = timing_start()
         try:
             if file_id in self._sessions:
                 self._sessions[file_id].close(self)
@@ -1074,15 +1198,18 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             self._ensure_cache()
 
             session = LogSession(file_id, resolved_path, self._provider)
+            timing("open_file.entry", file_id, t0_open)
 
-            # 缓存查找：命中 → 反序列化偏移，跳过重新扫描
-            cached = self._cache.get(resolved_path)
-            if cached is not None:
-                offsets = SqliteMetadataCache.deserialize_offsets(cached.offsets_blob)
+            # 缓存查找：命中 → 直接取已反序列化偏移（内存/磁盘两级），跳过重新扫描
+            t0_lookup = timing_start()
+            offsets = self._cache.get_offsets(resolved_path)
+            timing("open_file.cache_lookup", file_id, t0_lookup, f"hit={offsets is not None}")
+            if offsets is not None:
+                t0_hit = timing_start()
                 meta = self._provider.open_mmap(resolved_path)
                 self._provider.set_line_offsets(resolved_path, offsets)
                 session.size = meta.size_bytes
-                session.line_offsets = array.array("Q", offsets)
+                session.line_offsets = offsets
                 session.mmap = self._provider.get_mmap(resolved_path)
                 session.file_obj = self._provider.get_file_obj(resolved_path)
                 session.from_cache = True
@@ -1099,6 +1226,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                         }
                     ),
                 )
+                timing("open_file.cache_hit", file_id, t0_hit)
                 return True
 
             try:
@@ -1120,8 +1248,10 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                         }
                     ),
                 )
+                timing("open_file.cache_hit", file_id, t0_open, "empty-file")
                 return True
 
+            t0_miss = timing_start()
             meta = self._provider.open_mmap(resolved_path)
             session.size = meta.size_bytes
             session.mmap = self._provider.get_mmap(resolved_path)
@@ -1144,6 +1274,8 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             worker.error.connect(
                 lambda e: self.operationError.emit(file_id, "indexing", e)
             )
+            timing("open_file.cache_miss", file_id, t0_miss)
+            session.index_t0 = timing_start()
             worker.start()
             return True
         except Exception as e:
@@ -1151,6 +1283,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             return False
 
     def _on_indexing_finished(self, file_id, result):
+        t0 = timing_start()
         # Handle both old format (list) and new format (dict with partial support)
         if isinstance(result, dict):
             offsets = result.get("offsets", result)
@@ -1178,17 +1311,13 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         session.processing_cache.clear()
         session.rendering_cache.clear()
 
-        # 未命中缓存：索引完成后写回 SQLite 缓存
-        if not getattr(session, "from_cache", False):
-            self._write_cache(session.path, session.line_offsets)
-
         name = (
             session.provider.get_name(session.path)
             if session.provider
             else Path(session.path).name
         )
 
-        # Emit fileLoaded with line count info
+        # Emit fileLoaded with line count info（先通知前端，缓存写回放后台，避免阻塞打开）
         self.fileLoaded.emit(
             file_id,
             json.dumps(
@@ -1199,6 +1328,23 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 }
             ),
         )
+        timing(
+            "indexing.finished", file_id, getattr(session, "index_t0", None),
+            f"lines={line_count}",
+        )
+        timing("indexing.notify", file_id, t0)
+
+        # 未命中缓存：索引完成后先注入内存热缓存（同进程二次打开立即命中），
+        # 再后台写回 SQLite（序列化+压缩耗时，不阻塞 fileLoaded）
+        if not getattr(session, "from_cache", False):
+            path = session.path
+            offsets_snapshot = session.line_offsets
+            self._cache.cache_offsets_memory(path, offsets_snapshot)
+            threading.Thread(
+                target=self._write_cache,
+                args=(path, offsets_snapshot),
+                daemon=True,
+            ).start()
 
     def _write_cache(self, file_path: str, offsets) -> None:
         """将行偏移索引分块压缩后写入 SQLite 缓存，并触发 LRU 淘汰。"""
@@ -1343,6 +1489,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             return False
 
     def _start_pipeline(self, file_id, layer_instances):
+        t0 = timing_start()
         if file_id not in self._sessions:
             return
         session = self._sessions[file_id]
@@ -1350,19 +1497,111 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             self._retire_worker(session.workers["pipeline"])
         if "stats" in session.workers:
             self._retire_worker(session.workers["stats"])
-        if not layer_instances and not (
-            session.search_config and session.search_config.get("query")
-        ):
+        timing("pipeline.start", file_id, t0)
+
+        has_search = bool(session.search_config and session.search_config.get("query"))
+
+        # 过滤/搜索缓存：同文件同配置命中则跳过对应计算
+        cache_store = self._get_cache_store()
+        cache_hit = False
+        cached_visible = None
+        search_hit = False
+        cached_matches = None
+        session._pipeline_from_cache = False
+        session._search_from_cache = False
+        t0_cache = timing_start()
+        if cache_store is not None and layer_instances:
+            session.layers_hash = compute_layers_hash(session.layers)
+            cache_hit, cached_visible = cache_store.get_pipeline(
+                session.path, session.layers_hash
+            )
+        else:
+            session.layers_hash = None
+        if cache_store is not None and has_search:
+            session.query_hash = compute_query_hash(session.search_config)
+            search_hit, cached_matches = cache_store.get_search(
+                session.path, session.query_hash
+            )
+        else:
+            session.query_hash = None
+        timing(
+            "pipeline.cache_lookup", file_id, t0_cache,
+            f"filter_hit={cache_hit} search_hit={search_hit}",
+        )
+
+        if cache_hit and search_hit:
+            # 双命中：过滤与搜索均恢复自缓存，无 worker
+            session.visible_indices = cached_visible
+            session.search_matches = cached_matches
+            session.processing_cache.clear()
+            session.rendering_cache.clear()
+            session._pipeline_from_cache = True
+            session._search_from_cache = True
+            indices_len = (
+                len(cached_visible)
+                if cached_visible is not None
+                else len(session.line_offsets)
+            )
+            matches_len = len(cached_matches) if cached_matches is not None else 0
+            self.pipelineFinished.emit(file_id, indices_len, matches_len)
+            self.operationStatusChanged.emit(file_id, "ready", 100)
+            timing("pipeline.worker_start", file_id, t0, "mode=cache-both")
+        elif cache_hit:
+            # 过滤缓存命中：恢复可见行集，清缓存；有搜索词则仅计算搜索匹配
+            session.visible_indices = cached_visible
+            session.processing_cache.clear()
+            session.rendering_cache.clear()
+            session._pipeline_from_cache = True
+            if has_search:
+                self.operationStarted.emit(file_id, "pipeline")
+                worker = PipelineWorker(
+                    self._rg_path,
+                    session.path,
+                    [],
+                    session.search_config,
+                    skip_filter=True,
+                    precomputed_visible=cached_visible,
+                )
+                session.workers["pipeline"] = worker
+                worker.finished.connect(
+                    lambda indices, matches: self._on_pipeline_finished(
+                        file_id, indices, matches
+                    )
+                )
+                worker.error.connect(
+                    lambda e: self.operationError.emit(file_id, "pipeline", e)
+                )
+                session.pipeline_t0 = timing_start()
+                worker.start()
+                timing("pipeline.worker_start", file_id, t0, "mode=filter-cache-search")
+            else:
+                session.search_matches = None
+                indices_len = (
+                    len(cached_visible)
+                    if cached_visible is not None
+                    else len(session.line_offsets)
+                )
+                self.pipelineFinished.emit(file_id, indices_len, 0)
+                self.operationStatusChanged.emit(file_id, "ready", 100)
+                timing("pipeline.worker_start", file_id, t0, "mode=filter-cache")
+        elif not layer_instances and not has_search:
             session.visible_indices = None
             session.search_matches = None
             session.processing_cache.clear()
             session.rendering_cache.clear()
             self.pipelineFinished.emit(file_id, len(session.line_offsets), 0)
             self.operationStatusChanged.emit(file_id, "ready", 100)
+            timing("pipeline.worker_start", file_id, t0, "mode=empty")
         else:
+            # 搜索命中：匹配来自缓存（precomputed_matches 透传），写回时跳过避免重复计数
+            session._search_from_cache = search_hit
             self.operationStarted.emit(file_id, "pipeline")
             worker = PipelineWorker(
-                self._rg_path, session.path, layer_instances, session.search_config
+                self._rg_path,
+                session.path,
+                layer_instances,
+                session.search_config,
+                precomputed_matches=cached_matches if search_hit else None,
             )
             session.workers["pipeline"] = worker
             worker.finished.connect(
@@ -1373,11 +1612,13 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             worker.error.connect(
                 lambda e: self.operationError.emit(file_id, "pipeline", e)
             )
+            session.pipeline_t0 = timing_start()
             worker.start()
+            timing("pipeline.worker_start", file_id, t0, "mode=compute")
         if any(
             l.get("enabled") and l.get("type") in ["HIGHLIGHT", "FILTER", "LEVEL"]
             for l in session.layers
-        ) or (session.search_config and session.search_config.get("query")):
+        ) or has_search:
             stat_worker = StatsWorker(
                 self._rg_path,
                 session.layer_instances,
@@ -1396,38 +1637,59 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
     def get_layer_registry(self) -> str:
         return json.dumps(self._registry.get_all_types())
 
+    def get_diagnostics(self) -> str:
+        """诊断接口（可观测，3.4）：缓存命中统计 + 各文件最近管线阶段耗时。"""
+        cache_store = self._get_cache_store()
+        stats = cache_store.get_stats() if cache_store is not None else {}
+        sessions_info = {}
+        for fid, session in self._sessions.items():
+            worker = session.workers.get("pipeline")
+            timing = getattr(worker, "timing", None) if worker else None
+            sessions_info[fid] = {
+                "path": getattr(session, "path", ""),
+                "timing": timing or {},
+                "matches": len(session.search_matches) if session.search_matches is not None else 0,
+                "visible": len(session.visible_indices) if session.visible_indices is not None else None,
+            }
+        return json.dumps({"cache_stats": stats, "sessions": sessions_info})
+
     def _calculate_log_level_stats(self, file_path: str) -> dict:
         """Calculate log level statistics for a file using ripgrep"""
         log_levels = ["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "FATAL"]
-        results = {}
+        results = {level: 0 for level in log_levels}
 
         try:
-            for level in log_levels:
-                pattern = f"\\b{level}\\b"
-                cmd = [
-                    self._rg_path,
-                    "-i",  # case insensitive
-                    "-c",  # count only
-                    "-e",
-                    pattern,
-                    file_path,
-                ]
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    creationflags=get_creationflags(),
-                    timeout=30,
+            # 单次 ripgrep 扫描同时提取全部级别关键字（-o 每处匹配输出一行），
+            # 避免 6 次串行子进程启动 + 重复读文件。
+            pattern = "\\b(" + "|".join(log_levels) + ")\\b"
+            cmd = [
+                self._rg_path,
+                "-i",  # case insensitive
+                "-o",
+                "--no-line-number",
+                "-e",
+                pattern,
+                file_path,
+            ]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                creationflags=get_creationflags(),
+                timeout=30,
+            )
+            # returncode 0 = 有匹配；1 = 无匹配；其他为错误
+            if result.returncode in (0, 1):
+                for line in result.stdout.splitlines():
+                    level = line.strip().upper()
+                    if level in results:
+                        results[level] += 1
+            else:
+                print(
+                    f"[LogLevelStats] rg error (rc={result.returncode}): {result.stderr[:200]}"
                 )
-                if result.returncode == 0:
-                    count = (
-                        int(result.stdout.strip().split(":")[-1])
-                        if result.stdout
-                        else 0
-                    )
-                    results[level] = count
-                else:
-                    results[level] = 0
+            for level in log_levels:
+                timing(f"stats.level.{level}", "", None, f"count={results[level]}")
         except Exception as e:
             print(f"[LogLevelStats] Error calculating stats: {e}")
             for level in log_levels:
@@ -1440,8 +1702,10 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         if file_id not in self._sessions:
             return json.dumps({})
 
+        t0 = timing_start()
         session = self._sessions[file_id]
         stats = self._calculate_log_level_stats(session.path)
+        timing("stats.total", file_id, t0)
         return json.dumps(stats)
 
     def reload_plugins(self) -> bool:
@@ -1462,12 +1726,31 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         matches_len = len(search_matches) if search_matches is not None else 0
         session.processing_cache.clear()
         session.rendering_cache.clear()
+        # 过滤结果写回缓存（仅真实管线计算后；缓存命中路径跳过，避免污染统计）
+        if session.layers_hash and not session._pipeline_from_cache:
+            cache_store = self._get_cache_store()
+            if cache_store is not None:
+                cache_store.put_pipeline(
+                    session.path, session.layers_hash, session.visible_indices
+                )
+        # 搜索匹配写回缓存（仅真实计算路径；搜索缓存命中路径跳过）
+        if session.query_hash and not session._search_from_cache:
+            cache_store = self._get_cache_store()
+            if cache_store is not None and search_matches is not None:
+                cache_store.put_search(
+                    session.path, session.query_hash, search_matches
+                )
         self.pipelineFinished.emit(file_id, indices_len, matches_len)
         self.operationStatusChanged.emit(file_id, "ready", 100)
+        timing(
+            "pipeline.finished", file_id, getattr(session, "pipeline_t0", None),
+            f"indices={indices_len} matches={matches_len}",
+        )
 
     # Search methods have been moved to SearchMixin
 
     def read_processed_lines(self, file_id: str, start_line: int, count: int) -> str:
+        t0 = timing_start()
         if file_id not in self._sessions:
             return "[]"
         session = self._sessions[file_id]
@@ -1505,10 +1788,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                         .replace("\n", " ")
                     )
 
-                    # 1. 应用处理层的内容变换
-                    highlights = []
-                    row_style = {}
-                    # 只有 Transform 类型的图层允许修改内容
+                    # 应用处理层的内容变换（仅 Transform 类型的图层允许修改内容）
                     logic_layers = [
                         l
                         for l in session.layer_instances
@@ -1526,69 +1806,17 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                         else:
                             content = res
 
-                    # 2. 应用渲染层的高亮和行样式
-                    # 此时渲染层面对的是已经过滤且转换后的 content
-                    rendering_layers = getattr(session, "rendering_instances", [])
-                    for layer in reversed(rendering_layers):
-                        hls = layer.highlight_line(content)
-                        if hls:
-                            # 如果未来需要将高亮映射回原始行，可以使用 current_offset_map
-                            highlights.extend(hls)
-
-                        # 获取行样式 (如 RowTintLayer)
-                        if hasattr(layer, "get_row_style"):
-                            style = (
-                                layer.get_row_style(content, index=real_idx)
-                                if "index" in layer.get_row_style.__code__.co_varnames
-                                else layer.get_row_style(content)
-                            )
-                            if style:
-                                row_style.update(style)
-
-                    # 3. 应用搜索高亮
-                    if session.search_config and session.search_config.get("query"):
-                        sc = session.search_config
-                        try:
-                            flags = re.IGNORECASE if not sc.get("caseSensitive") else 0
-                            pattern = (
-                                sc["query"]
-                                if sc.get("regex")
-                                else re.escape(sc["query"])
-                            )
-                            search_re = re.compile(pattern, flags)
-                            for m in search_re.finditer(content):
-                                highlights.append(
-                                    {
-                                        "start": m.start(),
-                                        "end": m.end(),
-                                        "color": "#facc15",
-                                        "opacity": 100,
-                                        "isSearch": True,
-                                    }
-                                )
-                        except:
-                            pass
-
+                    # 图层高亮/行样式与搜索高亮由前端渲染器按可见行即时计算（2.6），后端不再下发
                     line_data = {
                         "index": real_idx,
                         "content": content,
-                        "highlights": highlights,
                     }
-                    if row_style:
-                        line_data["rowStyle"] = row_style
-                        # 提升 isBookmarked 到根属性 isMarked
-                        # 提升 isMarked 到根属性
-                        if row_style.get("isMarked") or row_style.get("isBookmarked"):
-                            line_data["isMarked"] = True
-                            if "bookmarkComment" in row_style:
-                                line_data["bookmarkComment"] = row_style[
-                                    "bookmarkComment"
-                                ]
                     # LRU Cache 会自动处理容量限制
                     session.rendering_cache[i] = line_data
                     results.append(line_data)
                 except (IndexError, ValueError):
                     continue
+            timing("read_lines", file_id, t0, f"rows={len(results)}")
             return json.dumps(results)
         except (ValueError, RuntimeError) as e:
             print(f"Session error for {file_id}: {e}")

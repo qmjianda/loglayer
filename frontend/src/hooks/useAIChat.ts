@@ -44,37 +44,47 @@ export function useAIChat(): UseAIChatReturn {
     checkConnection();
   }, [checkConnection]);
 
-  const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim()) return;
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!content.trim()) return;
 
-    setIsProcessing(true);
-    setError(null);
+      setIsProcessing(true);
+      setError(null);
 
-    const userMessage: ChatMessage = { role: 'user', content };
-    const allMessages = [...messages, userMessage];
+      const userMessage: ChatMessage = { role: 'user', content };
+      const allMessages = [...messages, userMessage];
 
-    setMessages(prev => [...prev, userMessage]);
+      setMessages((prev) => [...prev, userMessage]);
 
-    try {
-      const response = await fetchJson<{ message: string; suggestions: ChatSuggestion[] }>('/api/ai/chat', 'POST', {
-        messages: allMessages,
-        content
-      });
+      try {
+        const response = await fetchJson<{ message: string; suggestions: ChatSuggestion[] }>(
+          '/api/ai/chat',
+          'POST',
+          {
+            messages: allMessages,
+            content,
+          },
+        );
 
-      const assistantMessage: ChatMessage = { role: 'assistant', content: response.message };
-      setMessages(prev => [...prev, assistantMessage]);
-      setSuggestions(response.suggestions || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send message');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [messages]);
+        const assistantMessage: ChatMessage = { role: 'assistant', content: response.message };
+        setMessages((prev) => [...prev, assistantMessage]);
+        setSuggestions(response.suggestions || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to send message');
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [messages],
+  );
 
-  const sendSelectedContent = useCallback(async (content: string) => {
-    if (!content.trim()) return;
-    await sendMessage(content);
-  }, [sendMessage]);
+  const sendSelectedContent = useCallback(
+    async (content: string) => {
+      if (!content.trim()) return;
+      await sendMessage(content);
+    },
+    [sendMessage],
+  );
 
   const clearChat = useCallback(() => {
     setMessages([]);
@@ -91,6 +101,6 @@ export function useAIChat(): UseAIChatReturn {
     sendSelectedContent,
     clearChat,
     isConnected,
-    checkConnection
+    checkConnection,
   };
 }
