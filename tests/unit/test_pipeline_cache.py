@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 import pytest
 
 import bridge as bridge_module
+import bridge.search_matching as search_matching_module
 from bridge import FileBridge
 
 
@@ -364,7 +365,7 @@ def test_cancel_terminates_search_subprocess(cache_bridge, monkeypatch):
     bridge, ws = cache_bridge
     search_config = {"query": "INFO", "regex": False, "caseSensitive": False}
     fake1 = _FakePopen()
-    monkeypatch.setattr(bridge_module.subprocess, "Popen", lambda *a, **kw: fake1)
+    monkeypatch.setattr(search_matching_module.subprocess, "Popen", lambda *a, **kw: fake1)
 
     # 正常路径（不取消）：读完两行，matches=[0,1]，子进程不被 kill
     matches = bridge_module.compute_search_matches(
@@ -375,7 +376,7 @@ def test_cancel_terminates_search_subprocess(cache_bridge, monkeypatch):
 
     # 取消路径：循环中途触发取消 → 子进程被 terminate
     fake2 = _FakePopen()
-    monkeypatch.setattr(bridge_module.subprocess, "Popen", lambda *a, **kw: fake2)
+    monkeypatch.setattr(search_matching_module.subprocess, "Popen", lambda *a, **kw: fake2)
     matches = bridge_module.compute_search_matches(
         "rg", str(ws / "app.log"), search_config, is_cancelled=lambda: True
     )

@@ -13,8 +13,8 @@ def test_selection_fallbacks():
     mock_tk = MagicMock()
     mock_filedialog = MagicMock()
     
-    with patch('bridge.tk', mock_tk), \
-         patch('bridge.filedialog', mock_filedialog):
+    with patch('bridge.file_bridge.tk', mock_tk), \
+         patch('bridge.file_bridge.filedialog', mock_filedialog):
         
         from bridge import FileBridge
         bridge = FileBridge()
