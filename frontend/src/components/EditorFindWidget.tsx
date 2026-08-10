@@ -101,13 +101,15 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
       window.addEventListener('mousemove', onMouseMove);
       window.addEventListener('mouseup', onMouseUp);
     },
-    [width]
+    [width],
   );
 
   // 双击把手：最大化至面板可用宽度
   const maximizeWidth = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    const container = (e.currentTarget as HTMLElement).closest('[data-find-widget-host]') as HTMLElement | null;
+    const container = (e.currentTarget as HTMLElement).closest(
+      '[data-find-widget-host]',
+    ) as HTMLElement | null;
     const maxWidth = container ? Math.max(MIN_WIDTH, container.clientWidth - 40) : MIN_WIDTH;
     setWidth(maxWidth);
   }, []);
@@ -145,9 +147,15 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
         <button
           onClick={toggleSearchMode}
           className={`ml-1 px-2 py-1 rounded text-[9px] font-medium tracking-wide transition-all shrink-0 ${
-            searchMode === 'filter' ? 'bg-primary-color text-white' : 'bg-theme-input text-theme-secondary hover:text-theme-primary'
+            searchMode === 'filter'
+              ? 'bg-primary-color text-white'
+              : 'bg-theme-input text-theme-secondary hover:text-theme-primary'
           }`}
-          title={searchMode === 'highlight' ? '当前: 仅高亮模式。点击切换到过滤模式' : '当前: 过滤模式（隐藏不匹配行）。点击切换到仅高亮模式'}
+          title={
+            searchMode === 'highlight'
+              ? '当前: 仅高亮模式。点击切换到过滤模式'
+              : '当前: 过滤模式（隐藏不匹配行）。点击切换到仅高亮模式'
+          }
         >
           {searchMode === 'filter' ? '过滤' : '高亮'}
         </button>
@@ -172,9 +180,13 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
 
         <div className="flex items-center pr-1 bg-theme-input shrink-0">
           <button
-            onClick={() => onConfigChange((prev) => ({ ...prev, caseSensitive: !prev.caseSensitive }))}
+            onClick={() =>
+              onConfigChange((prev) => ({ ...prev, caseSensitive: !prev.caseSensitive }))
+            }
             className={`w-[22px] h-[22px] flex items-center justify-center rounded text-[10px] transition-colors ${
-              config.caseSensitive ? 'bg-primary-color text-white' : 'text-theme-secondary hover:bg-theme-hover'
+              config.caseSensitive
+                ? 'bg-primary-color text-white'
+                : 'text-theme-secondary hover:bg-theme-hover'
             }`}
             title="区分大小写 (Alt+C)"
           >
@@ -183,7 +195,9 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
           <button
             onClick={() => onConfigChange((prev) => ({ ...prev, wholeWord: !prev.wholeWord }))}
             className={`w-[22px] h-[22px] flex items-center justify-center rounded text-[10px] transition-colors ${
-              config.wholeWord ? 'bg-primary-color text-white' : 'text-theme-secondary hover:bg-theme-hover'
+              config.wholeWord
+                ? 'bg-primary-color text-white'
+                : 'text-theme-secondary hover:bg-theme-hover'
             }`}
             title="全字匹配 (Alt+W)"
           >
@@ -194,7 +208,9 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
           <button
             onClick={() => onConfigChange((prev) => ({ ...prev, regex: !prev.regex }))}
             className={`w-[22px] h-[22px] flex items-center justify-center rounded text-[10px] transition-colors ${
-              config.regex ? 'bg-primary-color text-white' : 'text-theme-secondary hover:bg-theme-hover'
+              config.regex
+                ? 'bg-primary-color text-white'
+                : 'text-theme-secondary hover:bg-theme-hover'
             }`}
             title="使用正则表达式 (Alt+R)"
           >
@@ -218,7 +234,12 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
           title="上一个匹配项 (Shift+Enter)"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 15l7-7 7 7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.5"
+              d="M5 15l7-7 7 7"
+            />
           </svg>
         </button>
         <button
@@ -227,7 +248,12 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
           title="下一个匹配项 (Enter)"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.5"
+              d="M19 9l-7 7-7-7"
+            />
           </svg>
         </button>
         <button

@@ -31,12 +31,16 @@ describe('EditorFindWidget 结构对齐（1.3）', () => {
     const inputs = screen.getAllByRole('textbox');
     expect(inputs).toHaveLength(1);
     const buttons = screen.getAllByRole('button');
-    const titles = buttons.map(b => b.getAttribute('title')).filter(Boolean);
+    const titles = buttons.map((b) => b.getAttribute('title')).filter(Boolean);
     // 顺序：输入框在计数之前，计数文本在 prev/next/close 之前
     expect(screen.getByPlaceholderText('查找')).toBeTruthy();
     expect(screen.getByText(/1 \/ 3|1 of 3/)).toBeTruthy();
     expect(titles).toEqual(
-      expect.arrayContaining(['上一个匹配项 (Shift+Enter)', '下一个匹配项 (Enter)', '关闭 (Escape)'])
+      expect.arrayContaining([
+        '上一个匹配项 (Shift+Enter)',
+        '下一个匹配项 (Enter)',
+        '关闭 (Escape)',
+      ]),
     );
     void container;
   });

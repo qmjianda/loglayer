@@ -106,7 +106,12 @@ const LogViewerPanel: React.FC<IDockviewPanelProps<LogViewerPanelParams>> = ({ p
     const isLoading = data.loadingFileIds.has(fileId) || data.indexingFileIds.has(fileId);
     const isActive = data.activeFileId === fileId;
     const searchQuery = tab?.query ?? '';
-    const searchConfig = tab?.config ?? { regex: false, caseSensitive: false, wholeWord: false, mode: 'highlight' as const };
+    const searchConfig = tab?.config ?? {
+      regex: false,
+      caseSensitive: false,
+      wholeWord: false,
+      mode: 'highlight' as const,
+    };
     const matchCount = data.processedCache[fileId]?.searchMatchCount ?? 0;
     const currentMatchNumber = tab && tab.currentMatchRank >= 0 ? tab.currentMatchRank + 1 : 0;
 

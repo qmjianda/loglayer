@@ -11,53 +11,53 @@ import type { SearchConfig } from '../types';
  */
 
 export interface TabSearchState {
-    query: string;
-    config: SearchConfig;
-    /** 当前匹配 rank（0-based，-1 = 无匹配/未导航） */
-    currentMatchRank: number;
-    /** 当前匹配的物理行索引快照（仅导航所需，全量数组走后端缓存） */
-    currentMatchIndex: number;
-    isSearching: boolean;
-    /** find widget 是否展开（per-tab 记忆，切 tab 恢复） */
-    isFindVisible: boolean;
-    /** Ctrl+F 聚焦请求计数：每次 requestFocus 递增，widget 侧监听变化执行 focus+select */
-    focusRequest: number;
+  query: string;
+  config: SearchConfig;
+  /** 当前匹配 rank（0-based，-1 = 无匹配/未导航） */
+  currentMatchRank: number;
+  /** 当前匹配的物理行索引快照（仅导航所需，全量数组走后端缓存） */
+  currentMatchIndex: number;
+  isSearching: boolean;
+  /** find widget 是否展开（per-tab 记忆，切 tab 恢复） */
+  isFindVisible: boolean;
+  /** Ctrl+F 聚焦请求计数：每次 requestFocus 递增，widget 侧监听变化执行 focus+select */
+  focusRequest: number;
 }
 
 export interface SearchStore {
-    tabs: Record<string, TabSearchState>;
-    activePanelId: string | null;
-    // actions
-    ensureTab: (panelId: string) => void;
-    destroyTab: (panelId: string) => void;
-    setActivePanel: (panelId: string | null) => void;
-    setQuery: (panelId: string, query: string) => void;
-    setConfig: (panelId: string, patch: Partial<SearchConfig>) => void;
-    setCurrentMatch: (panelId: string, rank: number, index: number) => void;
-    setIsSearching: (panelId: string, searching: boolean) => void;
-    setFindVisible: (panelId: string, visible: boolean) => void;
-    requestFocus: (panelId: string) => void;
-    clearSearch: (panelId: string) => void;
-    getTabState: (panelId: string) => TabSearchState;
+  tabs: Record<string, TabSearchState>;
+  activePanelId: string | null;
+  // actions
+  ensureTab: (panelId: string) => void;
+  destroyTab: (panelId: string) => void;
+  setActivePanel: (panelId: string | null) => void;
+  setQuery: (panelId: string, query: string) => void;
+  setConfig: (panelId: string, patch: Partial<SearchConfig>) => void;
+  setCurrentMatch: (panelId: string, rank: number, index: number) => void;
+  setIsSearching: (panelId: string, searching: boolean) => void;
+  setFindVisible: (panelId: string, visible: boolean) => void;
+  requestFocus: (panelId: string) => void;
+  clearSearch: (panelId: string) => void;
+  getTabState: (panelId: string) => TabSearchState;
 }
 
 const DEFAULT_CONFIG: SearchConfig = {
-    regex: false,
-    caseSensitive: false,
-    wholeWord: false,
-    mode: 'highlight',
+  regex: false,
+  caseSensitive: false,
+  wholeWord: false,
+  mode: 'highlight',
 };
 
 function defaultTabState(): TabSearchState {
-    return {
-        query: '',
-        config: { ...DEFAULT_CONFIG },
-        currentMatchRank: -1,
-        currentMatchIndex: -1,
-        isSearching: false,
-        isFindVisible: false,
-        focusRequest: 0,
-    };
+  return {
+    query: '',
+    config: { ...DEFAULT_CONFIG },
+    currentMatchRank: -1,
+    currentMatchIndex: -1,
+    isSearching: false,
+    isFindVisible: false,
+    focusRequest: 0,
+  };
 }
 
 export const useSearchStore = create<SearchStore>()((set, get) => ({
@@ -133,29 +133,29 @@ export const useSearchStore = create<SearchStore>()((set, get) => ({
       };
     }),
 
-    setFindVisible: (panelId, visible) =>
-        set((state) => {
-            const tab = state.tabs[panelId];
-            if (!tab) return state;
-            return {
-                tabs: {
-                    ...state.tabs,
-                    [panelId]: { ...tab, isFindVisible: visible },
-                },
-            };
-        }),
+  setFindVisible: (panelId, visible) =>
+    set((state) => {
+      const tab = state.tabs[panelId];
+      if (!tab) return state;
+      return {
+        tabs: {
+          ...state.tabs,
+          [panelId]: { ...tab, isFindVisible: visible },
+        },
+      };
+    }),
 
-    requestFocus: (panelId) =>
-        set((state) => {
-            const tab = state.tabs[panelId];
-            if (!tab) return state;
-            return {
-                tabs: {
-                    ...state.tabs,
-                    [panelId]: { ...tab, isFindVisible: true, focusRequest: tab.focusRequest + 1 },
-                },
-            };
-        }),
+  requestFocus: (panelId) =>
+    set((state) => {
+      const tab = state.tabs[panelId];
+      if (!tab) return state;
+      return {
+        tabs: {
+          ...state.tabs,
+          [panelId]: { ...tab, isFindVisible: true, focusRequest: tab.focusRequest + 1 },
+        },
+      };
+    }),
 
   clearSearch: (panelId) =>
     set((state) => {
