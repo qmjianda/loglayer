@@ -10,6 +10,7 @@ pytest
 httpx
 requests
 ruff
+cachetools
 
 # e2e 测试（tests/e2e）：
 #   pip install playwright && python -m playwright install chromium
