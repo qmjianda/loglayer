@@ -39,6 +39,6 @@
 
 ## 6. 验证收尾
 
-- [x] 6.1 本地全量验证：lint（0 error）+ format:check（全过）+ pytest（83 passed）+ tsc + vitest（47 passed）+ build 全绿
-- [ ] 6.2 推送 main 触发 CI，确认 backend/frontend job 绿灯（需用户推送，见会话收尾说明）
+- [x] 6.1 本地全量验证：lint（0 error）+ format:check（全过）+ pytest（120 passed）+ tsc + vitest（54 passed）+ build 全绿
+- [x] 6.2 推送 main 触发 CI，确认 backend/frontend job 绿灯（run 31397803064 success，两 job 全过）；CI 暴露并修复 4 个缺陷：cachetools 缺失/numpy 过度依赖/4 文件缩进/rg 无执行位
 - [x] 6.3 更新 openspec/specs/project-docs/spec.md 与 ci-pipeline/code-quality-gates 规范同步（归档时由 openspec archive 处理）
