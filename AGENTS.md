@@ -79,11 +79,11 @@ ruff check backend tests   # ruff 检查（后端，error=0 门槛）
               │                                                      │
   backend      │            frontend                                 │
 ┌──────────────▼──┐        ┌───────────────▼───────────────────────┐  │
-│ bridge.py       │  REST   │ bridge_client.ts (API/WS 客户端)      │  │
-│ mmap 索引        │────────▶│ App.tsx ── hooks/ ── components/      │  │
-│ FileBridge/      │  ◀─────│   └─ LogViewer.tsx (DOM 虚拟滚动)     │  │
-│ LogSession       │   WS   │   └─ SearchPanel / LayersPanel 等      │  │
-│ cache_store 缓存  │        │   └─ rendering/ 前端渲染器注册表      │  │
+│ bridge/ 包     │  REST   │ bridge_client.ts (API/WS 客户端)      │  │
+│ file_bridge.py │────────▶│ App.tsx ── hooks/ ── components/      │  │
+│ FileBridge      │  ◀─────│   └─ LogViewer.tsx (DOM 虚拟滚动)     │  │
+│ LogSession      │   WS   │   └─ SearchPanel / LayersPanel 等      │  │
+│ workers 缓存    │        │   └─ rendering/ 前端渲染器注册表      │  │
 └────────┬─────────┘        │   └─ store/ searchStore (per-tab)      │  │
          │                  └────────────────────────────────────────┘  │
          ▼                                                            │
@@ -97,7 +97,7 @@ ruff check backend tests   # ruff 检查（后端，error=0 门槛）
 └────────────────────┘                                               │
 ```
 
-- **后端核心**：`backend/bridge.py`（mmap 索引、文件操作、信号、PipelineWorker 阶段计时）、`backend/main.py`（REST/WS 端点，含 `/api/diagnostics` 可观测接口）、`backend/loglayer/`（`core.py` 基类、`registry.py` 注册表、`builtin/` 内置图层、`cache_store.py` 统一缓存层、`cache_keys.py` 缓存 key）、`backend/ai/`、`backend/plugins/`。
+- **后端核心**：`backend/bridge/`（包，从原 `bridge.py` 拆分：`file_bridge.py` FileBridge 主类、`workers.py` 索引/管线/统计 Worker、`session.py` LogSession、`utils.py` 路径/文件工具、`cache.py` LRUCache、`signal.py` Signal、`search_matching.py` 搜索匹配纯函数）、`backend/main.py`（REST/WS 端点，含 `/api/diagnostics` 可观测接口）、`backend/loglayer/`（`core.py` 基类、`registry.py` 注册表、`builtin/` 内置图层、`cache_store.py` 统一缓存层、`cache_keys.py` 缓存 key）、`backend/ai/`、`backend/plugins/`。
 - **前端核心**：`frontend/src/App.tsx`、`bridge_client.ts`、`components/LogViewer.tsx`（DOM 虚拟滚动，性能关键）、`rendering/`（渲染器注册表 `registry.ts` + 规则引擎 `ruleEngine.ts`，前端计算图层高亮/行样式）、`store/searchStore.ts`（zustand per-tab 搜索状态：词/配置/rank 按 panelId 独立）、`hooks/`。
 - **图层系统（重构后）**：数据层（FILTER/TRANSFORM）仍在后端 `sync_layers()` 管线；**渲染层（HIGHLIGHT/ROWTINT/LEVEL）执行移到前端**——后端只下发图层配置，前端渲染器按配置计算 segments/rowStyle（`renderWithIsolation` 错误隔离，坏渲染器仅失效该层不白屏）。新增渲染层照 `LAYER_DEV_GUIDE.md` 实现渲染器并注册 `frontend/src/rendering/registry.ts`；后端 registry 保留元数据（type/ui_schema/engine）供配置表单。
 - **per-tab 搜索**：搜索词/配置/rank 存 `searchStore`（key=panelId），切 tab 自动恢复；后端 `LogSession` 保持 per-file 权威，搜索缓存命中跳过 rg 扫描（`cache_store.py`）。
