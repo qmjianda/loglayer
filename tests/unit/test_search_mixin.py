@@ -1,5 +1,5 @@
 import pytest
-import numpy as np
+import array
 import json
 from bridge import LogSession
 
@@ -13,7 +13,7 @@ def test_physical_to_visual_index(bridge_instance, mock_session):
     assert bridge_instance.physical_to_visual_index(file_id, 10) == 10
 
     # CASE 2: With filtering
-    mock_session.visible_indices = np.array([2, 5, 10, 15, 20])
+    mock_session.visible_indices = array.array('I', [2, 5, 10, 15, 20])
 
     # Exact match
     assert bridge_instance.physical_to_visual_index(file_id, 5) == 1
@@ -31,7 +31,7 @@ def test_physical_to_visual_index(bridge_instance, mock_session):
 def test_get_nearest_search_rank(bridge_instance, mock_session):
     file_id = "test-file"
     bridge_instance._sessions[file_id] = mock_session
-    mock_session.search_matches = np.array([10, 20, 30, 40])  # ranks: 0, 1, 2, 3
+    mock_session.search_matches = array.array('I', [10, 20, 30, 40])  # ranks: 0, 1, 2, 3
 
     # Direction: next
     assert bridge_instance.get_nearest_search_rank(file_id, 5, "next") == 0
@@ -53,7 +53,7 @@ def test_get_nearest_search_rank(bridge_instance, mock_session):
 def test_get_search_match_index(bridge_instance, mock_session):
     file_id = "test-file"
     bridge_instance._sessions[file_id] = mock_session
-    mock_session.search_matches = np.array([100, 200, 300])
+    mock_session.search_matches = array.array('I', [100, 200, 300])
 
     assert bridge_instance.get_search_match_index(file_id, 0) == 100
     assert bridge_instance.get_search_match_index(file_id, 1) == 200
@@ -92,7 +92,7 @@ def test_toggle_bookmark_uses_physical_line_index(bridge_instance, mock_session)
     assert "42" in res
 
     # 有过滤（visible_indices 非空）：存储的仍是物理行号，不受可见行影响
-    mock_session.visible_indices = np.array([2, 5, 42, 99])
+    mock_session.visible_indices = array.array('I', [2, 5, 42, 99])
     res = json.loads(bridge_instance.toggle_bookmark(file_id, 7))
     assert "7" in res
     assert "42" in res  # 已有书签不受过滤状态影响
@@ -109,7 +109,7 @@ def test_get_nearest_bookmark_index_with_filter(bridge_instance, mock_session):
     file_id = "test-file"
     bridge_instance._sessions[file_id] = mock_session
     # 物理可见行：2,5,10,15,20 → 视觉索引 0..4
-    mock_session.visible_indices = np.array([2, 5, 10, 15, 20])
+    mock_session.visible_indices = array.array('I', [2, 5, 10, 15, 20])
 
     # 添加物理行号书签（10 → 视觉 2；20 → 视觉 4）
     bridge_instance.toggle_bookmark(file_id, 10)
