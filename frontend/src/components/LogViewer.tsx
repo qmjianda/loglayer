@@ -12,7 +12,6 @@ import { AppSettings } from '../hooks/useSettings';
 import { detectJson } from '../utils/jsonTree';
 import { LogRow } from './logViewer/LogRow';
 import { computeRevealScrollTop } from '../utils/revealScroll';
-import { computeWatchdogAction, shouldRestoreOnActivation } from './utils/watchdog';
 import { useVirtualScroll } from '../hooks/useVirtualScroll';
 import { PerformanceIndicator } from './PerformanceIndicator';
 
@@ -48,8 +47,6 @@ interface LogViewerProps {
   rawLineCount?: number;
   /** 设置项：显示虚拟行号（默认 true） */
   showVirtualLineNumbers?: boolean;
-  /** 面板是否激活（dockview 激活面板经 EditorArea 传入）：激活时武装看门狗，覆盖归零风险窗口 */
-  isActive?: boolean;
 }
 
 // 浏览器滚动容器安全高度上限（Chrome ~33.5M px），留余量
@@ -100,7 +97,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   onScrollToNewContent,
   rawLineCount,
   showVirtualLineNumbers = true,
-  isActive = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollStateRef = useRef({ top: 0, left: 0 });
@@ -140,64 +136,27 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   // 最近一次由用户/原生滚动更新的时间（区分「用户滚到顶」与「外部把滚动条归零」）
   const lastScrollEventRef = useRef(0);
 
-  // === 滚动位置看门狗（有界：空闲睡眠 + 事件重新武装） ===
+  // === 滚动位置看门狗 ===
   // dockview 激活/失活面板（切换 `dv-active-group` 等 class）时，浏览器会把面板内容的
   // DOM 滚动条归零，且不触发 scroll 事件（React state 仍是旧值），导致视觉上跳回首行。
-  // 决策由 utils/watchdog 纯函数承担：连续 30 帧稳定（无纠正、无用户滚动、无面板激活/布局
-  // 变化）后停止逐帧检测（睡眠）；scroll / resize / fileId / isActive 触发时重新武装。
-  // 80ms 用户滚动保护窗口避免「用户滚到顶」被误判为外部归零；scrollToIndex 程序化跳顶
-  // 经 scrollStateRef 同步不被误判。
-  const stableFramesRef = useRef(0);
-  const watchdogRafRef = useRef(0);
-  const isActiveRef = useRef(isActive);
+  // 这里逐帧检测「DOM=0 但 state>0 且近期无用户滚动」的脱节，同帧拉回真实位置。
+  // 用户真正滚动到顶时 scroll 事件会把 state 同步为 0，因此不会误干预。
   useEffect(() => {
-    isActiveRef.current = isActive;
-  }, [isActive]);
-
-  // 武装看门狗：重置稳定计数并启动逐帧检测（未在运行且面板激活时）
-  const armWatchdog = useCallback(() => {
     const el = containerRef.current;
-    if (!el || !isActiveRef.current) return;
-    stableFramesRef.current = 0;
-    if (watchdogRafRef.current) return; // 已在运行：仅重置稳定窗口
+    if (!el) return;
+    let raf = 0;
     const tick = () => {
+      raf = requestAnimationFrame(tick);
       const top = el.scrollTop;
       const state = scrollStateRef.current.top;
-      const ageMs = performance.now() - lastScrollEventRef.current;
-      const d = computeWatchdogAction(stableFramesRef.current, top, state, ageMs);
-      stableFramesRef.current = d.stableFrames;
-      if (d.action === 'restore') {
-        // 外部归零 → 同帧拉回真实位置（DOM 与 state 同步，避免跳回首行）
+      if (top === 0 && state > 0 && performance.now() - lastScrollEventRef.current > 80) {
         el.scrollTop = state;
         setScrollTop(state);
       }
-      if (d.action === 'sleep') {
-        // 连续稳定帧达到阈值 → 停止逐帧检测（不再每帧读 DOM）
-        watchdogRafRef.current = 0;
-        return;
-      }
-      watchdogRafRef.current = requestAnimationFrame(tick);
     };
-    watchdogRafRef.current = requestAnimationFrame(tick);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
-
-  // isActive 变化：激活时在 **paint 前**（useLayoutEffect）同步恢复滚动位置，消除
-  // 「切 tab 先闪回 0 再闪回目标」——dockview 失活期间看门狗可能已睡眠，归零未被纠正，
-  // DOM=0 而真实位置 >0；切回时若等 useEffect 重新武装看门狗（paint 后 + 下一帧 rAF），
-  // 中间会画出一帧 0 位置。失活不强制取消运行中的循环（让其稳定后自然睡眠），
-  // 避免多组布局下可见非激活面板的归零漏检。
-  useLayoutEffect(() => {
-    stableFramesRef.current = 0;
-    if (isActive) {
-      const el = containerRef.current;
-      const state = scrollStateRef.current.top;
-      if (el && shouldRestoreOnActivation(el.scrollTop, state)) {
-        el.scrollTop = state;
-        setScrollTop(state);
-      }
-      armWatchdog();
-    }
-  }, [isActive, armWatchdog]);
 
   const { LINE_HEIGHT, SCROLL_MARGIN, FETCH_DEBOUNCE_MS } = LOG_VIEWER;
 
@@ -284,9 +243,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     measure();
     const handleResize = () => {
       measure();
-      // 尺寸/布局变化：重新武装看门狗（覆盖布局调整导致的归零风险窗口）
-      stableFramesRef.current = 0;
-      armWatchdog();
     };
     window.addEventListener('resize', handleResize);
     // ResizeObserver 跟踪后续尺寸变化
@@ -304,7 +260,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       cancelAnimationFrame(rafId);
       clearTimeout(timerId);
     };
-  }, [armWatchdog]);
+  }, []);
 
   // === 原生 scroll 监听：dockview 中 React onScroll 合成事件不可靠，
   // 改用原生 addEventListener 绑定容器，滚动事件经 rAF 同步到 state ===
@@ -327,9 +283,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         }
         setScrollTop(top);
         setScrollLeft(left);
-        // 用户滚动：重新武装看门狗（重置稳定计数，覆盖滚动/归零窗口）
-        stableFramesRef.current = 0;
-        armWatchdog();
       });
     };
     el.addEventListener('scroll', onScroll, { passive: true });
@@ -337,7 +290,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       el.removeEventListener('scroll', onScroll);
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [scrollKey, armWatchdog]);
+  }, [scrollKey]);
 
   const prevFileIdRef = useRef<string | null | undefined>(undefined);
 
@@ -385,10 +338,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         if (w > 0) setViewportWidth(w);
       }
     });
-    // fileId 变化：重新武装看门狗（新文件/重挂载归零窗口）
-    stableFramesRef.current = 0;
-    armWatchdog();
-  }, [fileId, scrollKey, armWatchdog]);
+    // fileId 变化/新文件：重新测量 viewport 由上方 rAF 兜底，看门狗为常驻逐帧检测
+  }, [fileId, scrollKey]);
 
   // 卸载时保存滚动位置，供重挂载恢复
   useEffect(() => {

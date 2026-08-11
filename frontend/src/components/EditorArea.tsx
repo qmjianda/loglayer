@@ -139,7 +139,6 @@ const LogViewerPanel: React.FC<IDockviewPanelProps<LogViewerPanelParams>> = ({ p
           totalLines={file.lineCount}
           fileId={fileId}
           scrollKey={params.uri || fileId}
-          isActive={isPanelActive}
           layers={file.layers || []}
           bookmarks={isActive ? data.bookmarks : {}}
           searchQuery={searchQuery}
