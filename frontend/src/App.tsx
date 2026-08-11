@@ -10,35 +10,26 @@
 
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { DockviewApi } from 'dockview-react';
-import { Sidebar } from './components/Sidebar';
 import { EditorArea } from './components/EditorArea';
-import { SearchPanel } from './components/SearchPanel';
-import { SearchResultsPanel } from './components/SearchResultsPanel';
 import { EditorGoToLineWidget } from './components/EditorGoToLineWidget';
-import { CommandPalette, Command } from './components/CommandPalette';
-import { SettingsPanel } from './components/SettingsPanel';
-import { DebugOverlay } from './components/DebugOverlay';
-import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';
-import { UnifiedPanel } from './components/UnifiedPanel';
 import { HelpPanel } from './components/HelpPanel';
 import { StatusBar } from './components/StatusBar';
 import { IndexingOverlay } from './components/LoadingOverlays';
-import { RemotePathPicker } from './components/RemotePathPicker';
-import { AIChatPanel } from './components/AIChatPanel';
-import { InspectorPanel } from './components/InspectorPanel';
+import { InspectorDock } from './components/layout/InspectorDock';
+import { SidebarView } from './components/layout/SidebarView';
+import { AppOverlays } from './components/layout/AppOverlays';
 import { LayerType, LogLine, LogLevelStats } from './types';
 import { ProcessedCache } from './hooks/useFileManagement';
 import {
   openFile,
   syncAll,
-  hasNativeDialogs,
   toggleBookmark,
   getNearestBookmarkIndex,
   getLinesByIndices,
   getLogLevelStats,
   setCacheConfig,
 } from './bridge_client';
-import { removeFromSet, basename, panelIdForFile } from './utils';
+import { removeFromSet } from './utils';
 import { timingLog } from './utils/timing';
 
 // 导入自定义 Hooks
@@ -56,6 +47,8 @@ import { useSearch } from './hooks/useSearch';
 import { useSearchStore } from './store/searchStore';
 import { useBookmarkLogic } from './hooks/useBookmarkLogic';
 import { useBookmarks, invalidateBookmarkCache } from './hooks/useBookmarks';
+import { useFileActions } from './hooks/useFileActions';
+import { useCommands } from './hooks/useCommands';
 import { useSettings, SettingsProvider } from './hooks/useSettings';
 import { useResponsive } from './hooks/useResponsive';
 import { useFileWatch } from './hooks/useFileWatch';
@@ -203,9 +196,12 @@ const AppContent: React.FC = () => {
     DEBUG: 0,
     TRACE: 0,
   });
+  // [perf-deepening] 统计拉取中标记（驱动 InspectorSummary 骨架屏，消除切文件后的数字跳变）
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Fetch log level stats when active file changes
   const fetchLogLevelStats = useCallback(async (fileId: string) => {
+    setStatsLoading(true);
     try {
       const stats = await getLogLevelStats(fileId);
       setLogLevelStats({
@@ -218,6 +214,8 @@ const AppContent: React.FC = () => {
       });
     } catch (e) {
       console.error('[App] Failed to fetch log level stats:', e);
+    } finally {
+      setStatsLoading(false);
     }
   }, []);
 
@@ -369,43 +367,6 @@ const AppContent: React.FC = () => {
     [findNextSearchMatch, handleJumpToLine, activeFile?.lineCount, highlightedIndex],
   );
 
-  // 统一打开文件入口：已打开则激活面板，否则 addPanel（经 dockview API）
-  const openFileInEditor = useCallback(
-    (fileId: string) => {
-      const api = dockApiRef.current;
-      if (!api) return;
-
-      const file = files.find((f) => f.id === fileId);
-      const panelId = panelIdForFile(file?.path);
-      const existing = api.panels.find(
-        (p) =>
-          p.id === panelId ||
-          p.params?.fileId === fileId ||
-          (file?.path && p.params?.uri === file.path),
-      );
-      if (existing) {
-        existing.api.setActive();
-      } else {
-        api.addPanel({
-          id: panelId,
-          component: 'logViewer',
-          title: file?.name || fileId,
-          params: { fileId, uri: file?.path },
-        });
-      }
-      handleFileActivate(fileId);
-    },
-    [files, handleFileActivate],
-  );
-
-  // 增强版：激活文件，并确保其在后端也处于同步状态
-  const handleFileActivateWithLoad = useCallback(
-    (fileId: string) => {
-      openFileInEditor(fileId);
-    },
-    [openFileInEditor],
-  );
-
   // ===== 桥接层集成 (Bridge Integration) =====
   // 监听来自 Python 后端的信号（文件加载完成、搜索完成、统计完成等）。
   const {
@@ -488,6 +449,14 @@ const AppContent: React.FC = () => {
       triggerUpdate();
 
       if (activeFileIdRef.current === fileId) {
+        // [perf-deepening] 在途搜索结果应用后推进已应用序号（残留/重复信号判定的依据）
+        const pendingPanelId = useSearchStore.getState().activePanelId;
+        if (pendingPanelId) {
+          const pendingTab = useSearchStore.getState().tabs[pendingPanelId];
+          if (pendingTab && pendingTab.requestSeq > pendingTab.consumedSeq) {
+            useSearchStore.getState().markSearchConsumed(pendingPanelId);
+          }
+        }
         setOperationStatus(null);
         setIsProcessing(false);
         setIsSearching(false);
@@ -616,179 +585,33 @@ const AppContent: React.FC = () => {
     [setRemotePickerOpen],
   );
 
-  // 处理统一打开逻辑 (文件或项目)
-  const handleOpen = useCallback(async () => {
-    // 优先尝试原生对话框（如果支持同时选文件和文件夹，但目前 bridge 分开，所以逻辑上先尝试原生文件夹选择）
-    // 实际上更优雅的方式是根据 hasNativeDialogs 直接分流
-    const hasDialogs = await hasNativeDialogs();
-
-    if (hasDialogs) {
-      // 原生模式下目前仍保持分开或弹出选择（由于 bridge 系统限制）
-      // 这里简道起见，或者调用原生 select_folder 做演示，后续可深度整合 bridge
-      const result = await handleNativeFolderSelect();
-      if (result) {
-        setWorkspaceRoot(result);
-      }
-    } else {
-      // 远程模式：使用通用的 openPathPicker
-      openRemotePicker(({ path, isDir }) => {
-        if (isDir) {
-          const folderName = basename(path);
-          setWorkspaceRoot({ path, name: folderName });
-        } else {
-          // 如果是文件，直接打开
-          const fileName = basename(path);
-          handleOpenFileByPath(path, fileName);
-        }
-      });
-    }
-  }, [handleNativeFolderSelect, setWorkspaceRoot, openRemotePicker, handleOpenFileByPath]);
+  // 文件操作编排（统一打开/编辑器内打开/激活加载）提取至 useFileActions
+  const { openFileInEditor, handleFileActivateWithLoad, handleOpen } = useFileActions({
+    dockApiRef,
+    files,
+    handleFileActivate,
+    handleNativeFolderSelect,
+    setWorkspaceRoot,
+    openRemotePicker,
+    handleOpenFileByPath,
+  });
 
   // ===== 命令面板 (Command Palette) =====
-  const commands: Command[] = [
-    {
-      id: 'file.open',
-      label: '打开文件',
-      shortcut: 'Ctrl+O',
-      category: '文件',
-      action: handleOpen,
-    },
-    {
-      id: 'file.openFolder',
-      label: '打开文件夹',
-      shortcut: 'Ctrl+Shift+O',
-      category: '文件',
-      action: handleNativeFolderSelect,
-    },
-    {
-      id: 'search.focus',
-      label: '聚焦搜索',
-      shortcut: 'Ctrl+F',
-      category: '搜索',
-      action: () => {
-        const panelId = useSearchStore.getState().activePanelId;
-        if (panelId) useSearchStore.getState().requestFocus(panelId);
-      },
-    },
-    {
-      id: 'search.next',
-      label: '下一个匹配',
-      shortcut: 'F3',
-      category: '搜索',
-      action: () => findNextSearchMatchWithJump('next'),
-    },
-    {
-      id: 'search.prev',
-      label: '上一个匹配',
-      shortcut: 'Shift+F3',
-      category: '搜索',
-      action: () => findNextSearchMatchWithJump('prev'),
-    },
-    {
-      id: 'goto.line',
-      label: '跳转到行',
-      shortcut: 'Ctrl+G',
-      category: '导航',
-      action: () => setIsGoToLineVisible(true),
-    },
-    { id: 'view.main', label: '主视图', category: '视图', action: () => setActiveView('main') },
-    {
-      id: 'view.search',
-      label: '搜索视图',
-      category: '视图',
-      action: () => setActiveView('search'),
-    },
-    { id: 'view.ai', label: 'AI 助手', category: '视图', action: () => setActiveView('ai') },
-    { id: 'view.help', label: '帮助视图', category: '视图', action: () => setActiveView('help') },
-    {
-      id: 'layer.new',
-      label: '新建图层',
-      shortcut: 'Ctrl+Shift+L',
-      category: '图层',
-      action: () => {
-        // 添加一个默认的高亮图层
-        addLayer(LayerType.HIGHLIGHT, { query: '', color: '#fbbf24', enabled: true });
-      },
-    },
-    {
-      id: 'bookmark.export',
-      label: '导出书签',
-      category: '书签',
-      action: () => {
-        // 导出书签为 JSON 文件
-        if (activeFileId && bookmarks[activeFileId]) {
-          const fileBookmarks = bookmarks[activeFileId];
-          const exportData = {
-            file: activeFile?.name,
-            exportedAt: new Date().toISOString(),
-            bookmarks: Object.entries(fileBookmarks).map(([line, comment]) => ({
-              line: parseInt(line),
-              comment,
-            })),
-          };
-          const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-            type: 'application/json',
-          });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${activeFile?.name || 'bookmarks'}_bookmarks.json`;
-          a.click();
-          URL.revokeObjectURL(url);
-        }
-      },
-    },
-    {
-      id: 'settings.open',
-      label: '打开设置',
-      shortcut: 'Ctrl+,',
-      category: '设置',
-      action: () => setIsSettingsVisible(true),
-    },
-  ];
-
-  // 命令面板快捷键监听 - 放在 useUIState 之后
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-        return;
-      }
-
-      const isP = e.key.toLowerCase() === 'p';
-      const isT = e.key.toLowerCase() === 't';
-      const isComma = e.key === ',';
-      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
-      const isShift = e.shiftKey;
-
-      // Ctrl+Shift+P: 命令面板
-      if (isCmdOrCtrl && isP && isShift) {
-        e.preventDefault();
-        setIsCommandPaletteVisible(true);
-      }
-
-      // Ctrl+Shift+T: 文件监视
-      if (isCmdOrCtrl && isT && isShift) {
-        e.preventDefault();
-        handleToggleWatch();
-      }
-
-      // Ctrl+Shift+D: Debug overlay（诊断浮层）
-      if (isCmdOrCtrl && e.key.toLowerCase() === 'd' && isShift) {
-        e.preventDefault();
-        setIsDebugVisible((v) => !v);
-      }
-
-      // Ctrl+,: 设置
-      if (isCmdOrCtrl && isComma) {
-        e.preventDefault();
-        setIsSettingsVisible(true);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleToggleWatch, setIsSettingsVisible, setIsCommandPaletteVisible]);
+  const commands = useCommands({
+    handleOpen,
+    handleNativeFolderSelect,
+    handleToggleWatch,
+    findNextSearchMatchWithJump,
+    setIsGoToLineVisible,
+    setActiveView,
+    setIsCommandPaletteVisible,
+    setIsSettingsVisible,
+    setIsDebugVisible,
+    addLayer,
+    activeFileId,
+    activeFile,
+    bookmarks,
+  });
 
   return (
     <div
@@ -873,106 +696,47 @@ const AppContent: React.FC = () => {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* 左侧侧边栏按钮（Explorer, Search, Help） */}
-        <Sidebar
+        {/* 左侧边栏与视图切换区（提取至 SidebarView） */}
+        <SidebarView
           activeView={activeView}
-          onSetActiveView={setActiveView}
-          onOpenSettings={() => setIsSettingsVisible(true)}
+          setActiveView={setActiveView}
+          sidebarWidth={sidebarWidth}
+          setSidebarWidth={setSidebarWidth}
+          isMobile={responsive.isMobile}
+          workspaceRoot={workspaceRoot}
+          files={files}
+          activeFileId={activeFileId}
+          activeFile={activeFile}
+          searchConfig={searchConfig}
+          setSearchConfig={setSearchConfig}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          searchMatchCount={searchMatchCount}
+          currentMatchNumber={currentMatchNumber}
+          aiPanelInitialContent={aiPanelInitialContent}
           isWatching={isWatching}
-          onToggleWatch={handleToggleWatch}
           hasNewContent={hasNewContent}
-        />
-
-        {/* 侧边栏面板容器 */}
-        <div
-          className={`bg-secondary border-r border-subtle flex flex-col shrink-0 shadow-lg relative group/sidebar 
-            ${responsive.isMobile ? 'absolute inset-y-0 left-10 z-40' : ''}`}
-          style={{
-            width: responsive.isMobile ? (sidebarWidth > 0 ? sidebarWidth : 280) : sidebarWidth,
-            display: responsive.isMobile && sidebarWidth === 0 ? 'none' : 'flex',
+          onToggleWatch={handleToggleWatch}
+          onOpenSettings={() => setIsSettingsVisible(true)}
+          onOpenFileByPath={handleOpenFileByPath}
+          onOpen={handleOpen}
+          onFileActivate={handleFileActivateWithLoad}
+          onFileRemove={handleFileRemove}
+          onFindNavigate={findNextSearchMatchWithJump}
+          onJumpToLine={(idx) => handleJumpToLine(idx, activeFile?.lineCount || 0)}
+          onJumpToRank={jumpToRank}
+          onApplySuggestion={(type, value) => {
+            if (type === 'filter') {
+              addLayer(LayerType.FILTER, { query: value });
+            } else if (type === 'highlight') {
+              addLayer(LayerType.HIGHLIGHT, { query: value, color: '#facc15' });
+            }
           }}
-        >
-          {/* 拖拽调整宽度的 Handle */}
-          <div
-            className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 z-50 transition-colors opacity-0 group-hover/sidebar:opacity-100"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              const startX = e.clientX;
-              const startWidth = sidebarWidth;
-              const handleMouseMove = (moveEvent: MouseEvent) => {
-                const newWidth = Math.max(
-                  200,
-                  Math.min(600, startWidth + (moveEvent.clientX - startX)),
-                );
-                setSidebarWidth(newWidth);
-              };
-              const handleMouseUp = () => {
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-              };
-              document.addEventListener('mousemove', handleMouseMove);
-              document.addEventListener('mouseup', handleMouseUp);
-            }}
-          />
-
-          {/* 资源管理器视图：文件树 + 历史文件（纯导航） */}
-          {activeView === 'main' && (
-            <UnifiedPanel
-              workspaceRoot={workspaceRoot}
-              onOpenFileByPath={handleOpenFileByPath}
-              files={files}
-              activeFileId={activeFileId}
-              onOpen={handleOpen}
-              onFileActivate={handleFileActivateWithLoad}
-              onFileRemove={handleFileRemove}
-            />
-          )}
-
-          {/* 全局搜索视图 */}
-          {activeView === 'search' && (
-            <>
-              <SearchPanel
-                onSearch={setSearchQuery}
-                config={searchConfig}
-                setConfig={setSearchConfig}
-                matchCount={searchMatchCount}
-                onNavigate={findNextSearchMatchWithJump}
-                currentIndex={currentMatchNumber}
-                externalQuery={searchQuery}
-              />
-              <SearchResultsPanel
-                fileId={activeFileId}
-                query={searchQuery}
-                matchCount={searchMatchCount}
-                currentRank={currentMatchNumber - 1}
-                onJumpToLine={async (rank) => {
-                  const physical = await jumpToRank(rank);
-                  if (physical !== -1) {
-                    handleJumpToLine(physical, activeFile?.lineCount || 0);
-                  }
-                }}
-              />
-            </>
-          )}
-
-          {/* AI 助手视图 */}
-          {activeView === 'ai' && (
-            <AIChatPanel
-              initialContent={aiPanelInitialContent}
-              onClose={() => {
-                setActiveView('main');
-                setAiPanelInitialContent('');
-              }}
-              onApplySuggestion={(type, value) => {
-                if (type === 'filter') {
-                  addLayer(LayerType.FILTER, { query: value });
-                } else if (type === 'highlight') {
-                  addLayer(LayerType.HIGHLIGHT, { query: value, color: '#facc15' });
-                }
-              }}
-            />
-          )}
-        </div>
+          onCloseAI={() => {
+            setActiveView('main');
+            setAiPanelInitialContent('');
+          }}
+        />
 
         {/* 主内容区域：显示日志视图或帮助文档 */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-theme-base relative select-text overflow-hidden">
@@ -980,24 +744,13 @@ const AppContent: React.FC = () => {
             <HelpPanel />
           ) : (
             <>
-              {/* 悬浮组件：Ctrl+G 跳转行号 */}
-              {isGoToLineVisible && (
-                <EditorGoToLineWidget
-                  totalLines={activeFile?.lineCount || 0}
-                  onGo={(lineNum) => {
-                    handleJumpToLine(lineNum - 1, activeFile?.lineCount || 0);
-                    setIsGoToLineVisible(false);
-                  }}
-                  onClose={() => setIsGoToLineVisible(false)}
-                />
-              )}
-
               {/* 中间编辑器区域（dockview 分屏承载） */}
               <EditorArea
                 files={files}
                 activeFileId={activeFileId}
                 loadingFileIds={loadingFileIds}
                 indexingFileIds={indexingFileIds}
+                indexingProgress={loadingProgress}
                 pendingCliFiles={pendingCliFiles}
                 processedCache={processedCache}
                 bridgedUpdateTrigger={bridgedUpdateTrigger}
@@ -1041,88 +794,54 @@ const AppContent: React.FC = () => {
         </div>
 
         {/* 右侧操作台（当前文件：摘要/图层/预设/书签/统计） */}
-        <div
-          className={`bg-secondary border-l border-subtle flex flex-col shrink-0 shadow-lg relative group/inspector
-            ${responsive.isMobile ? 'absolute inset-y-0 right-0 z-40' : ''}`}
-          style={{
-            width: responsive.isMobile
-              ? inspectorWidth > 0
-                ? inspectorWidth
-                : 280
-              : inspectorWidth,
-            display: responsive.isMobile && inspectorWidth === 0 ? 'none' : 'flex',
+        <InspectorDock
+          activeFile={activeFile}
+          layers={layers}
+          selectedLayerId={selectedLayerId}
+          setSelectedLayerId={setSelectedLayerId}
+          layerStats={layerStats}
+          inspectorWidth={inspectorWidth}
+          setInspectorWidth={setInspectorWidth}
+          isMobile={responsive.isMobile}
+          bookmarks={bookmarks}
+          bookmarkPreviews={bookmarkPreviews}
+          presets={presets}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          saveStatus={saveStatus}
+          logLevelStats={logLevelStats}
+          statsLoading={statsLoading}
+          onLayerRemove={(id) =>
+            updateLayers((prev) => prev.filter((l) => l.id !== id && l.groupId !== id))
+          }
+          onLayerToggle={(id) =>
+            updateLayers((prev) =>
+              prev.map((l) => (l.id === id ? { ...l, enabled: !l.enabled } : l)),
+            )
+          }
+          onLayerUpdate={(id, update) =>
+            updateLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...update } : l)))
+          }
+          onLayerDrop={(draggedId, targetId, position) => handleDrop(draggedId, targetId, position)}
+          onAddLayer={addLayer}
+          onJumpToLine={(idx) => handleJumpToLine(idx, activeFile?.lineCount || 0)}
+          onUndo={undo}
+          onRedo={redo}
+          onPresetApply={applyPreset}
+          onPresetDelete={(id) => {
+            const next = presets.filter((p) => p.id !== id);
+            setPresets(next);
+            localStorage.setItem('loglayer_presets', JSON.stringify(next));
           }}
-        >
-          {/* 拖拽调整宽度的 Handle（左边缘，200-480 clamp） */}
-          <div
-            className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 z-50 transition-colors opacity-0 group-hover/inspector:opacity-100"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              const startX = e.clientX;
-              const startWidth = inspectorWidth;
-              const handleMouseMove = (moveEvent: MouseEvent) => {
-                const newWidth = Math.max(
-                  200,
-                  Math.min(480, startWidth + (startX - moveEvent.clientX)),
-                );
-                setInspectorWidth(newWidth);
-              };
-              const handleMouseUp = () => {
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-              };
-              document.addEventListener('mousemove', handleMouseMove);
-              document.addEventListener('mouseup', handleMouseUp);
-            }}
-          />
-
-          <InspectorPanel
-            activeFile={activeFile}
-            layers={layers}
-            selectedLayerId={selectedLayerId}
-            setSelectedLayerId={setSelectedLayerId}
-            layerStats={layerStats}
-            onLayerRemove={(id) =>
-              updateLayers((prev) => prev.filter((l) => l.id !== id && l.groupId !== id))
-            }
-            onLayerToggle={(id) =>
-              updateLayers((prev) =>
-                prev.map((l) => (l.id === id ? { ...l, enabled: !l.enabled } : l)),
-              )
-            }
-            onLayerUpdate={(id, update) =>
-              updateLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...update } : l)))
-            }
-            onLayerDrop={(draggedId, targetId, position) => {
-              handleDrop(draggedId, targetId, position);
-            }}
-            onAddLayer={addLayer}
-            onJumpToLine={(idx) => handleJumpToLine(idx, activeFile?.lineCount || 0)}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            onUndo={undo}
-            onRedo={redo}
-            presets={presets}
-            onPresetApply={applyPreset}
-            onPresetDelete={(id) => {
-              const next = presets.filter((p) => p.id !== id);
-              setPresets(next);
-              localStorage.setItem('loglayer_presets', JSON.stringify(next));
-            }}
-            onSavePresetWithName={handleSavePresetWithName}
-            saveStatus={saveStatus}
-            bookmarks={bookmarks}
-            bookmarkPreviews={bookmarkPreviews}
-            onToggleBookmark={handleToggleBookmark}
-            onClearBookmarks={handleClearBookmarks}
-            onJumpToBookmark={(idx) =>
-              handleJumpToBookmark(idx, (visualIdx) =>
-                handleJumpToLine(visualIdx, activeFile?.lineCount || 0),
-              )
-            }
-            logLevelStats={logLevelStats}
-          />
-        </div>
+          onSavePresetWithName={handleSavePresetWithName}
+          onToggleBookmark={handleToggleBookmark}
+          onClearBookmarks={handleClearBookmarks}
+          onJumpToBookmark={(idx) =>
+            handleJumpToBookmark(idx, (visualIdx) =>
+              handleJumpToLine(visualIdx, activeFile?.lineCount || 0),
+            )
+          }
+        />
       </div>
 
       <StatusBar
@@ -1141,39 +860,29 @@ const AppContent: React.FC = () => {
         onOpenShortcuts={() => setIsShortcutsVisible(true)}
       />
 
-      {/* 远程路径选择器 - 用于 --no-ui 模式替代原生对话框 */}
-      <RemotePathPicker
-        open={isRemotePickerOpen}
-        onOpenChange={handleRemotePickerClose}
-        onSelect={handleRemotePathSelected}
-        mode={remotePickerMode}
-        title={
-          remotePickerMode === 'folder'
-            ? '选择文件夹'
-            : remotePickerMode === 'file'
-              ? '选择文件'
-              : '选择路径'
-        }
-        listDirectory={remoteListDirectory}
-      />
-
-      {/* 命令面板 */}
-      <CommandPalette
+      {/* 应用级浮层（提取至 AppOverlays） */}
+      <AppOverlays
+        isRemotePickerOpen={isRemotePickerOpen}
+        remotePickerMode={remotePickerMode}
+        onRemotePickerClose={handleRemotePickerClose}
+        onRemotePathSelected={handleRemotePathSelected}
+        remoteListDirectory={remoteListDirectory}
         commands={commands}
-        isOpen={isCommandPaletteVisible}
-        onClose={() => setIsCommandPaletteVisible(false)}
-      />
-
-      {/* 设置面板 */}
-      <SettingsPanel isOpen={isSettingsVisible} onClose={() => setIsSettingsVisible(false)} />
-
-      {/* 诊断浮层（Ctrl+Shift+D） */}
-      <DebugOverlay visible={isDebugVisible} onClose={() => setIsDebugVisible(false)} />
-
-      {/* 快捷键参考面板 */}
-      <KeyboardShortcutsPanel
-        isOpen={isShortcutsVisible}
-        onClose={() => setIsShortcutsVisible(false)}
+        isCommandPaletteVisible={isCommandPaletteVisible}
+        setIsCommandPaletteVisible={setIsCommandPaletteVisible}
+        isSettingsVisible={isSettingsVisible}
+        setIsSettingsVisible={setIsSettingsVisible}
+        isDebugVisible={isDebugVisible}
+        setIsDebugVisible={setIsDebugVisible}
+        isShortcutsVisible={isShortcutsVisible}
+        setIsShortcutsVisible={setIsShortcutsVisible}
+        isGoToLineVisible={isGoToLineVisible}
+        setIsGoToLineVisible={setIsGoToLineVisible}
+        totalLines={activeFile?.lineCount || 0}
+        onGoToLine={(lineNum) => {
+          handleJumpToLine(lineNum - 1, activeFile?.lineCount || 0);
+          setIsGoToLineVisible(false);
+        }}
       />
     </div>
   );
