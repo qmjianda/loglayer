@@ -409,18 +409,69 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             )
         return rg_path
 
+    def _relocate_by_name(self, missing_path: str) -> Optional[str]:
+        """历史路径失效时，在工作区内按文件名重定位（文件夹移动场景，issue #5）。
+
+        仅当工作区已设置且存在唯一同名文件时返回新路径；否则返回 None。
+        """
+        if not self._workspace_dir:
+            return None
+        target_name = os.path.basename(missing_path)
+        try:
+            candidates = [
+                f["path"]
+                for f in get_log_files_recursive(self._workspace_dir)
+                if os.path.basename(f["path"]) == target_name
+            ]
+        except Exception as e:
+            print(f"[Bridge] Relocation scan error: {e}")
+            return None
+        if len(candidates) == 1:
+            return candidates[0]
+        if len(candidates) > 1:
+            print(
+                f"[Bridge] Ambiguous relocation for {missing_path}: "
+                f"{len(candidates)} same-name files found"
+            )
+        return None
+
+    def _update_workspace_history(self, old_path: str, new_path: str) -> None:
+        """重定位成功后，将工作区历史中的旧路径条目替换为新路径。"""
+        try:
+            store = self._get_workspace_store()
+            if store is None:
+                return
+            files = store.get_files()
+            matched = [f for f in files if f.get("path") == old_path]
+            if not matched:
+                return
+            for entry in matched:
+                store.delete_file(old_path)
+                store.upsert_file({**entry, "path": new_path})
+        except Exception as e:
+            print(f"[Bridge] History update error: {e}")
+
     def open_file(self, file_id: str, file_path: str) -> bool:
         t0_open = timing_start()
         try:
             if file_id in self._sessions:
                 self._sessions[file_id].close(self)
 
-            # 解析文件路径（处理 Windows -> Linux 路径转换）
+            # 解析文件路径（处理 Windows -> Linux / Linux -> Windows 双向转换）
             resolved_path = resolve_file_path(file_path)
 
             if not os.path.exists(resolved_path):
-                print(f"[Bridge] File not found: {resolved_path}")
-                return False
+                # 历史路径失效（文件夹移动）：尝试按文件名在工作区重定位
+                relocated = self._relocate_by_name(resolved_path)
+                if relocated:
+                    print(
+                        f"[Bridge] Relocated {resolved_path} -> {relocated}"
+                    )
+                    resolved_path = relocated
+                    self._update_workspace_history(file_path, relocated)
+                else:
+                    print(f"[Bridge] File not found: {resolved_path}")
+                    return False
 
             # 未设置工作区时，以文件所在目录作为工作区（缓存存到该目录 .loglayer/）
             if not self._workspace_dir:

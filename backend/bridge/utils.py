@@ -53,6 +53,20 @@ def convert_windows_path_to_linux(windows_path: str) -> str:
     return windows_path
 
 
+def convert_linux_path_to_windows(linux_path: str) -> str:
+    """将 WSL/Linux 挂载路径转换为 Windows 路径（/mnt/d/x -> D:\\x）。
+
+    仅处理 `/mnt/<盘符>/...` 形态；其余路径原样返回。
+    """
+    path = linux_path.replace("/", "\\")
+    match = re.match(r"^\\mnt\\([A-Za-z])\\(.*)$", path)
+    if match:
+        drive_letter = match.group(1).upper()
+        rest = match.group(2)
+        return f"{drive_letter}:\\{rest}"
+    return linux_path
+
+
 def resolve_file_path(file_path: str) -> str:
     """解析文件路径，处理跨平台路径问题"""
     # 使用 Path 来规范化路径（处理正反斜杠）
@@ -67,6 +81,11 @@ def resolve_file_path(file_path: str) -> str:
         linux_path = convert_windows_path_to_linux(file_path)
         if Path(linux_path).exists():
             return linux_path
+    else:
+        # Windows 平台上尝试 WSL 挂载路径反向转换（/mnt/d/x -> D:\x）
+        windows_path = convert_linux_path_to_windows(file_path)
+        if windows_path != file_path and Path(windows_path).exists():
+            return windows_path
 
     # 返回规范化后的原始路径
     return str(normalized_path)

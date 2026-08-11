@@ -159,8 +159,11 @@ export function useFileManagement(): UseFileManagementReturn {
         setLoadingFileIds((prev) => new Set(prev).add(fileId));
         timingLog('loading.start', fileId, 'activate');
         openFile(fileId, file.path).then((ok) => {
-          // 打开失败（如文件不存在）：清除 loading 态，避免卡死
+          // 打开失败（如文件不存在/路径已变更）：清除 loading 态，避免卡死
           if (!ok) {
+            console.error(
+              `[useFileManagement] Failed to open file: ${file.path} (可能路径已变更，请重新选择文件)`,
+            );
             setLoadingFileIds((prev) => removeFromSet(prev, fileId));
           }
         });
