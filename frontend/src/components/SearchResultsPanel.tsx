@@ -7,6 +7,7 @@
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getSearchMatchesRange, readProcessedLines, physicalToVisualIndex } from '../bridge_client';
+import { SkeletonRows } from './common/SkeletonRows';
 
 interface SearchResultsPanelProps {
   fileId: string | null;
@@ -113,9 +114,7 @@ export const SearchResultsPanel: React.FC<SearchResultsPanelProps> = ({
             无结果
           </div>
         ) : results.length === 0 && isLoading ? (
-          <div className="px-3 py-6 text-center text-[10px] text-gray-600 select-none">
-            加载中...
-          </div>
+          <SkeletonRows count={8} />
         ) : (
           results.map((row) => (
             <button

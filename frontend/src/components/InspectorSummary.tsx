@@ -5,6 +5,7 @@ import { LogLevelStats } from '../types';
 interface InspectorSummaryProps {
   activeFile: FileData;
   logLevelStats: LogLevelStats;
+  loading?: boolean;
 }
 
 const LEVELS: { key: string; label: string; color: string }[] = [
@@ -26,6 +27,7 @@ const formatSize = (bytes: number): string => {
 export const InspectorSummary: React.FC<InspectorSummaryProps> = ({
   activeFile,
   logLevelStats,
+  loading = false,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -115,34 +117,52 @@ export const InspectorSummary: React.FC<InspectorSummaryProps> = ({
         </span>
       </div>
 
-      {/* 级别分布堆叠条 */}
-      <div className="space-y-1">
-        <div className="flex h-1.5 rounded-full overflow-hidden bg-black/20">
-          {LEVELS.map((l) => {
-            const count = logLevelStats[l.key] || 0;
-            if (count === 0) return null;
-            return (
-              <div
-                key={l.key}
-                className={`${l.color} h-full`}
-                style={{ width: `${(count / Math.max(total, 1)) * 100}%` }}
-                title={`${l.label}: ${count.toLocaleString()}`}
-              />
-            );
-          })}
-        </div>
-        <div className="flex flex-wrap gap-x-2.5 gap-y-0.5">
-          {LEVELS.map((l) => {
-            const count = logLevelStats[l.key] || 0;
-            return (
-              <span key={l.key} className="flex items-center gap-1 text-[9px] text-theme-muted">
-                <span className={`w-1.5 h-1.5 rounded-full ${l.color}`} />
-                {l.label} {count.toLocaleString()}
+      {/* 级别分布堆叠条 / 统计加载骨架 */}
+      {loading ? (
+        <div data-testid="summary-skeleton" className="space-y-1">
+          <div className="flex h-1.5 rounded-full overflow-hidden bg-black/20">
+            <div className="h-full bg-red-500/40 animate-pulse" style={{ width: '30%' }} />
+            <div className="h-full bg-yellow-500/40 animate-pulse" style={{ width: '45%' }} />
+            <div className="h-full bg-green-500/40 animate-pulse" style={{ width: '25%' }} />
+          </div>
+          <div className="flex flex-wrap gap-x-2.5 gap-y-0.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span key={i} className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-theme-input opacity-60 animate-pulse" />
+                <span className="h-2 w-10 bg-theme-input opacity-60 rounded animate-pulse" />
               </span>
-            );
-          })}
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div data-testid="summary-stats" className="space-y-1">
+          <div className="flex h-1.5 rounded-full overflow-hidden bg-black/20">
+            {LEVELS.map((l) => {
+              const count = logLevelStats[l.key] || 0;
+              if (count === 0) return null;
+              return (
+                <div
+                  key={l.key}
+                  className={`${l.color} h-full`}
+                  style={{ width: `${(count / Math.max(total, 1)) * 100}%` }}
+                  title={`${l.label}: ${count.toLocaleString()}`}
+                />
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap gap-x-2.5 gap-y-0.5">
+            {LEVELS.map((l) => {
+              const count = logLevelStats[l.key] || 0;
+              return (
+                <span key={l.key} className="flex items-center gap-1 text-[9px] text-theme-muted">
+                  <span className={`w-1.5 h-1.5 rounded-full ${l.color}`} />
+                  {l.label} {count.toLocaleString()}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

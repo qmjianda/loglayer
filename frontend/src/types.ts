@@ -135,7 +135,12 @@ export interface FileBridgeAPI {
 
   // Pipeline operations
   sync_layers(fileId: string, layersJson: string): Promise<boolean>;
-  sync_all(fileId: string, layersJson: string, searchJson: string): Promise<boolean>;
+  sync_all(
+    fileId: string,
+    layersJson: string,
+    searchJson: string,
+    signal?: AbortSignal,
+  ): Promise<boolean>;
   sync_decorations(fileId: string, layersJson: string): Promise<boolean>;
   read_processed_lines(fileId: string, start: number, count: number): Promise<string>;
 

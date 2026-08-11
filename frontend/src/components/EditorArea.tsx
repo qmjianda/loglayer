@@ -16,7 +16,7 @@ import {
 import 'dockview/dist/styles/dockview.css';
 import { LogViewer } from './LogViewer';
 import { EditorFindWidget } from './EditorFindWidget';
-import { FileLoadingSkeleton, PendingFilesWall } from './LoadingOverlays';
+import { FileLoadingSkeleton, IndexingOverlay, PendingFilesWall } from './LoadingOverlays';
 import { FileData, ProcessedCache } from '../hooks/useFileManagement';
 import { SearchConfig } from '../hooks/useSearch';
 import { AppSettings } from '../hooks/useSettings';
@@ -39,6 +39,8 @@ interface EditorAreaData {
   activeFileId: string | null;
   loadingFileIds: Set<string>;
   indexingFileIds: Set<string>;
+  /** 当前索引进度（0-100，operationProgress op='indexing' 驱动），传给 IndexingOverlay */
+  indexingProgress?: number;
   pendingCliFiles: number;
   processedCache: Record<string, ProcessedCache>;
   bridgedUpdateTrigger: number;
@@ -116,7 +118,15 @@ const LogViewerPanel: React.FC<IDockviewPanelProps<LogViewerPanelParams>> = ({ p
     const currentMatchNumber = tab && tab.currentMatchRank >= 0 ? tab.currentMatchRank + 1 : 0;
 
     if (isLoading) {
-      return <FileLoadingSkeleton fileName={file.name} />;
+      return (
+        <div className="relative h-full w-full overflow-hidden">
+          <FileLoadingSkeleton fileName={file.name} />
+          {/* 索引中：在骨架屏之上叠加进度环（z-50 > FileLoadingSkeleton z-40），fileLoaded 后整体消失 */}
+          {data.indexingFileIds.has(fileId) && (
+            <IndexingOverlay progress={data.indexingProgress ?? 0} fileName={file.name} />
+          )}
+        </div>
+      );
     }
 
     return (
@@ -129,6 +139,7 @@ const LogViewerPanel: React.FC<IDockviewPanelProps<LogViewerPanelParams>> = ({ p
           totalLines={file.lineCount}
           fileId={fileId}
           scrollKey={params.uri || fileId}
+          isActive={isPanelActive}
           layers={file.layers || []}
           bookmarks={isActive ? data.bookmarks : {}}
           searchQuery={searchQuery}
@@ -445,6 +456,7 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
       activeFileId: props.activeFileId,
       loadingFileIds: props.loadingFileIds,
       indexingFileIds: props.indexingFileIds,
+      indexingProgress: props.indexingProgress,
       pendingCliFiles: props.pendingCliFiles,
       processedCache: props.processedCache,
       bridgedUpdateTrigger: props.bridgedUpdateTrigger,
@@ -472,6 +484,7 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
       props.activeFileId,
       props.loadingFileIds,
       props.indexingFileIds,
+      props.indexingProgress,
       props.pendingCliFiles,
       props.processedCache,
       props.bridgedUpdateTrigger,

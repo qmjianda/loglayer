@@ -12,6 +12,9 @@ import { AppSettings } from '../hooks/useSettings';
 import { detectJson } from '../utils/jsonTree';
 import { LogRow } from './logViewer/LogRow';
 import { computeRevealScrollTop } from '../utils/revealScroll';
+import { computeWatchdogAction } from './utils/watchdog';
+import { useVirtualScroll } from '../hooks/useVirtualScroll';
+import { PerformanceIndicator } from './PerformanceIndicator';
 
 interface LogViewerProps {
   totalLines: number;
@@ -45,6 +48,8 @@ interface LogViewerProps {
   rawLineCount?: number;
   /** 设置项：显示虚拟行号（默认 true） */
   showVirtualLineNumbers?: boolean;
+  /** 面板是否激活（dockview 激活面板经 EditorArea 传入）：激活时武装看门狗，覆盖归零风险窗口 */
+  isActive?: boolean;
 }
 
 // 浏览器滚动容器安全高度上限（Chrome ~33.5M px），留余量
@@ -53,6 +58,13 @@ const MAX_SCROLL_HEIGHT = 30_000_000;
 // 滚动位置持久化：key 为稳定文件标识（uri）。LogViewer 因 fileId 变化/面板重建
 // 而重挂载时，恢复此前进度，避免"每次切 tab / 加书签就跳回首行"。
 const LOGVIEWER_SCROLL_STORE = new Map<string, { scrollTop: number }>();
+
+// 渲染依赖引用稳定（React.memo 生效前提）：默认空配置用 module 级冻结常量，
+// 重渲染间引用恒定，避免「未配置图层/书签」时每次新建对象导致 LogRow 浅比较失效。
+const EMPTY_LAYERS: LogLayer[] = [];
+Object.freeze(EMPTY_LAYERS);
+const EMPTY_BOOKMARKS: Record<number, string> = {};
+Object.freeze(EMPTY_BOOKMARKS);
 
 /**
  * LogViewer - DOM 虚拟化重构版
@@ -79,15 +91,16 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   onSelectedTextChange,
   onSendToAI,
   updateTrigger,
-  layers = [],
+  layers = EMPTY_LAYERS,
   layerStats = {},
-  bookmarks = {},
+  bookmarks = EMPTY_BOOKMARKS,
   settings,
   resolvedTheme = 'dark',
   hasNewContent = false,
   onScrollToNewContent,
   rawLineCount,
   showVirtualLineNumbers = true,
+  isActive = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollStateRef = useRef({ top: 0, left: 0 });
@@ -127,27 +140,53 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   // 最近一次由用户/原生滚动更新的时间（区分「用户滚到顶」与「外部把滚动条归零」）
   const lastScrollEventRef = useRef(0);
 
-  // === 滚动位置看门狗 ===
+  // === 滚动位置看门狗（有界：空闲睡眠 + 事件重新武装） ===
   // dockview 激活/失活面板（切换 `dv-active-group` 等 class）时，浏览器会把面板内容的
   // DOM 滚动条归零，且不触发 scroll 事件（React state 仍是旧值），导致视觉上跳回首行。
-  // 这里逐帧检测「DOM=0 但 state>0 且近期无用户滚动」的脱节，同帧拉回真实位置。
-  // 用户真正滚动到顶时 scroll 事件会把 state 同步为 0，因此不会误干预。
+  // 决策由 utils/watchdog 纯函数承担：连续 30 帧稳定（无纠正、无用户滚动、无面板激活/布局
+  // 变化）后停止逐帧检测（睡眠）；scroll / resize / fileId / isActive 触发时重新武装。
+  // 80ms 用户滚动保护窗口避免「用户滚到顶」被误判为外部归零；scrollToIndex 程序化跳顶
+  // 经 scrollStateRef 同步不被误判。
+  const stableFramesRef = useRef(0);
+  const watchdogRafRef = useRef(0);
+  const isActiveRef = useRef(isActive);
   useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
+
+  // 武装看门狗：重置稳定计数并启动逐帧检测（未在运行且面板激活时）
+  const armWatchdog = useCallback(() => {
     const el = containerRef.current;
-    if (!el) return;
-    let raf = 0;
+    if (!el || !isActiveRef.current) return;
+    stableFramesRef.current = 0;
+    if (watchdogRafRef.current) return; // 已在运行：仅重置稳定窗口
     const tick = () => {
-      raf = requestAnimationFrame(tick);
       const top = el.scrollTop;
       const state = scrollStateRef.current.top;
-      if (top === 0 && state > 0 && performance.now() - lastScrollEventRef.current > 80) {
+      const ageMs = performance.now() - lastScrollEventRef.current;
+      const d = computeWatchdogAction(stableFramesRef.current, top, state, ageMs);
+      stableFramesRef.current = d.stableFrames;
+      if (d.action === 'restore') {
+        // 外部归零 → 同帧拉回真实位置（DOM 与 state 同步，避免跳回首行）
         el.scrollTop = state;
         setScrollTop(state);
       }
+      if (d.action === 'sleep') {
+        // 连续稳定帧达到阈值 → 停止逐帧检测（不再每帧读 DOM）
+        watchdogRafRef.current = 0;
+        return;
+      }
+      watchdogRafRef.current = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    watchdogRafRef.current = requestAnimationFrame(tick);
   }, []);
+
+  // isActive 变化：激活时立即重新武装覆盖本次归零风险窗口；失活不强制取消运行中的
+  // 循环（让其稳定后自然睡眠），避免多组布局下可见非激活面板的归零漏检。
+  useEffect(() => {
+    stableFramesRef.current = 0;
+    if (isActive) armWatchdog();
+  }, [isActive, armWatchdog]);
 
   const { LINE_HEIGHT, SCROLL_MARGIN, FETCH_DEBOUNCE_MS } = LOG_VIEWER;
 
@@ -165,7 +204,14 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const showLineNumbers = settings?.showLineNumbers ?? true;
   const showRuler = settings?.showRuler ?? true;
   const theme = resolvedTheme ?? 'dark';
-  const colors = getLogViewerColors(theme as 'dark' | 'light');
+  // 渲染依赖引用稳定：主题未变时 colors 引用不变，React.memo(LogRow) 浅比较可命中
+  const colors = useMemo(() => getLogViewerColors(theme as 'dark' | 'light'), [theme]);
+
+  // === FPS 采集（debugMode 专用）：默认关闭零开销，开启时仅只读测量（rAF 计数） ===
+  // 采集结果仅在本组件内以 PerformanceIndicator 呈现（App 层不传 performanceMetrics 给
+  // StatusBar，此处直接渲染最小侵入，避免改动 App.tsx）。
+  const debugMode = settings?.debugMode ?? false;
+  const { metrics } = useVirtualScroll({ debugMode, enabled: true });
 
   const fontFamily =
     '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
@@ -225,7 +271,13 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       }
     };
     measure();
-    window.addEventListener('resize', measure);
+    const handleResize = () => {
+      measure();
+      // 尺寸/布局变化：重新武装看门狗（覆盖布局调整导致的归零风险窗口）
+      stableFramesRef.current = 0;
+      armWatchdog();
+    };
+    window.addEventListener('resize', handleResize);
     // ResizeObserver 跟踪后续尺寸变化
     let observer: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
@@ -236,12 +288,12 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     const rafId = requestAnimationFrame(measure);
     const timerId = setTimeout(measure, 150);
     return () => {
-      window.removeEventListener('resize', measure);
+      window.removeEventListener('resize', handleResize);
       observer?.disconnect();
       cancelAnimationFrame(rafId);
       clearTimeout(timerId);
     };
-  }, []);
+  }, [armWatchdog]);
 
   // === 原生 scroll 监听：dockview 中 React onScroll 合成事件不可靠，
   // 改用原生 addEventListener 绑定容器，滚动事件经 rAF 同步到 state ===
@@ -264,6 +316,9 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         }
         setScrollTop(top);
         setScrollLeft(left);
+        // 用户滚动：重新武装看门狗（重置稳定计数，覆盖滚动/归零窗口）
+        stableFramesRef.current = 0;
+        armWatchdog();
       });
     };
     el.addEventListener('scroll', onScroll, { passive: true });
@@ -271,7 +326,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       el.removeEventListener('scroll', onScroll);
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [scrollKey]);
+  }, [scrollKey, armWatchdog]);
 
   const prevFileIdRef = useRef<string | null | undefined>(undefined);
 
@@ -319,7 +374,10 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         if (w > 0) setViewportWidth(w);
       }
     });
-  }, [fileId, scrollKey]);
+    // fileId 变化：重新武装看门狗（新文件/重挂载归零窗口）
+    stableFramesRef.current = 0;
+    armWatchdog();
+  }, [fileId, scrollKey, armWatchdog]);
 
   // 卸载时保存滚动位置，供重挂载恢复
   useEffect(() => {
@@ -680,6 +738,13 @@ export const LogViewer: React.FC<LogViewerProps> = ({
               boxSizing: 'border-box',
             }}
           />
+        </div>
+      )}
+
+      {/* FPS/内存调试指示器（仅 debugMode）：sticky 固定于视口右下角，不随内容滚动 */}
+      {debugMode && (
+        <div className="sticky bottom-2 z-20 flex justify-end pointer-events-none">
+          <PerformanceIndicator metrics={metrics} visible={true} />
         </div>
       )}
 

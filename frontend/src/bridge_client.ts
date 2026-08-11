@@ -135,11 +135,12 @@ class WebBridge implements FileBridgeAPI {
     this.stateListeners.forEach((cb) => cb(state));
   }
 
-  private async post(endpoint: string, body: any = {}): Promise<any> {
+  private async post(endpoint: string, body: any = {}, signal?: AbortSignal): Promise<any> {
     const res = await fetch(`${BACKEND_URL}/api/${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal,
     });
     return res.json();
   }
@@ -208,12 +209,16 @@ class WebBridge implements FileBridgeAPI {
   async sync_decorations(fileId: string, json: string) {
     return this.post('sync_decorations', { file_id: fileId, layers_json: json });
   }
-  async sync_all(fileId: string, layersJson: string, searchJson: string) {
-    return this.post('sync_all', {
-      file_id: fileId,
-      layers_json: layersJson,
-      search_json: searchJson,
-    });
+  async sync_all(fileId: string, layersJson: string, searchJson: string, signal?: AbortSignal) {
+    return this.post(
+      'sync_all',
+      {
+        file_id: fileId,
+        layers_json: layersJson,
+        search_json: searchJson,
+      },
+      signal,
+    );
   }
   async read_processed_lines(fileId: string, start: number, count: number) {
     const res = await this.get('read_processed_lines', {
@@ -338,9 +343,33 @@ export async function readProcessedLines(
   }
 }
 
-export async function syncAll(fileId: string, layers: any[], search: any): Promise<void> {
-  if (!fileBridge) return;
-  fileBridge.sync_all(fileId, JSON.stringify(layers), JSON.stringify(search));
+function isAbortError(e: unknown): boolean {
+  const err = e as { name?: unknown } | null;
+  return !!err && err.name === 'AbortError';
+}
+
+/**
+ * 同步图层+搜索（fire-and-forget）。
+ * @param signal 可选外部 AbortSignal；缺省时内部自建 controller。
+ * @returns AbortController，调用方可借此取消在途请求（取消路径静默吞掉 AbortError，不抛未捕获异常）。
+ */
+export function syncAll(
+  fileId: string,
+  layers: any[],
+  search: any,
+  signal?: AbortSignal,
+): AbortController {
+  const controller = new AbortController();
+  if (!fileBridge) return controller;
+  const effectiveSignal = signal ?? controller.signal;
+  fileBridge
+    .sync_all(fileId, JSON.stringify(layers), JSON.stringify(search), effectiveSignal)
+    .catch((e) => {
+      if (!isAbortError(e)) {
+        console.error('[Bridge] syncAll error:', e);
+      }
+    });
+  return controller;
 }
 
 /**

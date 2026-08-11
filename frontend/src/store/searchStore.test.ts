@@ -3,7 +3,12 @@
  * 覆盖 ensureTab/destroyTab、面板独立状态、setActivePanel、clearSearch、getTabState。
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useSearchStore, selectActiveTab, selectActiveTabQuery } from './searchStore';
+import {
+  useSearchStore,
+  selectActiveTab,
+  selectActiveTabQuery,
+  isStalePipelineResult,
+} from './searchStore';
 
 beforeEach(() => {
   // 重置 store 状态（保留 actions）
@@ -140,5 +145,43 @@ describe('clearSearch', () => {
     const tab = useSearchStore.getState().getTabState('nonexistent');
     expect(tab.query).toBe('');
     expect(tab.currentMatchRank).toBe(-1);
+  });
+});
+
+describe('请求序号与过期结果失效（search-debounce 验收）', () => {
+  it('ensureTab 默认 requestSeq=0 且 consumedSeq=0', () => {
+    useSearchStore.getState().ensureTab('panel-A');
+    const tab = useSearchStore.getState().tabs['panel-A'];
+    expect(tab.requestSeq).toBe(0);
+    expect(tab.consumedSeq).toBe(0);
+  });
+
+  it('bumpSearchSeq 每次触发单调递增', () => {
+    useSearchStore.getState().ensureTab('panel-A');
+    useSearchStore.getState().bumpSearchSeq('panel-A');
+    useSearchStore.getState().bumpSearchSeq('panel-A');
+    expect(useSearchStore.getState().tabs['panel-A'].requestSeq).toBe(2);
+  });
+
+  it('markSearchConsumed 将已应用序号推进至当前请求序号', () => {
+    useSearchStore.getState().ensureTab('panel-A');
+    useSearchStore.getState().bumpSearchSeq('panel-A'); // requestSeq=1
+    useSearchStore.getState().markSearchConsumed('panel-A');
+    expect(useSearchStore.getState().tabs['panel-A'].consumedSeq).toBe(1);
+  });
+
+  it('结果已应用后残留信号判定为过期（requestSeq === consumedSeq）', () => {
+    useSearchStore.getState().ensureTab('panel-A');
+    useSearchStore.getState().bumpSearchSeq('panel-A');
+    useSearchStore.getState().markSearchConsumed('panel-A');
+    const tab = useSearchStore.getState().tabs['panel-A'];
+    expect(isStalePipelineResult(tab)).toBe(true);
+  });
+
+  it('新搜索触发后未应用前不判定过期（结果可应用）', () => {
+    useSearchStore.getState().ensureTab('panel-A');
+    useSearchStore.getState().bumpSearchSeq('panel-A'); // 新搜索在途
+    const tab = useSearchStore.getState().tabs['panel-A'];
+    expect(isStalePipelineResult(tab)).toBe(false);
   });
 });

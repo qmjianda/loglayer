@@ -34,37 +34,35 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
   const { searchHistory, addToHistory, removeFromHistory, clearHistory } = useSearchHistory();
 
-  // 搜索防抖 (200ms)
+  // 搜索触发：统一防抖已在 useSearch（250ms）单层处理，此处直接透传，无第二层防抖
   useEffect(() => {
     // 首帧：inputValue 来自 externalQuery，不触发 onSearch('')，避免覆盖 find widget 的搜索
     if (isFirstRenderRef.current) {
       isFirstRenderRef.current = false;
       return;
     }
-    const timer = setTimeout(() => {
-      if (!inputValue) {
+
+    if (!inputValue) {
+      onSearch('');
+      setSqlError(null);
+      return;
+    }
+
+    // Check if it's a SQL-like query
+    if (isSQLLikeQuery(inputValue)) {
+      const result = parseSQLQuery(inputValue);
+      if (result.error) {
+        setSqlError(result.error);
         onSearch('');
-        setSqlError(null);
         return;
       }
-
-      // Check if it's a SQL-like query
-      if (isSQLLikeQuery(inputValue)) {
-        const result = parseSQLQuery(inputValue);
-        if (result.error) {
-          setSqlError(result.error);
-          onSearch('');
-          return;
-        }
-        setSqlError(null);
-        onSearch(result.regex);
-      } else {
-        // Regular search
-        setSqlError(null);
-        onSearch(inputValue);
-      }
-    }, 200);
-    return () => clearTimeout(timer);
+      setSqlError(null);
+      onSearch(result.regex);
+    } else {
+      // Regular search
+      setSqlError(null);
+      onSearch(inputValue);
+    }
   }, [inputValue, onSearch]);
 
   // 正则合法性校验

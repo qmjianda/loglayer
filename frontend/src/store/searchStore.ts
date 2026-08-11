@@ -22,6 +22,10 @@ export interface TabSearchState {
   isFindVisible: boolean;
   /** Ctrl+F 聚焦请求计数：每次 requestFocus 递增，widget 侧监听变化执行 focus+select */
   focusRequest: number;
+  /** 搜索请求序号：每次触发搜索递增，用于丢弃过期/残留的 pipelineFinished 信号（D6） */
+  requestSeq: number;
+  /** 已应用结果的请求序号：应用结果时推进至当前 requestSeq（D6） */
+  consumedSeq: number;
 }
 
 export interface SearchStore {
@@ -37,6 +41,10 @@ export interface SearchStore {
   setIsSearching: (panelId: string, searching: boolean) => void;
   setFindVisible: (panelId: string, visible: boolean) => void;
   requestFocus: (panelId: string) => void;
+  /** 触发搜索：requestSeq 单调递增（新触发废弃在途旧结果） */
+  bumpSearchSeq: (panelId: string) => void;
+  /** 应用搜索结果：consumedSeq 推进至当前 requestSeq */
+  markSearchConsumed: (panelId: string) => void;
   clearSearch: (panelId: string) => void;
   getTabState: (panelId: string) => TabSearchState;
 }
@@ -57,6 +65,8 @@ function defaultTabState(): TabSearchState {
     isSearching: false,
     isFindVisible: false,
     focusRequest: 0,
+    requestSeq: 0,
+    consumedSeq: 0,
   };
 }
 
@@ -157,6 +167,30 @@ export const useSearchStore = create<SearchStore>()((set, get) => ({
       };
     }),
 
+  bumpSearchSeq: (panelId) =>
+    set((state) => {
+      const tab = state.tabs[panelId];
+      if (!tab) return state;
+      return {
+        tabs: {
+          ...state.tabs,
+          [panelId]: { ...tab, requestSeq: tab.requestSeq + 1 },
+        },
+      };
+    }),
+
+  markSearchConsumed: (panelId) =>
+    set((state) => {
+      const tab = state.tabs[panelId];
+      if (!tab) return state;
+      return {
+        tabs: {
+          ...state.tabs,
+          [panelId]: { ...tab, consumedSeq: tab.requestSeq },
+        },
+      };
+    }),
+
   clearSearch: (panelId) =>
     set((state) => {
       const tab = state.tabs[panelId];
@@ -186,3 +220,10 @@ export const selectActiveTab = (state: SearchStore): TabSearchState | null => {
 
 export const selectActiveTabQuery = (state: SearchStore): string =>
   selectActiveTab(state)?.query ?? '';
+
+/**
+ * 判定 pipelineFinished 等结果信号是否为过期残留（D6）：
+ * requestSeq === consumedSeq 表示该序号对应的结果已被应用，后续到达的信号为迟到/重复，应丢弃。
+ */
+export const isStalePipelineResult = (tab: TabSearchState): boolean =>
+  tab.requestSeq === tab.consumedSeq;

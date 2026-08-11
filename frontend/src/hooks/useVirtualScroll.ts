@@ -95,6 +95,7 @@ export function useVirtualScroll({
   const animationFrameRef = useRef<number | null>(null);
 
   // === Scroll Prediction Methods ===
+  // [二期候选] 预测/降质/自适应 buffer，本期不接线
   const updateScrollState = useCallback((scrollTop: number, viewportHeight: number) => {
     const now = performance.now();
     const state = scrollState.current;
@@ -114,6 +115,7 @@ export function useVirtualScroll({
     }
   }, []);
 
+  // [二期候选] 预测/降质/自适应 buffer，本期不接线
   const getRecommendedBuffer = useCallback(
     (
       _scrollTop: number,
@@ -142,6 +144,7 @@ export function useVirtualScroll({
     [bufferNormal, bufferLarge, velocityThreshold],
   );
 
+  // [二期候选] 预测/降质/自适应 buffer，本期不接线
   const predictNextVisibleRange = useCallback(
     (
       currentStart: number,
@@ -176,6 +179,7 @@ export function useVirtualScroll({
     [lineHeight, velocityThreshold],
   );
 
+  // [二期候选] 预测/降质/自适应 buffer，本期不接线
   const getMomentum = useCallback((): number => {
     const positions = lastPositions.current;
     if (positions.length < 2) return 0;
@@ -191,6 +195,7 @@ export function useVirtualScroll({
     return totalVelocity / (positions.length - 1);
   }, []);
 
+  // [二期候选] 预测/降质/自适应 buffer，本期不接线
   const isScrollingFast = useCallback((): boolean => {
     return scrollState.current.velocity > velocityThreshold * 3;
   }, [velocityThreshold]);
@@ -208,17 +213,16 @@ export function useVirtualScroll({
         fpsHistoryRef.current.shift();
       }
 
-      const avgFps = Math.round(
-        fpsHistoryRef.current.reduce((a, b) => a + b, 0) / fpsHistoryRef.current.length,
-      );
+      const avgFps = computeAverageFps(fpsHistoryRef.current);
+      const low = isLowFps(avgFps);
 
       setMetrics((prev) => ({
         ...prev,
         fps: avgFps,
-        isLowFps: avgFps < 30,
+        isLowFps: low,
       }));
 
-      if (avgFps < 30) {
+      if (low) {
         onLowFps?.(avgFps);
       }
 
@@ -275,25 +279,11 @@ export function useVirtualScroll({
 
     const memoryInterval = setInterval(updateMemory, 2000);
 
-    const handleActivity = () => {
-      // Activity tracking for idle detection
-    };
-
-    window.addEventListener('scroll', handleActivity, { passive: true });
-    window.addEventListener('resize', handleActivity);
-
-    const idleInterval = setInterval(() => {
-      // Idle detection for cache pruning
-    }, 1000);
-
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
       clearInterval(memoryInterval);
-      clearInterval(idleInterval);
-      window.removeEventListener('scroll', handleActivity);
-      window.removeEventListener('resize', handleActivity);
     };
   }, [enabled, debugMode, calculateFps, updateMemory]);
 
@@ -323,4 +313,20 @@ export function estimateMemoryUsage(lineCount: number, avgLineLength: number = 1
   const bytesPerLine = avgLineLength * 2;
   const totalBytes = lineCount * bytesPerLine;
   return formatBytes(totalBytes);
+}
+
+/**
+ * FPS 采集纯函数：计算最近时段的平均帧率（四舍五入）。空样本返回 0。
+ */
+export function computeAverageFps(fpsHistory: number[]): number {
+  if (fpsHistory.length === 0) return 0;
+  const sum = fpsHistory.reduce((acc, fps) => acc + fps, 0);
+  return Math.round(sum / fpsHistory.length);
+}
+
+/**
+ * 低帧率标记：平均 FPS 低于阈值（30）视为低帧率。
+ */
+export function isLowFps(avgFps: number): boolean {
+  return avgFps < 30;
 }

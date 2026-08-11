@@ -11,6 +11,7 @@ import { LogLayer } from '../types';
 import type { SearchConfig, SearchMode } from '../types';
 import { useSearchStore } from '../store/searchStore';
 import { timingLog } from '../utils/timing';
+import { useDebouncedValue, SEARCH_DEBOUNCE_MS } from './useDebouncedValue';
 
 export type { SearchConfig, SearchMode };
 
@@ -110,6 +111,7 @@ export function useSearch({
   const setIsSearchingStore = useSearchStore((s) => s.setIsSearching);
   const setFindVisible = useSearchStore((s) => s.setFindVisible);
   const clearSearchStore = useSearchStore((s) => s.clearSearch);
+  const bumpSearchSeq = useSearchStore((s) => s.bumpSearchSeq);
 
   useEffect(() => {
     if (activePanelId) ensureTab(activePanelId);
@@ -134,49 +136,57 @@ export function useSearch({
   const [searchHistory, setSearchHistory] = useState<string[]>(() => loadSearchHistory());
 
   // Sync with backend when layers or search changes
+  // 统一单层防抖（D5）：searchQuery 经 250ms 防抖后驱动同步，所有搜索入口延迟一致。
   // 仅当该面板自身 query 相对其上次值变化（新搜索）才重置 rank；
   // 切 tab（activePanelId 变化）不重置，保留各面板导航位置。
+  const debouncedQuery = useDebouncedValue(searchQuery, SEARCH_DEBOUNCE_MS);
   const lastQueryByPanelRef = useRef<Record<string, string>>({});
   useEffect(() => {
     if (!activeFileId) return;
 
     const isNewSearch =
-      !activePanelId || searchQuery !== lastQueryByPanelRef.current[activePanelId];
-    if (activePanelId) lastQueryByPanelRef.current[activePanelId] = searchQuery;
+      !activePanelId || debouncedQuery !== lastQueryByPanelRef.current[activePanelId];
+    if (activePanelId) lastQueryByPanelRef.current[activePanelId] = debouncedQuery;
 
-    const timer = setTimeout(async () => {
-      const searchConf = searchQuery
-        ? {
-            query: searchQuery,
-            regex: searchConfig.regex,
-            caseSensitive: searchConfig.caseSensitive,
-          }
-        : null;
+    const searchConf = debouncedQuery
+      ? {
+          query: debouncedQuery,
+          regex: searchConfig.regex,
+          caseSensitive: searchConfig.caseSensitive,
+        }
+      : null;
 
-      if (searchQuery && isNewSearch) {
-        setIsSearchingStore(activePanelId, true);
-        setCurrentMatch(activePanelId, -1, -1);
+    if (debouncedQuery && isNewSearch) {
+      setIsSearchingStore(activePanelId, true);
+      setCurrentMatch(activePanelId, -1, -1);
 
-        // Clear current matches to indicate loading
-        setProcessedCache((prev) => ({
-          ...prev,
-          [activeFileId]: { ...prev[activeFileId], searchMatchCount: 0 },
-        }));
-      }
+      // Clear current matches to indicate loading
+      setProcessedCache((prev) => ({
+        ...prev,
+        [activeFileId]: { ...prev[activeFileId], searchMatchCount: 0 },
+      }));
+    }
 
-      await syncAll(activeFileId, layers, searchConf);
-      timingLog('sync_all.request', activeFileId, searchConf ? 'search' : 'no-search');
+    // 搜索触发递增请求序号（D6）：供 App 端 pipelineFinished 过期判定
+    if (searchConf && activePanelId) {
+      bumpSearchSeq(activePanelId);
+    }
 
-      if (!searchQuery) {
-        setIsSearchingStore(activePanelId, false);
-        setCurrentMatch(activePanelId, -1, -1);
-      }
-    }, 300);
+    // 在途请求可取消（D6）：新触发/依赖变化/卸载时先执行上一轮 cleanup → abort 挂起请求；
+    // AbortError 由 syncAll 静默吞掉，不抛未捕获异常。
+    const controller = new AbortController();
+    syncAll(activeFileId, layers, searchConf, controller.signal);
+    timingLog('sync_all.request', activeFileId, searchConf ? 'search' : 'no-search');
 
-    return () => clearTimeout(timer);
+    if (!debouncedQuery) {
+      setIsSearchingStore(activePanelId, false);
+      setCurrentMatch(activePanelId, -1, -1);
+    }
+
+    return () => controller.abort();
   }, [
     layersFunctionalHash,
-    searchQuery,
+    debouncedQuery,
     searchConfig,
     activeFileId,
     activePanelId,

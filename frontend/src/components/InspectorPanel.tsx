@@ -49,6 +49,8 @@ interface InspectorPanelProps {
 
   // 统计摘要
   logLevelStats: LogLevelStats;
+  /** [perf-deepening] 统计拉取中（驱动 InspectorSummary 骨架屏） */
+  statsLoading?: boolean;
 }
 
 type InspectorSection = 'layers' | 'presets' | 'bookmarks' | 'stats';
@@ -80,6 +82,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
   onClearBookmarks,
   onJumpToBookmark,
   logLevelStats,
+  statsLoading,
 }) => {
   // 各折叠区状态（默认：图层展开，其余折叠）
   const [sections, setSections] = useState<Record<InspectorSection, boolean>>({
@@ -321,7 +324,11 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* 1. 文件属性摘要（固定不折叠） */}
-      <InspectorSummary activeFile={activeFile} logLevelStats={logLevelStats} />
+      <InspectorSummary
+        activeFile={activeFile}
+        logLevelStats={logLevelStats}
+        loading={statsLoading}
+      />
 
       {/* 可滚动区域：图层 / 预设 / 书签 / 统计 */}
       <div className="flex-1 overflow-y-auto custom-scrollbar bg-theme-surface min-h-0">

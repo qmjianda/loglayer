@@ -38,11 +38,64 @@ export function renderWithIsolation(type: string, content: string, config: unkno
   }
 }
 
+/** 有界 LRU 渲染结果缓存（跨行复用，design D3）：命中即 delete+set 刷新最近使用 */
+export interface RenderCache {
+  get(key: string): RenderResult | undefined;
+  set(key: string, value: RenderResult): void;
+  readonly size: number;
+}
+
+/**
+ * 创建有界 LRU 缓存：Map 迭代序即最近使用序。
+ * - get 命中时 delete+set 刷新 recency；未命中返回 undefined。
+ * - set 超出 limit 时淘汰最久未用（迭代序首项）。
+ */
+export function createRenderCache(limit = 500): RenderCache {
+  const map = new Map<string, RenderResult>();
+  return {
+    get(key) {
+      const value = map.get(key);
+      if (value === undefined) return undefined;
+      // 刷新最近使用，维持 LRU 序
+      map.delete(key);
+      map.set(key, value);
+      return value;
+    },
+    set(key, value) {
+      if (map.has(key)) map.delete(key);
+      map.set(key, value);
+      // 超出上限淘汰最久未用条目
+      if (map.size > limit) {
+        const oldest = map.keys().next().value;
+        if (oldest !== undefined) map.delete(oldest);
+      }
+    },
+    get size() {
+      return map.size;
+    },
+  };
+}
+
+/**
+ * 渲染结果缓存 key：content + 配置序列化签名（JSON）。
+ * 同内容同配置 → 一致 key（可命中共享）；配置或内容变化 → key 不同（不串用旧结果）。
+ */
+export function buildRenderKey(content: string, configs: unknown[]): string {
+  return content + '\u0000' + JSON.stringify(configs);
+}
+
+/** 跨行渲染结果缓存实例：key 含配置签名，配置变化自然 miss；LRU 有界淘汰 */
+const renderCache = createRenderCache();
+
 /**
  * 多图层组合渲染：按顺序应用多个渲染器，聚合 segments 与 rowStyle。
  * 单个图层失败不影响其余图层。
+ * 顶层入口统一走 LRU 缓存：相同内容+相同配置直接复用缓存引用（视为不可变，调用方不得修改）。
  */
 export function renderLayers(types: string[], content: string, configs: unknown[]): RenderResult {
+  const key = buildRenderKey(content, configs);
+  const cached = renderCache.get(key);
+  if (cached) return cached;
   const segments: HighlightSegment[] = [];
   let rowStyle: RenderResult['rowStyle'];
   types.forEach((type, i) => {
@@ -52,7 +105,9 @@ export function renderLayers(types: string[], content: string, configs: unknown[
       rowStyle = rowStyle ? { ...rowStyle, ...result.rowStyle } : result.rowStyle;
     }
   });
-  return { segments, rowStyle };
+  const result: RenderResult = { segments, rowStyle };
+  renderCache.set(key, result);
+  return result;
 }
 
 // === 内置渲染器 ===
