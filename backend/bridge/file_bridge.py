@@ -42,6 +42,7 @@ from .utils import (
     timing_start,
     timing,
     resolve_file_path,
+    find_rg_binary,
     get_creationflags,
     get_log_files_recursive,
     get_directory_contents,
@@ -380,23 +381,22 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 )
 
     def _get_rg_path(self):
+        """定位可用的 ripgrep 二进制；找不到时返回 None（调用方需降级）。"""
         if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
             base_dir = sys._MEIPASS
         else:
             # 拆分后本文件位于 backend/bridge/，向上两级回到 backend/
             # （与拆分前 bridge.py 位于 backend/ 时的 dirname 行为一致）
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        bundled_bin = os.path.join(
-            base_dir, "bin", "windows" if platform.system() == "Windows" else "linux"
-        )
-        dev_bin = os.path.join(
-            os.path.dirname(base_dir),
-            "bin",
-            "windows" if platform.system() == "Windows" else "linux",
-        )
-        path_to_check = bundled_bin if os.path.exists(bundled_bin) else dev_bin
-        exe = "rg.exe" if platform.system() == "Windows" else "rg"
-        return os.path.join(path_to_check, exe)
+        bundled_bin = os.path.join(base_dir, "bin")
+        dev_bin = os.path.join(os.path.dirname(base_dir), "bin")
+        rg_path = find_rg_binary([bundled_bin, dev_bin])
+        if rg_path is None:
+            print(
+                "[Bridge] ripgrep not found in bundled/dev dirs or PATH; "
+                "log-level stats will use Python fallback"
+            )
+        return rg_path
 
     def open_file(self, file_id: str, file_path: str) -> bool:
         t0_open = timing_start()
@@ -872,10 +872,39 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             }
         return json.dumps({"cache_stats": stats, "sessions": sessions_info})
 
+    def _python_level_stats(self, file_path: str) -> dict:
+        """纯 Python 逐行统计日志级别（rg 不可用时的降级路径）。
+
+        与 rg `-i -o` 语义对齐：大小写不敏感、每处匹配计一次。
+        """
+        log_levels = ["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "FATAL"]
+        results = {level: 0 for level in log_levels}
+        pattern = re.compile(
+            r"\b(" + "|".join(log_levels) + r")\b", re.IGNORECASE
+        )
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    for m in pattern.findall(line):
+                        level = m.upper()
+                        if level in results:
+                            results[level] += 1
+        except Exception as e:
+            print(f"[LogLevelStats] Python fallback error: {e}")
+        return results
+
     def _calculate_log_level_stats(self, file_path: str) -> dict:
         """Calculate log level statistics for a file using ripgrep"""
         log_levels = ["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "FATAL"]
         results = {level: 0 for level in log_levels}
+
+        # rg 不可用（未找到二进制 / 路径失效）时降级为纯 Python 统计，避免 WinError 2
+        if not self._rg_path or not os.path.isfile(self._rg_path):
+            print(
+                "[LogLevelStats] rg unavailable, using Python fallback "
+                f"for {file_path}"
+            )
+            return self._python_level_stats(file_path)
 
         try:
             # 单次 ripgrep 扫描同时提取全部级别关键字（-o 每处匹配输出一行），

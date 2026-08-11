@@ -3,9 +3,10 @@
 import os
 import re
 import platform
+import shutil
 import time
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 
 # ==== 性能打点（性能看护，默认关闭；LOGLAYER_TIMING=1 开启）====
@@ -76,6 +77,29 @@ def get_creationflags():
     if platform.system() == "Windows":
         return 0x08000000  # CREATE_NO_WINDOW
     return 0
+
+
+def find_rg_binary(candidate_dirs: Optional[List[str]] = None) -> Optional[str]:
+    """查找可用的 ripgrep 二进制，返回绝对路径；找不到返回 None。
+
+    查找顺序：
+    1. 传入的候选目录（`<dir>/<platform>/rg[.exe]`，如打包/开发目录的 bin）
+    2. 系统 PATH（`shutil.which("rg")`）
+
+    `candidate_dirs` 缺省时为空列表。返回的路径保证存在（`os.path.isfile`）。
+    """
+    if candidate_dirs is None:
+        candidate_dirs = []
+    platform_dir = "windows" if platform.system() == "Windows" else "linux"
+    exe_name = "rg.exe" if platform.system() == "Windows" else "rg"
+    for base in candidate_dirs:
+        candidate = os.path.join(base, platform_dir, exe_name)
+        if os.path.isfile(candidate):
+            return candidate
+    which = shutil.which("rg")
+    if which and os.path.isfile(which):
+        return which
+    return None
 
 
 def get_log_files_recursive(folder_path):

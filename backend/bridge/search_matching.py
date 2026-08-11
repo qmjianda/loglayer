@@ -21,6 +21,8 @@ def compute_search_matches(
     """
     if not search_config or not search_config.get("query"):
         return array.array("I")
+    if not rg_path:
+        return array.array("I")
 
     cmd = [
         rg_path,

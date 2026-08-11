@@ -308,6 +308,11 @@ class StatsWorker(CustomThread):
 
     def run(self):
         try:
+            # rg 不可用时直接返回空结果（stats 仅依赖 rg，无降级路径）
+            if not self.rg_path:
+                if self._is_running:
+                    self.finished.emit(json.dumps({}))
+                return
             results = {}
             active_filters = []
             tasks = []
