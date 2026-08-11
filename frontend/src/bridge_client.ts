@@ -200,6 +200,9 @@ class WebBridge implements FileBridgeAPI {
   async put_workspace_files(folderPath: string, files: unknown[]) {
     return this.put('workspace/files', { folder_path: folderPath, files });
   }
+  async remove_workspace_file(folderPath: string, path: string) {
+    return this.post('workspace/files/remove', { folder_path: folderPath, path });
+  }
   async ready() {
     return this.post('ready');
   }
@@ -608,6 +611,22 @@ export async function putWorkspaceState(
     return !!(await fileBridge.put_workspace_state(folderPath, key, value));
   } catch (e) {
     console.error(`[Bridge] putWorkspaceState(${key}) error:`, e);
+    return false;
+  }
+}
+
+/**
+ * 从工作区文件历史中删除单条记录（幂等）。
+ */
+export async function removeWorkspaceFile(
+  folderPath: string,
+  path: string,
+): Promise<boolean> {
+  if (!fileBridge) return false;
+  try {
+    return !!(await fileBridge.remove_workspace_file(folderPath, path));
+  } catch (e) {
+    console.error(`[Bridge] removeWorkspaceFile(${path}) error:`, e);
     return false;
   }
 }

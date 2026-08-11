@@ -112,3 +112,19 @@ def test_utils_functions_available():
     """utils 工具函数可调用（不触发系统调用）。"""
     assert utils_module.convert_windows_path_to_linux("D:/a/b.log").startswith("/mnt/d/")
     assert utils_module.get_creationflags() == 0  # Linux 平台
+
+
+def test_remove_workspace_file_deletes_entry(tmp_path):
+    """remove_workspace_file 删除后 get_files 不含该路径。"""
+    from bridge import FileBridge
+
+    bridge = FileBridge()
+    path = str(tmp_path / "hist.log")
+    bridge.set_workspace_dir(str(tmp_path))
+    bridge.set_workspace_files(
+        str(tmp_path),
+        [{"path": path, "name": "hist.log", "size": 1, "layers": [], "wasOpen": False}],
+    )
+    assert bridge.remove_workspace_file(str(tmp_path), path) is True
+    paths = [f["path"] for f in bridge.get_workspace_files(str(tmp_path))]
+    assert path not in paths

@@ -97,3 +97,24 @@ def test_kv_and_files_share_single_db(tmp_path):
     assert store2.get("layout") == "L"
     assert len(store2.get_files()) == 1
     store2.close()
+
+
+def test_delete_file_removes_row(tmp_path):
+    """delete_file 删除存在条目后 get_files 不再包含该路径。"""
+    store = _make_store(tmp_path)
+    store.upsert_file({"path": "/a/1.log", "name": "1.log", "size": 1, "layers": [], "wasOpen": True})
+    store.upsert_file({"path": "/a/2.log", "name": "2.log", "size": 2, "layers": [], "wasOpen": True})
+    assert store.delete_file("/a/1.log") is True
+    paths = {f["path"] for f in store.get_files()}
+    assert "/a/1.log" not in paths
+    assert "/a/2.log" in paths
+    store.close()
+
+
+def test_delete_file_idempotent_missing(tmp_path):
+    """delete_file 对不存在的路径幂等返回 True 且不报错。"""
+    store = _make_store(tmp_path)
+    store.upsert_file({"path": "/a/1.log", "name": "1.log", "size": 1, "layers": [], "wasOpen": True})
+    assert store.delete_file("/nonexistent.log") is True
+    assert len(store.get_files()) == 1
+    store.close()

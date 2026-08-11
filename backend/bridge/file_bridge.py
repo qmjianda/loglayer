@@ -248,6 +248,17 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             print(f"[Workspace] Error setting files: {e}")
             return False
 
+    def remove_workspace_file(self, folder_path: Optional[str], path: str) -> bool:
+        """从工作区文件历史中删除单条记录（幂等）。"""
+        try:
+            store = self._current_workspace_store(folder_path)
+            if store is None:
+                return False
+            return store.delete_file(path)
+        except Exception as e:
+            print(f"[Workspace] Error removing file: {e}")
+            return False
+
     def get_cache_config(self) -> dict:
         """返回缓存配置与占用情况。"""
         self._ensure_cache()

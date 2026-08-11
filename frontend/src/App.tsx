@@ -28,6 +28,7 @@ import {
   getLinesByIndices,
   getLogLevelStats,
   setCacheConfig,
+  removeWorkspaceFile,
 } from './bridge_client';
 import { removeFromSet } from './utils';
 import { timingLog } from './utils/timing';
@@ -602,6 +603,21 @@ const AppContent: React.FC = () => {
     handleOpenFileByPath,
   });
 
+  // 从历史中删除文件（前端列表移除 + 后端持久化删除）
+  const handleFileRemoveFromHistory = useCallback(
+    (fileId: string) => {
+      const file = files.find((f) => f.id === fileId);
+      const path = file?.path;
+      setFiles((prev) => prev.filter((f) => f.id !== fileId));
+      if (path && workspaceRoot?.path) {
+        removeWorkspaceFile(workspaceRoot.path, path).catch((e) =>
+          console.error(`[App] Failed to remove history file ${path}:`, e),
+        );
+      }
+    },
+    [files, setFiles, workspaceRoot],
+  );
+
   // ===== 命令面板 (Command Palette) =====
   const commands = useCommands({
     handleOpen,
@@ -728,6 +744,7 @@ const AppContent: React.FC = () => {
           onOpen={handleOpen}
           onFileActivate={handleFileActivateWithLoad}
           onFileRemove={handleFileRemove}
+          onFileRemoveFromHistory={handleFileRemoveFromHistory}
           onFindNavigate={findNextSearchMatchWithJump}
           onJumpToLine={(idx) => handleJumpToLine(idx, activeFile?.lineCount || 0)}
           onJumpToRank={jumpToRank}

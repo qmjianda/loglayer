@@ -183,6 +183,13 @@ class WorkspaceStore:
             self._conn.commit()
             return True
 
+    def delete_file(self, path: str) -> bool:
+        """从文件历史中删除单条记录（幂等：不存在也返回 True）。"""
+        with self._lock:
+            self._conn.execute("DELETE FROM files WHERE path = ?", (path,))
+            self._conn.commit()
+            return True
+
     def set_files(self, files: list) -> bool:
         """事务内批量写入文件历史：要么全部生效，要么全部不生效。"""
         with self._lock:

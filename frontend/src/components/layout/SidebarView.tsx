@@ -38,6 +38,7 @@ export interface SidebarViewProps {
   onOpen: () => void;
   onFileActivate: (fileId: string) => void;
   onFileRemove: (fileId: string) => void;
+  onFileRemoveFromHistory: (fileId: string) => void;
   onFindNavigate: (direction: 'next' | 'prev') => void;
   onJumpToLine: (idx: number) => void;
   onJumpToRank: (rank: number) => Promise<number>;
@@ -70,6 +71,7 @@ export const SidebarView: React.FC<SidebarViewProps> = ({
   onOpen,
   onFileActivate,
   onFileRemove,
+  onFileRemoveFromHistory,
   onFindNavigate,
   onJumpToLine,
   onJumpToRank,
@@ -130,6 +132,7 @@ export const SidebarView: React.FC<SidebarViewProps> = ({
             onOpen={onOpen}
             onFileActivate={onFileActivate}
             onFileRemove={onFileRemove}
+            onFileRemoveFromHistory={onFileRemoveFromHistory}
           />
         )}
 

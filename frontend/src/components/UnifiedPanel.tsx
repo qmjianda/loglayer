@@ -13,6 +13,7 @@ interface UnifiedPanelProps {
   onOpen: () => void;
   onFileActivate: (fileId: string) => void;
   onFileRemove: (fileId: string) => void;
+  onFileRemoveFromHistory: (fileId: string) => void;
 }
 
 // 简化后的 Section ID（左侧回归纯导航）
@@ -25,6 +26,8 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
   activeFileId,
   onOpen,
   onFileActivate,
+  onFileRemove,
+  onFileRemoveFromHistory,
 }) => {
   const [collapsedSections, setCollapsedSections] = useState<Record<SectionId, boolean>>({
     explorer: false,
@@ -161,6 +164,23 @@ export const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                   <path strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span className="text-[11px] truncate flex-1">{file.name}</span>
+                <button
+                  className="w-4 h-4 ml-1 shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 hover:text-red-400 text-theme-muted"
+                  title="从历史中删除"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFileRemoveFromHistory(file.id);
+                  }}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
               </div>
             ))}
           </div>

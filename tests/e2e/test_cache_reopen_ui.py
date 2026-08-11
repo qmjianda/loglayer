@@ -101,3 +101,33 @@ def test_close_moves_to_history_not_open(page, small_log_path, frontend_errors):
     assert tab.count() == 0, "关闭后 small.log 的 tab 应消失"
 
     assert not frontend_errors, f"前端出现错误: {frontend_errors}"
+
+
+@pytest.mark.usefixtures("frontend_errors")
+def test_history_delete_button_removes_entry(page, small_log_path, frontend_errors):
+    """issue #4 历史文件删除按钮：hover 显示 ✕，点击后条目从历史列表移除。"""
+    _open_via_picker(page, small_log_path)
+    _wait_text(page, os.path.basename(small_log_path))
+    page.wait_for_selector('.log-row', timeout=60000)
+
+    # 关闭文件 → 移入历史文件栏
+    _close_file_via_tab(page, os.path.basename(small_log_path))
+    history_item = page.locator(
+        f'div[title="点击重新打开"]:has(span:text-is("{os.path.basename(small_log_path)}"))'
+    )
+    history_item.first.wait_for(timeout=10000)
+
+    # hover 显示删除按钮并点击
+    history_item.first.hover(timeout=5000)
+    del_btn = history_item.locator('button[title="从历史中删除"]').first
+    del_btn.wait_for(state="visible", timeout=5000)
+    del_btn.click(timeout=5000, force=True)
+
+    # 条目应从历史列表消失
+    history_item.first.wait_for(state="detached", timeout=10000)
+    history_items = page.locator('div[title="点击重新打开"]')
+    assert os.path.basename(small_log_path) not in history_items.all_text_contents(), (
+        "删除后 small.log 不应再出现在历史文件栏"
+    )
+
+    assert not frontend_errors, f"前端出现错误: {frontend_errors}"

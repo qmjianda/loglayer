@@ -114,6 +114,7 @@ export interface FileBridgeAPI {
   put_workspace_state(folderPath: string, key: string, value: string): Promise<boolean>;
   get_workspace_files(folderPath?: string): Promise<unknown[]>;
   put_workspace_files(folderPath: string, files: unknown[]): Promise<boolean>;
+  remove_workspace_file(folderPath: string, path: string): Promise<boolean>;
   ready(): Promise<void>;
 
   // Bookmark operations

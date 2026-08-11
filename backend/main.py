@@ -356,6 +356,12 @@ def put_workspace_files(data: dict = Body(...)):
     return bridge.set_workspace_files(data.get("folder_path"), data.get("files", []))
 
 
+@app.post("/api/workspace/files/remove")
+def remove_workspace_file(data: dict = Body(...)):
+    """从工作区文件历史中删除单条记录（幂等）。"""
+    return bridge.remove_workspace_file(data.get("folder_path"), data.get("path", ""))
+
+
 # ============================================================
 # SQLite 元数据缓存 APIs
 # ============================================================
