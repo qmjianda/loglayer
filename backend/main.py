@@ -27,6 +27,7 @@ from contextlib import asynccontextmanager
 
 # Import refactored bridge
 from bridge import FileBridge, get_log_files_recursive
+from bridge.utils import select_window_icon
 from ai.endpoints import router as ai_router
 
 # Global bridge instance
@@ -599,14 +600,18 @@ def start_app():
         # Pass window to bridge for native dialogs
         bridge.window = window
 
-        # Set window icon
+        # Set window icon（Windows 仅接受 .ico，PNG 会导致启动崩溃，见 issue #2）
         icon_path = os.path.join(base_dir, "assets", "icon.png")
         if not os.path.exists(icon_path):
             # Try fallback path for some environments
             icon_path = os.path.join(os.getcwd(), "backend", "assets", "icon.png")
+        window_icon = select_window_icon(icon_path)
 
         # Start webview
-        webview.start(icon=icon_path if os.path.exists(icon_path) else None)
+        if window_icon:
+            webview.start(icon=window_icon)
+        else:
+            webview.start()
     else:
         try:
             while True:
