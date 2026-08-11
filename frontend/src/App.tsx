@@ -38,6 +38,7 @@ import {
   useUIState,
   useWorkspaceConfig,
   useRemotePathPicker,
+  getBridgedCount,
   setBridgedCount,
   FileLoadedInfo,
 } from './hooks';
@@ -219,12 +220,17 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
-  // 切文件时清空旧 stats；实际拉取仅由 onFileLoaded 触发（避免与索引并行 + 重复请求）
+  // 切文件时清空旧 stats；已加载文件切换时重新拉取（分屏切 tab，issue #3）
   useEffect(() => {
     if (!activeFileId) {
       setLogLevelStats({ ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 });
+      return;
     }
-  }, [activeFileId]);
+    // 目标文件已加载完成（后端有 session）时补拉统计；索引中则等 onFileLoaded 触发
+    if (getBridgedCount(activeFileId) !== undefined) {
+      fetchLogLevelStats(activeFileId);
+    }
+  }, [activeFileId, fetchLogLevelStats]);
 
   // Apply search settings from useSettings
   useEffect(() => {

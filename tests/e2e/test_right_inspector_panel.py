@@ -189,6 +189,34 @@ def test_inspector_follows_tab_switch(page, two_log_files, frontend_errors):
     assert not frontend_errors, f"前端出现错误: {frontend_errors}"
 
 
+def test_inspector_stats_follow_tab_switch(page, two_log_files, frontend_errors):
+    """issue #3 切 tab：级别统计（ERROR/INFO/WARN）随激活文件切换。
+
+    alpha.log = 100 行全 INFO；beta.log = 50 行全 WARN。
+    切到 beta 应显示 WARN 50，切回 alpha 应恢复 INFO 100。
+    """
+    pa, pb = two_log_files["a"], two_log_files["b"]
+    _open(page, pa)
+    _summary_path_span(page, pa).first.wait_for(timeout=15000)
+    _wait_text(page, "INFO 100")
+
+    _open(page, pb)
+    _summary_path_span(page, pb).first.wait_for(timeout=15000)
+    _wait_text(page, "WARN 50")
+
+    # 切回 alpha tab → 统计回 alpha（issue #3 修复点）
+    page.locator(f'.dv-tab:has-text("alpha.log")').first.click(timeout=10000)
+    _summary_path_span(page, pa).first.wait_for(timeout=15000)
+    _wait_text(page, "INFO 100")
+
+    # 再切到 beta → 统计又回 beta
+    page.locator(f'.dv-tab:has-text("beta.log")').first.click(timeout=10000)
+    _summary_path_span(page, pb).first.wait_for(timeout=15000)
+    _wait_text(page, "WARN 50")
+
+    assert not frontend_errors, f"前端出现错误: {frontend_errors}"
+
+
 def test_inspector_layers_ui(page, two_log_files, frontend_errors):
     """R3 图层区：添加图层 → 计数+1；开关切换 title 反转；删除移除。"""
     path = two_log_files["a"]
