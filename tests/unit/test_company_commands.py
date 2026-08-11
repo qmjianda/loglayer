@@ -36,6 +36,10 @@ COMMAND_KEYWORDS = {
         "spec",
         "design",
         "tasks",
+        "3 轮",  # 评审量化：每产出物至少 3 轮诘问
+        "挑战隐含假设",  # 评审量化：至少 1 条挑战隐含假设
+        "根本问题",  # 第一性原理：proposal 含根本问题小节
+        "本次循环问题",  # 自学习：报告沉淀复盘输入
     ],
     "company-review.md": [
         "validate",  # openspec validate
@@ -44,17 +48,21 @@ COMMAND_KEYWORDS = {
         "ruff",
         "git diff",  # 越界检查
         "3",  # 熔断（连败 3 次升级）
+        "本次循环问题",  # 自学习：报告沉淀复盘输入
     ],
     "company-run.md": [
         "company-spec",  # 完整循环引用规格阶段
         "company-review",  # 完整循环引用回归阶段
         "company-report",  # 完整循环引用汇报
         "老板",  # 闸门处等待老板决策
+        "本次循环问题",  # 自学习：汇报沉淀复盘输入
+        "待提炼",  # 自学习：待提炼问题可见
     ],
     "company-report.md": [
         "openspec-cn list",  # 状态数据源
         "company-reports",  # 历史报告目录
         "决策",  # 待老板决策项
+        "待提炼问题",  # 自学习：待提炼问题汇总
     ],
 }
 
