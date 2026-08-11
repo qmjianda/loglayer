@@ -10,9 +10,21 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeWatchdogAction,
+  shouldRestoreOnActivation,
   WATCHDOG_USER_GUARD_MS,
   WATCHDOG_STABLE_FRAMES_TO_SLEEP,
 } from '../utils/watchdog';
+
+describe('shouldRestoreOnActivation（激活同步恢复决策）', () => {
+  it('DOM 被归零（0）且真实位置 >0 → 需要 paint 前恢复', () => {
+    expect(shouldRestoreOnActivation(0, 5000)).toBe(true);
+  });
+
+  it('DOM 与真实位置一致 → 无需恢复', () => {
+    expect(shouldRestoreOnActivation(5000, 5000)).toBe(false);
+    expect(shouldRestoreOnActivation(0, 0)).toBe(false);
+  });
+});
 
 describe('computeWatchdogAction 决策（有界看门狗）', () => {
   it('外部归零（DOM=0 且 state>0 且无近期用户滚动）→ restore', () => {

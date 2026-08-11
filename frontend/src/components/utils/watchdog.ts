@@ -56,3 +56,12 @@ export function computeWatchdogAction(
   // 位置不一致（非归零形态，如滚动进行中）→ 稳定计数重置
   return { action: 'continue', stableFrames: 0 };
 }
+
+/**
+ * 面板激活时的同步恢复决策（纯函数）：
+ * dockview 失活期间看门狗可能已睡眠，归零未被纠正（DOM=0 而真实位置 >0）。
+ * 切回 tab 时调用方须在 **paint 前**（useLayoutEffect）恢复，避免「先闪回 0 再闪回目标」。
+ */
+export function shouldRestoreOnActivation(domScrollTop: number, stateScrollTop: number): boolean {
+  return domScrollTop === 0 && stateScrollTop > 0;
+}

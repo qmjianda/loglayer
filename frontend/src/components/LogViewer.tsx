@@ -12,7 +12,7 @@ import { AppSettings } from '../hooks/useSettings';
 import { detectJson } from '../utils/jsonTree';
 import { LogRow } from './logViewer/LogRow';
 import { computeRevealScrollTop } from '../utils/revealScroll';
-import { computeWatchdogAction } from './utils/watchdog';
+import { computeWatchdogAction, shouldRestoreOnActivation } from './utils/watchdog';
 import { useVirtualScroll } from '../hooks/useVirtualScroll';
 import { PerformanceIndicator } from './PerformanceIndicator';
 
@@ -181,11 +181,22 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     watchdogRafRef.current = requestAnimationFrame(tick);
   }, []);
 
-  // isActive 变化：激活时立即重新武装覆盖本次归零风险窗口；失活不强制取消运行中的
-  // 循环（让其稳定后自然睡眠），避免多组布局下可见非激活面板的归零漏检。
-  useEffect(() => {
+  // isActive 变化：激活时在 **paint 前**（useLayoutEffect）同步恢复滚动位置，消除
+  // 「切 tab 先闪回 0 再闪回目标」——dockview 失活期间看门狗可能已睡眠，归零未被纠正，
+  // DOM=0 而真实位置 >0；切回时若等 useEffect 重新武装看门狗（paint 后 + 下一帧 rAF），
+  // 中间会画出一帧 0 位置。失活不强制取消运行中的循环（让其稳定后自然睡眠），
+  // 避免多组布局下可见非激活面板的归零漏检。
+  useLayoutEffect(() => {
     stableFramesRef.current = 0;
-    if (isActive) armWatchdog();
+    if (isActive) {
+      const el = containerRef.current;
+      const state = scrollStateRef.current.top;
+      if (el && shouldRestoreOnActivation(el.scrollTop, state)) {
+        el.scrollTop = state;
+        setScrollTop(state);
+      }
+      armWatchdog();
+    }
   }, [isActive, armWatchdog]);
 
   const { LINE_HEIGHT, SCROLL_MARGIN, FETCH_DEBOUNCE_MS } = LOG_VIEWER;
