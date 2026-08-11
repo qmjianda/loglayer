@@ -26,4 +26,4 @@
 
 - [x] 4.1 确认 App.tsx 行数 899 < 900（spec 目标从 1,190 → <900，已同步更新 spec）
 - [x] 4.2 grep 校验无内联布局残留（App.tsx 不再直接渲染 UnifiedPanel/SearchPanel/AIChatPanel/InspectorPanel 大块，仅渲染 SidebarView/InspectorDock/AppOverlays/EditorArea/StatusBar）
-- [ ] 4.3 提交（按模块分提交）——**被其他 agent 并发修改阻塞**（App.tsx 与 InspectorDock.tsx 混入其 statsLoading/requestSeq/perf-deepening 修改，无法干净切分，待协调后提交）
+- [x] 4.3 提交（按模块分提交）：1a44383 核心拆分（App.tsx/layout/hooks）+ 9cd3c58 产出物/tsconfig/AGENTS.md；App.tsx 与 InspectorDock.tsx 中其他 agent 的 perf-deepening 修改已完成后一并提交
