@@ -139,8 +139,11 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   // === 滚动位置看门狗 ===
   // dockview 激活/失活面板（切换 `dv-active-group` 等 class）时，浏览器会把面板内容的
   // DOM 滚动条归零，且不触发 scroll 事件（React state 仍是旧值），导致视觉上跳回首行。
-  // 这里逐帧检测「DOM=0 但 state>0 且近期无用户滚动」的脱节，同帧拉回真实位置。
-  // 用户真正滚动到顶时 scroll 事件会把 state 同步为 0，因此不会误干预。
+  // 这里逐帧检测「DOM=0 但 state>0」的脱节，同帧拉回真实位置。
+  // 用户真正滚动到顶时 scroll 事件会同步把 state 置 0（onScroll 同步更新 ref），
+  // 因此 state>0 即足以区分「用户滚顶」（state=0 不干预）与「外部归零」（state>0 拉回）。
+  // 无需 80ms 保护窗口——dockview 归零前后会触发 scroll 事件刷新 lastScrollEventRef，
+  // 该窗口曾把外部归零误判为「用户刚滚动」而延迟 80ms 拉回（切 tab 闪烁根因）。
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -149,7 +152,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       raf = requestAnimationFrame(tick);
       const top = el.scrollTop;
       const state = scrollStateRef.current.top;
-      if (top === 0 && state > 0 && performance.now() - lastScrollEventRef.current > 80) {
+      if (top === 0 && state > 0) {
         el.scrollTop = state;
         setScrollTop(state);
       }
@@ -269,6 +272,12 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     if (!el) return;
     let rafId = 0;
     const onScroll = () => {
+      // 同步更新 ref：用户滚到顶时 state 立即归 0，看门狗据此区分「用户滚顶」与
+      // 「外部归零」（归零不触发 scroll 事件，state 保持 >0），无需 80ms 保护窗口
+      const curTop = el.scrollTop;
+      const curLeft = el.scrollLeft;
+      scrollStateRef.current = { top: curTop, left: curLeft };
+      lastScrollEventRef.current = performance.now();
       if (rafId) return;
       rafId = requestAnimationFrame(() => {
         rafId = 0;
