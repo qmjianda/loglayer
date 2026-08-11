@@ -92,4 +92,8 @@ class TestOpenFileRelocation:
         assert bridge.open_file("fid-3", old_path) is True
         session = bridge._sessions["fid-3"]
         assert session.path == str(moved)
+        # cache miss 时索引为异步：等待 IndexingWorker 完成后再断言行数
+        worker = session.workers.get("indexing")
+        if worker is not None:
+            worker.wait(timeout=10)
         assert len(session.line_offsets) == 30
