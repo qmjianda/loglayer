@@ -38,6 +38,7 @@
     "dist",
     "参考",
     "**/*.spec.ts",
-    "**/*.test.ts"
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }
