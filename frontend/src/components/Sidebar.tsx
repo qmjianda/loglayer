@@ -53,9 +53,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  // 搜索 / AI 功能尚未实现，暂不对外展示（保留 icons 定义，后续实现后移除过滤即可恢复）
+  const visibleIcons = icons.filter((item) => item.id !== 'search' && item.id !== 'ai');
+
   return (
     <div className="w-12 bg-theme-header flex flex-col items-center py-2 shrink-0 h-full border-r border-theme-subtle">
-      {icons.map((item) => (
+      {visibleIcons.map((item) => (
         <button
           key={item.id}
           onClick={() => onSetActiveView(item.id)}
