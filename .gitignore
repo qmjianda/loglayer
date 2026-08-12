@@ -39,3 +39,6 @@ __pycache__/
 
 # Workspace config
 .loglayer/
+
+# Agent runtime state (OhMyOpenCode session continuation, etc.)
+.omo/
