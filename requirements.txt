@@ -5,7 +5,7 @@ pywebview
 pydantic
 websockets
 psutil
-pyinstaller
+pyinstaller>=6.0
 pytest
 httpx
 requests

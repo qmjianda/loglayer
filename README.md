@@ -48,9 +48,9 @@ pip install fastapi uvicorn websockets pywebview
 2. `python backend/main.py`
 
 **Standalone Packaging**:
-- **Source-based Bundle**: Run `tools/package.bat` (Win) or `tools/package.sh` (Linux). Requires Python on the user's machine.
-- **Standalone EXE (Frozen)**: Run `tools/package_exe.bat` (Win) or `tools/package_exe.sh` (Linux). Requires `pip install pyinstaller`. No Python required on the target machine.
-The build will be generated in `dist_offline/`.
+- **Source-based Bundle**: Run `python tools/package_offline.py`. Requires Python on the user's machine. Start with `python app/main.py` from `dist_offline/`.
+- **Standalone EXE (Frozen)**: Run `python tools/package_offline.py --exe`. Requires `pip install pyinstaller`. No Python required on the target machine — double-click `LogLayer_Standalone/LogLayer.exe` (Windows) or `LogLayer_Standalone/LogLayer` (Linux).
+The build will be generated in `dist_offline/`. The bundle includes ripgrep for both Windows and Linux, so a single package works on either platform.
 
 ---
 
@@ -98,6 +98,6 @@ pip install fastapi uvicorn websockets pywebview
 2. `python backend/main.py`
 
 **离线打包**:
-- **源码包**: 运行 `tools/package.bat` (Win) 或 `tools/package.sh` (Linux)。需要目标机器安装有 Python。
-- **独立可执行程序 (Frozen)**: 运行 `tools/package_exe.bat` (Win) 或 `tools/package_exe.sh` (Linux)。需要先安装 `pip install pyinstaller`。生成的程序无需 Python 即可运行。
-打包结果将生成在 `dist_offline/` 目录下。
+- **源码包**: 运行 `python tools/package_offline.py`。需要目标机器安装有 Python。启动方式：在 `dist_offline/` 下执行 `python app/main.py`。
+- **独立可执行程序 (Frozen)**: 运行 `python tools/package_offline.py --exe`。需要先安装 `pip install pyinstaller`。生成的程序无需 Python 即可运行，双击 `LogLayer_Standalone/LogLayer.exe`（Windows）或运行 `LogLayer_Standalone/LogLayer`（Linux）启动。
+打包结果将生成在 `dist_offline/` 目录下。发布包同时包含 Windows 与 Linux 的 ripgrep 二进制，单包可跨平台使用。

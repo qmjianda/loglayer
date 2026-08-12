@@ -141,6 +141,13 @@ class PipelineWorker(CustomThread):
     def run(self):
         t_start = time.perf_counter()
         try:
+            # rg 不可用时明确报错，避免 build_rg_cmd 以 None 构建 Popen 抛 TypeError
+            if not self.rg_path:
+                if self._is_running:
+                    self.error.emit(
+                        "rg unavailable: filter/search pipeline requires ripgrep"
+                    )
+                return
             native_layers = [l for l in self.layers if l.stage == LayerStage.NATIVE]
             logic_layers = [l for l in self.layers if l.stage == LayerStage.LOGIC]
 
@@ -310,6 +317,7 @@ class StatsWorker(CustomThread):
         try:
             # rg 不可用时直接返回空结果（stats 仅依赖 rg，无降级路径）
             if not self.rg_path:
+                print("[Stats] rg unavailable, emitting empty stats")
                 if self._is_running:
                     self.finished.emit(json.dumps({}))
                 return

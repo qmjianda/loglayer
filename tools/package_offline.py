@@ -3,7 +3,6 @@ import shutil
 import subprocess
 import sys
 import argparse
-import platform
 from pathlib import Path
 
 
@@ -83,24 +82,16 @@ def package_app():
     bin_dir = root_dir / "bin"
     target_bin = app_dir / "bin"
     if bin_dir.exists():
-        # Only copy the current platform's binaries to the 'bin' folder for the offline app
-        current_platform = "windows" if platform.system() == "Windows" else "linux"
+        # 拷贝全部支持平台的二进制（windows/ + linux/），单包跨平台可用。
+        # 运行时 find_rg_binary() 按当前平台目录选择，缺执行位时自检补齐。
         target_bin.mkdir(parents=True, exist_ok=True)
-
-        source_platform_bin = bin_dir / current_platform
-        if source_platform_bin.exists():
-            print(f"Bundling {current_platform} binaries...")
-            shutil.copytree(
-                source_platform_bin, target_bin / current_platform, dirs_exist_ok=True
-            )
-        else:
-            # Fallback for old structure if platform folder doesn't exist
-            shutil.copytree(
-                bin_dir,
-                target_bin,
-                ignore=shutil.ignore_patterns("ripgrep-*", "*.zip", "*.tar.gz"),
-                dirs_exist_ok=True,
-            )
+        shutil.copytree(
+            bin_dir,
+            target_bin,
+            ignore=shutil.ignore_patterns("ripgrep-*", "*.zip", "*.tar.gz"),
+            dirs_exist_ok=True,
+        )
+        print(f"Bundling binaries for all platforms: {', '.join(sorted(p.name for p in bin_dir.iterdir() if p.is_dir()))}")
     else:
         print("Warning: bin directory not found! Global search features will fail.")
 
@@ -154,43 +145,6 @@ def package_app():
 
         except Exception as e:
             print(f"PyInstaller build failed: {e}")
-
-    # Create Run Script
-    print("\nCreating Launchers...")
-    bat_content = """@echo off
-setlocal
-cd /d "%~dp0"
-if exist LogLayer_Standalone\\LogLayer.exe (
-    start "" LogLayer_Standalone\\LogLayer.exe %*
-    exit /b
-)
-python --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] Python not found and standalone executable not found!
-    pause
-    exit /b 1
-)
-start "LogLayer" /B pythonw app\\main.py %*
-"""
-    with open(dist_dir / "LogLayer.bat", "w", encoding="utf-8") as f:
-        f.write(bat_content)
-
-    sh_content = """#!/bin/bash
-cd "$(dirname "$0")"
-# Fix permissions for ripgrep
-find app/bin -name "rg" -exec chmod +x {} \\; 2>/dev/null
-if [ -f "LogLayer_Standalone/LogLayer" ]; then
-    chmod +x LogLayer_Standalone/LogLayer 2>/dev/null
-    find LogLayer_Standalone/bin -name "rg" -exec chmod +x {} \\; 2>/dev/null
-    ./LogLayer_Standalone/LogLayer "$@"
-    exit 0
-fi
-python3 app/main.py "$@"
-"""
-    sh_path = dist_dir / "LogLayer.sh"
-    with open(sh_path, "w", encoding="utf-8", newline="\n") as f:
-        f.write(sh_content)
-    os.chmod(sh_path, os.stat(sh_path).st_mode | 0o111)
 
     print("\n" + "=" * 40)
     print(f"Done! Offline package created at:\n{dist_dir.absolute()}")
