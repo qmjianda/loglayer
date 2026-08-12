@@ -44,7 +44,6 @@ from .utils import (
     resolve_file_path,
     find_rg_binary,
     get_creationflags,
-    get_log_files_recursive,
     get_directory_contents,
 )
 from .workers import PipelineWorker, IndexingWorker, StatsWorker, PROCESS_CLEANUP_TIMEOUT
@@ -208,6 +207,26 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             self.set_workspace_dir(folder_path)
         return self._get_workspace_store()
 
+    @staticmethod
+    def _to_stored_path(root: Optional[str], abs_path: str) -> str:
+        """将绝对路径转为相对工作区根的 POSIX 路径（历史存储形式）。
+
+        工作区内：`os.path.relpath(abs_path, root)` + `Path.as_posix()`（统一 `/` 分隔符）；
+        无法相对化（跨盘 relpath 抛 ValueError、结果以 `..` 开头即工作区外、
+        或 root 为空）时返回原绝对路径原样存储（读取端 isabs 判断自然兼容）。
+        """
+        if not root or not abs_path:
+            return abs_path
+        try:
+            rel = os.path.relpath(abs_path, root)
+        except ValueError:
+            # 跨盘（如 Windows D: vs E:）相对化无意义
+            return abs_path
+        if rel.startswith(".."):
+            # 工作区外（`..` 溢出）或本身以 .. 开头的文件：绝对路径兜底
+            return abs_path
+        return Path(rel).as_posix()
+
     # ---------------------------------------------------------------
     # 工作区统一存储 API（布局/书签/设置经 KV，文件历史经 files 表）
     # ---------------------------------------------------------------
@@ -238,23 +257,38 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         return store.get_files()
 
     def set_workspace_files(self, folder_path: Optional[str], files: list) -> bool:
-        """事务写工作区文件历史。"""
+        """事务写工作区文件历史（写入前将路径相对化存储）。"""
         try:
             store = self._current_workspace_store(folder_path)
             if store is None:
                 return False
-            return store.set_files(files)
+            stored_files = []
+            for entry in files:
+                stored = dict(entry)
+                stored["path"] = self._to_stored_path(
+                    folder_path, stored.get("path") or ""
+                )
+                stored_files.append(stored)
+            return store.set_files(stored_files)
         except Exception as e:
             print(f"[Workspace] Error setting files: {e}")
             return False
 
     def remove_workspace_file(self, folder_path: Optional[str], path: str) -> bool:
-        """从工作区文件历史中删除单条记录（幂等）。"""
+        """从工作区文件历史中删除单条记录（幂等，绝对/相对双形式匹配）。
+
+        DB 中存的可能为相对路径（新数据）或绝对路径（旧数据/工作区外兜底），
+        调用方传绝对或相对均可命中：先按传入 path 删，再按相对化结果删一次。
+        """
         try:
             store = self._current_workspace_store(folder_path)
             if store is None:
                 return False
-            return store.delete_file(path)
+            store.delete_file(path)
+            stored = self._to_stored_path(folder_path, path)
+            if stored != path:
+                store.delete_file(stored)
+            return True
         except Exception as e:
             print(f"[Workspace] Error removing file: {e}")
             return False
@@ -409,69 +443,19 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             )
         return rg_path
 
-    def _relocate_by_name(self, missing_path: str) -> Optional[str]:
-        """历史路径失效时，在工作区内按文件名重定位（文件夹移动场景，issue #5）。
-
-        仅当工作区已设置且存在唯一同名文件时返回新路径；否则返回 None。
-        """
-        if not self._workspace_dir:
-            return None
-        target_name = os.path.basename(missing_path)
-        try:
-            candidates = [
-                f["path"]
-                for f in get_log_files_recursive(self._workspace_dir)
-                if os.path.basename(f["path"]) == target_name
-            ]
-        except Exception as e:
-            print(f"[Bridge] Relocation scan error: {e}")
-            return None
-        if len(candidates) == 1:
-            return candidates[0]
-        if len(candidates) > 1:
-            print(
-                f"[Bridge] Ambiguous relocation for {missing_path}: "
-                f"{len(candidates)} same-name files found"
-            )
-        return None
-
-    def _update_workspace_history(self, old_path: str, new_path: str) -> None:
-        """重定位成功后，将工作区历史中的旧路径条目替换为新路径。"""
-        try:
-            store = self._get_workspace_store()
-            if store is None:
-                return
-            files = store.get_files()
-            matched = [f for f in files if f.get("path") == old_path]
-            if not matched:
-                return
-            for entry in matched:
-                store.delete_file(old_path)
-                store.upsert_file({**entry, "path": new_path})
-        except Exception as e:
-            print(f"[Bridge] History update error: {e}")
-
     def open_file(self, file_id: str, file_path: str) -> bool:
         t0_open = timing_start()
         try:
             if file_id in self._sessions:
                 self._sessions[file_id].close(self)
 
-            # 解析文件路径（处理 Windows -> Linux / Linux -> Windows 双向转换）
+            # 解析文件路径（Path 规范化 + 裸文件名基于 cwd 归一化）
             resolved_path = resolve_file_path(file_path)
 
             if not os.path.exists(resolved_path):
-                # 历史路径失效（文件夹移动）：尝试按文件名在工作区重定位
-                relocated = self._relocate_by_name(resolved_path)
-                if relocated:
-                    print(
-                        f"[Bridge] Relocated {resolved_path} -> {relocated}"
-                    )
-                    resolved_path = relocated
-                    self._update_workspace_history(file_path, relocated)
-                else:
-                    print(f"[Bridge] File not found: {resolved_path}")
-                    return False
+                # 历史路径失效：非静默失败，不自动递归扫描工作区找同名文件
+                print(f"[Bridge] File not found: {resolved_path}")
+                return False
 
             # 未设置工作区时，以文件所在目录作为工作区（缓存存到该目录 .loglayer/）
             if not self._workspace_dir:
@@ -934,39 +918,19 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             }
         return json.dumps({"cache_stats": stats, "sessions": sessions_info})
 
-    def _python_level_stats(self, file_path: str) -> dict:
-        """纯 Python 逐行统计日志级别（rg 不可用时的降级路径）。
-
-        与 rg `-i -o` 语义对齐：大小写不敏感、每处匹配计一次。
-        """
-        log_levels = ["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "FATAL"]
-        results = {level: 0 for level in log_levels}
-        pattern = re.compile(
-            r"\b(" + "|".join(log_levels) + r")\b", re.IGNORECASE
-        )
-        try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-                for line in f:
-                    for m in pattern.findall(line):
-                        level = m.upper()
-                        if level in results:
-                            results[level] += 1
-        except Exception as e:
-            print(f"[LogLevelStats] Python fallback error: {e}")
-        return results
-
     def _calculate_log_level_stats(self, file_path: str) -> dict:
         """Calculate log level statistics for a file using ripgrep"""
         log_levels = ["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "FATAL"]
         results = {level: 0 for level in log_levels}
 
-        # rg 不可用（未找到二进制 / 路径失效）时降级为纯 Python 统计，避免 WinError 2
+        # rg 不可用（未找到二进制 / 路径失效）时返回全 0 并告警，
+        # 不做慢速替代（大文件逐行统计违反性能红线）。
         if not self._rg_path or not os.path.isfile(self._rg_path):
             print(
-                "[LogLevelStats] rg unavailable, using Python fallback "
+                "[LogLevelStats] rg unavailable, returning zero stats "
                 f"for {file_path}"
             )
-            return self._python_level_stats(file_path)
+            return results
 
         try:
             # 单次 ripgrep 扫描同时提取全部级别关键字（-o 每处匹配输出一行），
@@ -1139,7 +1103,8 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         """兼容壳：解析旧 config JSON，转写入统一工作区存储（files 表 + activeFilePath）。
 
         前端 `useWorkspaceConfig` 仍调用本方法保存文件历史；新底座接管存储，
-        `config.json` 不再作为写入目标。
+        `config.json` 不再作为写入目标。写入前将 files[] 与 activeFilePath
+        转为相对工作区根的存储形式（工作区外/跨盘条目兜底存绝对路径）。
         """
         try:
             store = self._current_workspace_store(folder_path)
@@ -1148,8 +1113,19 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             config = json.loads(config_json)
             files = config.get("files") or []
             if files:
-                store.set_files(files)
-            store.put("activeFilePath", config.get("activeFilePath") or "")
+                stored_files = []
+                for entry in files:
+                    stored = dict(entry)
+                    stored["path"] = self._to_stored_path(
+                        folder_path, stored.get("path") or ""
+                    )
+                    stored_files.append(stored)
+                store.set_files(stored_files)
+            active = config.get("activeFilePath") or ""
+            store.put(
+                "activeFilePath",
+                self._to_stored_path(folder_path, active) if active else "",
+            )
             return True
         except Exception as e:
             print(f"[Workspace] Error saving config: {e}")
@@ -1305,6 +1281,8 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         return ""
 
     def list_logs_in_folder(self, folder_path: str) -> str:
+        from .utils import get_log_files_recursive
+
         return json.dumps(get_log_files_recursive(folder_path))
 
     # SearchMixin provides:

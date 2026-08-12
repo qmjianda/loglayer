@@ -56,7 +56,6 @@ def test_facade_exports_complete():
         "timing_start",
         "PROCESS_CLEANUP_TIMEOUT",
         "TIMING_ENABLED",
-        "convert_windows_path_to_linux",
     ]
     for name in expected:
         assert hasattr(bridge, name), f"门面缺失导出: {name}"
@@ -110,7 +109,6 @@ def test_signal_emit_callback():
 
 def test_utils_functions_available():
     """utils 工具函数可调用（不触发系统调用）。"""
-    assert utils_module.convert_windows_path_to_linux("D:/a/b.log").startswith("/mnt/d/")
     assert utils_module.get_creationflags() == 0  # Linux 平台
 
 

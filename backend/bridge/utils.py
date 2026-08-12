@@ -1,7 +1,6 @@
 """通用工具：性能打点、路径解析、文件系统遍历、子进程创建参数。"""
 
 import os
-import re
 import platform
 import shutil
 import time
@@ -33,62 +32,12 @@ def timing(stage: str, file_id: str = "", t0: Optional[float] = None, extra: str
     print(" ".join(parts))
 
 
-def convert_windows_path_to_linux(windows_path: str) -> str:
-    """将 Windows 路径转换为 Linux 路径"""
-    if platform.system() != "Windows":
-        # 处理 Windows 盘符 (如 D:\Project\... -> /mnt/d/Project/...)
-        path = windows_path.replace("\\", "/")
-
-        # 检查是否是 Windows 盘符路径
-        match = re.match(r"^([A-Za-z]):/(.*)", path)
-        if match:
-            drive_letter = match.group(1).lower()
-            rest_path = match.group(2)
-            # 动态映射任意盘符: X: -> /mnt/x
-            return f"/mnt/{drive_letter}/{rest_path}"
-
-        # 如果不是 Windows 盘符，可能是 WSL 路径或网络路径
-        # 尝试直接返回转换后的路径
-        return path
-    return windows_path
-
-
-def convert_linux_path_to_windows(linux_path: str) -> str:
-    """将 WSL/Linux 挂载路径转换为 Windows 路径（/mnt/d/x -> D:\\x）。
-
-    仅处理 `/mnt/<盘符>/...` 形态；其余路径原样返回。
-    """
-    path = linux_path.replace("/", "\\")
-    match = re.match(r"^\\mnt\\([A-Za-z])\\(.*)$", path)
-    if match:
-        drive_letter = match.group(1).upper()
-        rest = match.group(2)
-        return f"{drive_letter}:\\{rest}"
-    return linux_path
-
-
 def resolve_file_path(file_path: str) -> str:
-    """解析文件路径，处理跨平台路径问题"""
-    # 使用 Path 来规范化路径（处理正反斜杠）
-    normalized_path = Path(file_path)
-
-    # 首先检查原路径是否存在（Path会自动处理路径格式）
-    if normalized_path.exists():
-        return str(normalized_path)
-
-    # 在非 Windows 平台上，尝试转换为 Linux 路径
-    if platform.system() != "Windows":
-        linux_path = convert_windows_path_to_linux(file_path)
-        if Path(linux_path).exists():
-            return linux_path
-    else:
-        # Windows 平台上尝试 WSL 挂载路径反向转换（/mnt/d/x -> D:\x）
-        windows_path = convert_linux_path_to_windows(file_path)
-        if windows_path != file_path and Path(windows_path).exists():
-            return windows_path
-
-    # 返回规范化后的原始路径
-    return str(normalized_path)
+    """规范化文件路径：处理正反斜杠，裸文件名（相对路径）基于 cwd 归一化为绝对路径。"""
+    normalized = Path(file_path)
+    if normalized.is_absolute():
+        return str(normalized)
+    return str(normalized.resolve())
 
 
 def get_creationflags():
@@ -113,12 +62,30 @@ def find_rg_binary(candidate_dirs: Optional[List[str]] = None) -> Optional[str]:
     exe_name = "rg.exe" if platform.system() == "Windows" else "rg"
     for base in candidate_dirs:
         candidate = os.path.join(base, platform_dir, exe_name)
-        if os.path.isfile(candidate):
+        if os.path.isfile(candidate) and _ensure_executable(candidate):
             return candidate
     which = shutil.which("rg")
-    if which and os.path.isfile(which):
+    if which and os.path.isfile(which) and _ensure_executable(which):
         return which
     return None
+
+
+def _ensure_executable(path: str) -> bool:
+    """确保 rg 二进制可执行（POSIX）。不可执行时尝试 chmod +x 补齐。
+
+    打包/解压后 rg 可能丢失执行位（Windows 构建、tar/zip 解压），
+    此处自检补齐，替代原打包脚本的 chmod 逻辑。Windows 无执行位概念，直接可用。
+    """
+    if platform.system() == "Windows":
+        return True
+    if os.access(path, os.X_OK):
+        return True
+    try:
+        os.chmod(path, os.stat(path).st_mode | 0o111)
+    except OSError as e:
+        print(f"[Bridge] Failed to set exec bit on {path}: {e}")
+        return False
+    return True
 
 
 def select_window_icon(icon_path: str) -> Optional[str]:

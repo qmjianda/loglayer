@@ -166,9 +166,10 @@ class BookmarkPipeline:
         return session, store
 
     def _persist_bookmarks(self, file_id: str) -> None:
-        """将当前文件的书签写入工作区统一存储 `kv['bookmarks.<path>']`。
+        """将当前文件的书签写入工作区统一存储 `kv['bookmarks.<stored_path>']`。
 
-        书签按文件路径分键，随工作区持久化；文件关闭后重开仍可恢复。
+        书签按文件历史存储路径分键（工作区内为相对根路径，与 files 表一致），
+        随工作区持久化；跨平台或工作区移动后重开仍可恢复。
         """
         try:
             session, store = self._session_and_store(file_id)
@@ -176,7 +177,8 @@ class BookmarkPipeline:
                 return
             layer = self._get_bookmark_layer(session)
             bookmarks = layer.bookmarks if layer else {}
-            store.put(f"{BOOKMARK_KV_PREFIX}{session.path}", json.dumps(bookmarks))
+            key = f"{BOOKMARK_KV_PREFIX}{self._to_stored_path(str(store.root), session.path)}"
+            store.put(key, json.dumps(bookmarks))
         except Exception as e:
             print(f"[Bookmark] Persist error for {file_id}: {e}")
 
@@ -186,7 +188,8 @@ class BookmarkPipeline:
             session, store = self._session_and_store(file_id)
             if session is None:
                 return
-            raw = store.get(f"{BOOKMARK_KV_PREFIX}{session.path}")
+            key = f"{BOOKMARK_KV_PREFIX}{self._to_stored_path(str(store.root), session.path)}"
+            raw = store.get(key)
             if not raw:
                 return
             bookmarks = json.loads(raw)
