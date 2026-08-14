@@ -98,14 +98,14 @@ ruff check backend tests   # ruff 检查（后端，error=0 门槛）
 ```
 
 - **后端核心**：`backend/bridge/`（包，从原 `bridge.py` 拆分：`file_bridge.py` FileBridge 主类、`workers.py` 索引/管线/统计 Worker、`session.py` LogSession、`utils.py` 路径/文件工具、`cache.py` LRUCache、`signal.py` Signal、`search_matching.py` 搜索匹配纯函数）、`backend/main.py`（REST/WS 端点，含 `/api/diagnostics` 可观测接口）、`backend/loglayer/`（`core.py` 基类、`registry.py` 注册表、`builtin/` 内置图层、`cache_store.py` 统一缓存层、`cache_keys.py` 缓存 key）、`backend/ai/`、`backend/plugins/`。
-- **前端核心**：`frontend/src/App.tsx`（编排层，<900 行：hooks 调用/状态/信号绑定）、`components/layout/`（布局子组件：`SidebarView` 侧栏+视图切换、`InspectorDock` 右侧检视、`AppOverlays` 浮层）、`hooks/useFileActions.ts`（文件打开编排）、`hooks/useCommands.ts`（命令面板）、`bridge_client.ts`、`components/LogViewer.tsx`（DOM 虚拟滚动，性能关键）、`rendering/`（渲染器注册表 `registry.ts` + 规则引擎 `ruleEngine.ts`，前端计算图层高亮/行样式）、`store/searchStore.ts`（zustand per-tab 搜索状态：词/配置/rank 按 panelId 独立）、`hooks/`。
+- **前端核心**：`frontend/src/App.tsx`（编排层，~900 行：hooks 调用/状态/信号绑定）、`components/layout/`（布局子组件：`SidebarView` 侧栏+视图切换、`InspectorDock` 右侧检视、`AppOverlays` 浮层）、`hooks/useFileActions.ts`（文件打开编排）、`hooks/useCommands.ts`（命令面板）、`bridge_client.ts`、`components/LogViewer.tsx`（DOM 虚拟滚动，性能关键）、`rendering/`（渲染器注册表 `registry.ts` + 规则引擎 `ruleEngine.ts`，前端计算图层高亮/行样式）、`store/searchStore.ts`（zustand per-tab 搜索状态：词/配置/rank 按 panelId 独立）、`hooks/`。
 - **图层系统（重构后）**：数据层（FILTER/TRANSFORM）仍在后端 `sync_layers()` 管线；**渲染层（HIGHLIGHT/ROWTINT/LEVEL）执行移到前端**——后端只下发图层配置，前端渲染器按配置计算 segments/rowStyle（`renderWithIsolation` 错误隔离，坏渲染器仅失效该层不白屏）。新增渲染层照 `LAYER_DEV_GUIDE.md` 实现渲染器并注册 `frontend/src/rendering/registry.ts`；后端 registry 保留元数据（type/ui_schema/engine）供配置表单。
 - **per-tab 搜索**：搜索词/配置/rank 存 `searchStore`（key=panelId），切 tab 自动恢复；后端 `LogSession` 保持 per-file 权威，搜索缓存命中跳过 rg 扫描（`cache_store.py`）。
 - **搜索高亮**：前端对可见行按 per-tab 词即时计算（memoize by content+query），后端不再逐行下发高亮。
 - **书签**：数据在后端（KV 持久化行号列表），视觉在前端（`bookmarks` 数据驱动 ★/● 标记与行背景）。
 - **可观测**：`/api/diagnostics` 返回缓存 hit/miss 统计 + 各文件管线阶段耗时；前端 Ctrl+Shift+D 打开 Debug overlay。
 - **会话持久化**：`.loglayer/`（gitignored）存工作区配置。
-- **AI**：`GEMINI_API_KEY` 经根目录 `.env` 由 vite `loadEnv` 注入前端（vite.config.ts:26）；后端 AI 配置走 `/api/ai/config`。当前仓库无 `.env`。
+- **AI**：`GEMINI_API_KEY`（及 `VITE_TIMING`）经根目录 `.env`（gitignored，本地已有）由 vite `loadEnv`/`define` 注入前端（vite.config.ts）；后端 AI 配置走 `/api/ai/config`。
 - **端口固定**：后端 12345、vite 3000，e2e 会复用已在跑的实例。
 
 ## 关键接口
@@ -211,8 +211,11 @@ spec 的 AC 验收条件(WHEN-THEN Scenarios) → 编写验收测试 → 运行(
 - **索引优化**：`docs/INDEXING_OPTIMIZATION.md`（索引性能相关）。
 - **历史 ADR**：`docs/TECHNICAL_DECISIONS.md`（冻结，只读）。
 - **会话模板**：`.opencode/commands/session-template.md`。
-- 代码查询优先使用 codegraph（`codegraph_explore` MCP / `codegraph explore` CLI）以减少文件读取；本仓库暂无 `.codegraph/` 索引，可运行 `codegraph init` 启用。
+- 代码查询优先使用 codegraph（`codegraph_explore` MCP / `codegraph explore` CLI）以减少文件读取；本仓库已建 `.codegraph/` 索引（gitignored），索引滞后写入约 1s，编辑后仍可信任未列入 staleness 的文件。
 
 
 ## 规则
-如果自行测试、验证、分析有问题，告诉用户手动测试，并给出测试方法。如果自测卡住需要解决很多疑难问题，如实告诉用户，由用户帮忙解决。
+
+- **第一性原理（问题本源优先）**：分析问题必须先回到本源——从真实调用链/数据流/代码路径推导根因，禁止凭表面现象、历史经验或"先试一下"的猜测式随机修补。Bug 修复前先给出"为什么会这样"的证据链（复现步骤/日志/调用栈），修复后用最小复现（`tests/repro/` 或单测）验证根因确实消除——"无测试不闭环"。规格/需求分析同理：拆解本质诉求，而非照搬表面描述；`/opsx-explore` 阶段就用第一性原理对齐问题本源。
+- **对抗式评审（先假设自己错了）**：评审（自审、代码/规格/验收评审）默认立场是"当前方案可能是错的"，主动寻找漏洞而非确认结论。从反面攻击自己的方案：边界条件、空值、并发竞态、热路径性能（O(1) 红线）、数据一致性、错误路径、WSL/Windows 路径差异等。可借助 `/grill-me`、`/grilling` 或 openspec verify 阶段做对抗性质疑；被质疑时不得以"惯例如此"搪塞，须用代码/测试/数据证据回应。重大架构/性能决策落地前先做一次对抗式评审（可咨询 oracle），再进入实现。
+- 如果自行测试、验证、分析有问题，告诉用户手动测试，并给出测试方法。如果自测卡住需要解决很多疑难问题，如实告诉用户，由用户帮忙解决。
