@@ -46,12 +46,12 @@ def _switch_tab(page, file_name):
 
 def _search(page, query):
     page.keyboard.press("Control+f")
-    page.wait_for_selector('input[placeholder="查找"]', timeout=10000)
-    inp = page.locator('input[placeholder="查找"]')
+    page.wait_for_selector('input[placeholder="查找"]:visible', timeout=10000)
+    inp = page.locator('input[placeholder="查找"]:visible')
     inp.fill(query)
     inp.press("Enter")
     # 等待搜索完成：find widget 显示匹配计数（如 "1 / 10"）
-    page.wait_for_selector(r'text=/\d+ \/ \d+/', timeout=15000)
+    page.locator('text=/\\d+ \\/ \\d+/').filter(visible=True).first.wait_for(state="visible", timeout=15000)
 
 
 @pytest.mark.usefixtures("frontend_errors")
@@ -62,26 +62,26 @@ def test_multi_panel_search_independence(page, two_log_files, frontend_errors):
 
     # 打开面板 A，搜索 alpha 独有词
     _open_via_picker(page, path_a)
-    page.wait_for_selector(".log-row", timeout=60000)
+    page.wait_for_selector(".log-row:visible", timeout=60000)
     _search(page, "unique-token-alpha")
-    marks_a = page.locator("mark").count()
+    marks_a = page.locator("mark:visible").count()
     assert marks_a >= 1, f"面板 A 搜索无高亮: {marks_a}"
 
     # 打开面板 B，搜索 beta 独有词
     _open_via_picker(page, path_b)
-    page.wait_for_selector(".log-row", timeout=60000)
+    page.wait_for_selector(".log-row:visible", timeout=60000)
     _search(page, "unique-token-beta")
-    marks_b = page.locator("mark").count()
+    marks_b = page.locator("mark:visible").count()
     assert marks_b >= 1, f"面板 B 搜索无高亮: {marks_b}"
     # beta 文件的文本不含 alpha 独有词（若混用则说明状态串扰）
-    rows_b = " ".join(page.locator(".log-row-content").all_inner_texts())
+    rows_b = " ".join(page.locator(".log-row-content:visible").all_inner_texts())
     assert "unique-token-alpha" not in rows_b, "面板 B 混入了 A 的搜索词/内容"
 
     # 切回面板 A：应恢复 alpha 搜索与高亮
     _switch_tab(page, name_a)
-    marks_a2 = page.locator("mark").count()
+    marks_a2 = page.locator("mark:visible").count()
     assert marks_a2 == marks_a, f"切回面板 A 高亮未恢复: {marks_a2} vs {marks_a}"
-    rows_a = " ".join(page.locator(".log-row-content").all_inner_texts())
+    rows_a = " ".join(page.locator(".log-row-content:visible").all_inner_texts())
     assert "unique-token-beta" not in rows_a, "面板 A 混入了 B 的内容"
     assert not frontend_errors, f"前端出现错误: {frontend_errors}"
 
@@ -93,36 +93,41 @@ def test_find_visible_per_panel_and_esc(page, two_log_files, frontend_errors):
     name_a, name_b = os.path.basename(path_a), os.path.basename(path_b)
 
     _open_via_picker(page, path_a)
-    page.wait_for_selector(".log-row", timeout=60000)
+    page.wait_for_selector(".log-row:visible", timeout=60000)
     _search(page, "unique-token-alpha")
 
     # 面板 A 保持 find 打开，切到 B
     _open_via_picker(page, path_b)
-    page.wait_for_selector(".log-row", timeout=60000)
-    # B 的 find 初始隐藏
-    assert page.locator('input[placeholder="查找"]').count() == 0, "面板 B find 不应自动打开"
+    page.wait_for_selector(".log-row:visible", timeout=60000)
+    # B 的 find 初始隐藏（always 下 A 的 find 常驻但隐藏有异步延迟，用等待代替即时 count 避免竞态）
+    page.wait_for_function(
+        """() => Array.from(document.querySelectorAll('input[placeholder="查找"]'))
+              .filter((el) => getComputedStyle(el).visibility !== 'hidden').length === 0""",
+        timeout=10000,
+    )
 
     # B 打开 find 并搜索
     _search(page, "unique-token-beta")
-    assert page.locator('input[placeholder="查找"]').count() == 1, "面板 B find 应打开"
+    assert page.locator('input[placeholder="查找"]:visible').count() == 1, "面板 B find 应打开"
 
     # 切回 A：find 应恢复为打开状态（A 上次 find 可见）
     _switch_tab(page, name_a)
-    page.wait_for_selector('input[placeholder="查找"]', timeout=10000)
-    assert page.locator('input[placeholder="查找"]').count() == 1, "切回 A 后 find 应恢复打开"
+    page.wait_for_selector('input[placeholder="查找"]:visible', timeout=10000)
+    assert page.locator('input[placeholder="查找"]:visible').count() == 1, "切回 A 后 find 应恢复打开"
 
-    # Esc 第一段：收起保留高亮
+    # Esc 第一段：收起保留高亮（always 下 find 收起 = visibility:hidden 而非 DOM 移除，等待 hidden 状态）
     page.keyboard.press("Escape")
-    page.wait_for_selector('input[placeholder="查找"]', state="detached", timeout=5000)
-    assert page.locator('input[placeholder="查找"]').count() == 0, "Esc 第一段应收起 find"
-    assert page.locator("mark").count() >= 1, "Esc 第一段应保留高亮"
+    page.wait_for_selector('input[placeholder="查找"]:visible', state="hidden", timeout=5000)
+    assert page.locator('input[placeholder="查找"]:visible').count() == 0, "Esc 第一段应收起 find"
+    assert page.locator("mark:visible").count() >= 1, "Esc 第一段应保留高亮"
 
-    # Esc 第二段：清空搜索
+    # Esc 第二段：清空搜索（仅统计可见 mark，隐藏面板的 mark 不计）
     page.keyboard.press("Escape")
     page.wait_for_function(
-        """() => document.querySelectorAll('mark').length === 0""",
+        """() => Array.from(document.querySelectorAll('mark'))
+              .filter((el) => getComputedStyle(el).visibility !== 'hidden').length === 0""",
         timeout=5000,
     )
-    assert page.locator("mark").count() == 0, "Esc 第二段应清空搜索"
+    assert page.locator("mark:visible").count() == 0, "Esc 第二段应清空搜索"
 
     assert not frontend_errors, f"前端出现错误: {frontend_errors}"

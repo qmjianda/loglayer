@@ -538,6 +538,7 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
           onReady={onReady}
           components={{ logViewer: LogViewerPanel }}
           watermarkComponent={WelcomeWatermark}
+          defaultRenderer="always"
         />
       </div>
     </EditorAreaContext.Provider>

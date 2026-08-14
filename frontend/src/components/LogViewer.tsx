@@ -99,7 +99,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   showVirtualLineNumbers = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollStateRef = useRef({ top: 0, left: 0 });
   const viewportHeightRef = useRef(0);
 
   const [scrollTop, setScrollTop] = useState(0);
@@ -132,34 +131,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
   const [bridgedLines, setBridgedLines] = useState<Map<number, LogLine | string>>(new Map());
   const lastFetchRef = useRef<{ start: number; end: number }>({ start: -1, end: -1 });
-
-  // 最近一次由用户/原生滚动更新的时间（区分「用户滚到顶」与「外部把滚动条归零」）
-  const lastScrollEventRef = useRef(0);
-
-  // === 滚动位置看门狗 ===
-  // dockview 激活/失活面板（切换 `dv-active-group` 等 class）时，浏览器会把面板内容的
-  // DOM 滚动条归零，且不触发 scroll 事件（React state 仍是旧值），导致视觉上跳回首行。
-  // 这里逐帧检测「DOM=0 但 state>0」的脱节，同帧拉回真实位置。
-  // 用户真正滚动到顶时 scroll 事件会同步把 state 置 0（onScroll 同步更新 ref），
-  // 因此 state>0 即足以区分「用户滚顶」（state=0 不干预）与「外部归零」（state>0 拉回）。
-  // 无需 80ms 保护窗口——dockview 归零前后会触发 scroll 事件刷新 lastScrollEventRef，
-  // 该窗口曾把外部归零误判为「用户刚滚动」而延迟 80ms 拉回（切 tab 闪烁根因）。
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    let raf = 0;
-    const tick = () => {
-      raf = requestAnimationFrame(tick);
-      const top = el.scrollTop;
-      const state = scrollStateRef.current.top;
-      if (top === 0 && state > 0) {
-        el.scrollTop = state;
-        setScrollTop(state);
-      }
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
 
   const { LINE_HEIGHT, SCROLL_MARGIN, FETCH_DEBOUNCE_MS } = LOG_VIEWER;
 
@@ -272,19 +243,11 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     if (!el) return;
     let rafId = 0;
     const onScroll = () => {
-      // 同步更新 ref：用户滚到顶时 state 立即归 0，看门狗据此区分「用户滚顶」与
-      // 「外部归零」（归零不触发 scroll 事件，state 保持 >0），无需 80ms 保护窗口
-      const curTop = el.scrollTop;
-      const curLeft = el.scrollLeft;
-      scrollStateRef.current = { top: curTop, left: curLeft };
-      lastScrollEventRef.current = performance.now();
       if (rafId) return;
       rafId = requestAnimationFrame(() => {
         rafId = 0;
         const top = el.scrollTop;
         const left = el.scrollLeft;
-        scrollStateRef.current = { top, left };
-        lastScrollEventRef.current = performance.now();
         if (scrollKey) LOGVIEWER_SCROLL_STORE.set(scrollKey, { scrollTop: top });
         if (viewportHeightRef.current === 0) {
           const h = el.clientHeight;
@@ -306,8 +269,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   // fileId/scrollKey 变化时重建行缓存并维持滚动位置。
   // - 首次挂载：有历史进度则恢复（跨重挂载保持位置），否则顶部。
   // - fileId 变化（同一面板，同一 uri，如工作区恢复换了 id）：保留当前滚动位置，
-  //   只重建行缓存；期间外部（dockview 激活/失活）可能把 DOM 滚动条归零，从 store
-  //   读回并连续几帧重新断言（与下方看门狗共同兜底）。
+  //   只重建行缓存，从 store 读回并连续几帧重新断言。
   useEffect(() => {
     const isFirst = prevFileIdRef.current === undefined;
     prevFileIdRef.current = fileId;
@@ -331,7 +293,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           if (containerRef.current && containerRef.current.scrollTop === 0 && keepTop > 0) {
             containerRef.current.scrollTop = keepTop;
             setScrollTop(keepTop);
-            scrollStateRef.current.top = keepTop;
           }
           if (++frames < 3) requestAnimationFrame(reassert);
         };
@@ -347,7 +308,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         if (w > 0) setViewportWidth(w);
       }
     });
-    // fileId 变化/新文件：重新测量 viewport 由上方 rAF 兜底，看门狗为常驻逐帧检测
+    // fileId 变化/新文件：重新测量 viewport 由上方 rAF 兜底
   }, [fileId, scrollKey]);
 
   // 卸载时保存滚动位置，供重挂载恢复
@@ -425,8 +386,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       );
       if (top !== null) {
         containerRef.current.scrollTo({ top, behavior: 'auto' });
-        // 同步 ref，防止滚动看门狗把「程序化滚动到顶(top=0)」误判为 dockview 归零而拉回旧位置
-        scrollStateRef.current.top = top;
       }
     }
   }, [
@@ -473,7 +432,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       );
       if (top !== null) {
         containerRef.current.scrollTo({ top, behavior: 'auto' });
-        scrollStateRef.current.top = top;
       }
     },
     [

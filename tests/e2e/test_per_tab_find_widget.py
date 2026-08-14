@@ -44,7 +44,9 @@ def _switch_tab(page, file_name):
 
 
 def _find_input(page):
-    return page.locator('input[placeholder="查找"]')
+    # always 渲染策略下所有面板的 find widget 常驻 DOM（失活面板 visibility:hidden），
+    # 用 :visible 限定激活面板的输入框
+    return page.locator('input[placeholder="查找"]:visible')
 
 
 @pytest.mark.usefixtures("frontend_errors")
@@ -52,7 +54,7 @@ def test_ctrl_f_opens_and_focuses_find_widget(page, two_log_files, frontend_erro
     """Ctrl+F 打开激活面板的 find widget 并聚焦输入框。"""
     path_a, _ = two_log_files
     _open_via_picker(page, path_a)
-    page.wait_for_selector(".log-row", timeout=60000)
+    page.wait_for_selector(".log-row:visible", timeout=60000)
 
     # 初始无 find widget
     assert _find_input(page).count() == 0, "初始不应有 find widget"
@@ -72,7 +74,7 @@ def test_ctrl_f_repeat_selects_existing_query(page, two_log_files, frontend_erro
     """Ctrl+F 重复按下 = 聚焦并全选已有词（VSCode 语义）。"""
     path_a, _ = two_log_files
     _open_via_picker(page, path_a)
-    page.wait_for_selector(".log-row", timeout=60000)
+    page.wait_for_selector(".log-row:visible", timeout=60000)
 
     # 首次 Ctrl+F，输入词
     page.keyboard.press("Control+f")
@@ -112,7 +114,7 @@ def test_find_visibility_remembered_per_tab(page, two_log_files, frontend_errors
     name_a, name_b = os.path.basename(path_a), os.path.basename(path_b)
 
     _open_via_picker(page, path_a)
-    page.wait_for_selector(".log-row", timeout=60000)
+    page.wait_for_selector(".log-row:visible", timeout=60000)
     page.keyboard.press("Control+f")
     inp = _find_input(page)
     inp.wait_for(state="visible", timeout=5000)
@@ -120,8 +122,13 @@ def test_find_visibility_remembered_per_tab(page, two_log_files, frontend_errors
 
     # 打开面板 B：B 的 find 初始隐藏（per-tab 记忆）
     _open_via_picker(page, path_b)
-    page.wait_for_selector(".log-row", timeout=60000)
-    assert _find_input(page).count() == 0, "面板 B find 不应自动打开"
+    page.wait_for_selector(".log-row:visible", timeout=60000)
+    # B 的 find 不应自动打开；always 下 A 失活后 find 隐藏有异步延迟，用等待代替即时 count 避免竞态
+    page.wait_for_function(
+        """() => Array.from(document.querySelectorAll('input[placeholder="查找"]'))
+              .filter((el) => getComputedStyle(el).visibility !== 'hidden').length === 0""",
+        timeout=10000,
+    )
 
     # B 打开 find 并搜索自己的词
     page.keyboard.press("Control+f")

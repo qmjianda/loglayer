@@ -19,9 +19,13 @@ MIN_REASONABLE_VIEWPORT = 50
 # ---------- 通用等待 ----------
 
 def wait_for_log_canvas(page, timeout: int = 60000):
-    """等待日志行渲染出现（DOM 虚拟化后为 .log-row 元素）。"""
-    page.wait_for_selector('.log-row', timeout=timeout)
-    return page.locator('.log-row').first
+    """等待日志行渲染出现（DOM 虚拟化后为 .log-row 元素）。
+
+    用 :visible 限定可见行：dockview defaultRenderer="always" 下失活面板的
+    .log-row 常驻 DOM（visibility:hidden），若不用 :visible 会匹配到隐藏面板而超时。
+    """
+    page.wait_for_selector('.log-row:visible', timeout=timeout)
+    return page.locator('.log-row:visible').first
 
 
 def wait_for_tab(page, tab_name: str, timeout: int = 60000):
