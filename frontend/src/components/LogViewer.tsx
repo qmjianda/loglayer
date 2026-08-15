@@ -13,6 +13,7 @@ import { detectJson } from '../utils/jsonTree';
 import { LogRow } from './logViewer/LogRow';
 import { computeRevealScrollTop } from '../utils/revealScroll';
 import { computePrefetchRange } from '../utils/prefetchRange';
+import { wheelDeltaToLogicalPx } from '../utils/wheelDelta';
 import { useVirtualScroll } from '../hooks/useVirtualScroll';
 import { PerformanceIndicator } from './PerformanceIndicator';
 
@@ -265,6 +266,22 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       if (rafId) cancelAnimationFrame(rafId);
     };
   }, [scrollKey]);
+
+  // 滚动缩放（超大文件）下滚轮按逻辑行滚动，避免物理像素被缩放比放大；横向 shift+wheel 交原生
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !useScaling) return;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      e.preventDefault();
+      const logicalPx = wheelDeltaToLogicalPx(e.deltaY, e.deltaMode, lineHeight, viewportHeight);
+      const physicalPx =
+        maxLogicalScroll > 0 ? (logicalPx * maxPhysicalScroll) / maxLogicalScroll : logicalPx;
+      el.scrollTop = Math.max(0, Math.min(el.scrollTop + physicalPx, maxPhysicalScroll));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [useScaling, maxPhysicalScroll, maxLogicalScroll, lineHeight, viewportHeight]);
 
   const prevFileIdRef = useRef<string | null | undefined>(undefined);
 
