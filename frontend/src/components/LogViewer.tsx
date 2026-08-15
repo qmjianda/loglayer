@@ -12,6 +12,7 @@ import { AppSettings } from '../hooks/useSettings';
 import { detectJson } from '../utils/jsonTree';
 import { LogRow } from './logViewer/LogRow';
 import { computeRevealScrollTop } from '../utils/revealScroll';
+import { computePrefetchRange } from '../utils/prefetchRange';
 import { useVirtualScroll } from '../hooks/useVirtualScroll';
 import { PerformanceIndicator } from './PerformanceIndicator';
 
@@ -131,8 +132,9 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
   const [bridgedLines, setBridgedLines] = useState<Map<number, LogLine | string>>(new Map());
   const lastFetchRef = useRef<{ start: number; end: number }>({ start: -1, end: -1 });
+  const mountedRef = useRef(true);
 
-  const { LINE_HEIGHT, SCROLL_MARGIN, FETCH_DEBOUNCE_MS } = LOG_VIEWER;
+  const { LINE_HEIGHT, SCROLL_MARGIN } = LOG_VIEWER;
 
   // 原始行数（缺省退化为可见行数）：物理行号位数 / 虚拟列折叠判定 / ruler 基准
   const rawCount = rawLineCount ?? totalLines;
@@ -324,26 +326,36 @@ export const LogViewer: React.FC<LogViewerProps> = ({
 
   useEffect(() => {
     lastFetchRef.current = { start: -1, end: -1 };
+    setBridgedLines(new Map());
   }, [updateTrigger]);
 
-  // === 按需拉取行数据（窗口驱动） ===
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // === 按需拉取行数据（静态对称预取 + 在途不取消） ===
   const fetchStart = windowStart;
   const fetchEnd = windowEnd;
 
   useEffect(() => {
     if (!fileId || totalLines === 0) return;
-    const start = fetchStart;
-    const end = fetchEnd;
-    if (start === lastFetchRef.current.start && end === lastFetchRef.current.end) return;
+    const { start, end } = computePrefetchRange(
+      windowStart,
+      windowSize,
+      LOG_VIEWER.PREFETCH_BUFFER,
+      totalLines,
+    );
     if (start >= end) return;
-
+    if (start === lastFetchRef.current.start && end === lastFetchRef.current.end) return;
     lastFetchRef.current = { start, end };
-    let ignore = false;
-    const timer = setTimeout(async () => {
+
+    (async () => {
       try {
-        const count = end - start;
-        const lines = await readProcessedLines(fileId, start, count);
-        if (ignore) return;
+        const lines = await readProcessedLines(fileId, start, end - start);
+        if (!mountedRef.current) return;
         setBridgedLines((prev) => {
           const next = new Map(prev);
           lines.forEach((line, idx) => next.set(start + idx, line));
@@ -359,12 +371,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({
       } catch (e) {
         console.error('Failed to fetch lines:', e);
       }
-    }, FETCH_DEBOUNCE_MS);
-    return () => {
-      ignore = true;
-      clearTimeout(timer);
-    };
-  }, [fetchStart, fetchEnd, fileId, totalLines, updateTrigger, FETCH_DEBOUNCE_MS]);
+    })();
+  }, [windowStart, windowSize, fileId, totalLines, updateTrigger]);
 
   // === 可视范围上报 ===
   useEffect(() => {

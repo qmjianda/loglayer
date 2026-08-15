@@ -5,6 +5,7 @@ export const LOG_VIEWER = {
   BUFFER_LARGE: 1500,
   VIRTUAL_HEIGHT_LIMIT: 10_000_000,
   MAX_CACHED_LINES: 5000,
+  PREFETCH_BUFFER: 150,
   RULER_WIDTH: 12,
   CHAR_WIDTH_DEFAULT: 7.22 as number,
   FONT: '12px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',

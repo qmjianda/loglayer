@@ -1,8 +1,7 @@
-# preload-optimization Specification
+# preload-optimization Delta Specification
 
-## Purpose
-TBD - created by archiving change fix-logviewer-preload-buffer. Update Purpose after archive.
-## Requirements
+## MODIFIED Requirements
+
 ### Requirement: 预加载 buffer 充足
 
 系统 SHALL 在滚动时持续拉取「可视区前后各 M 行」（M 为配置常量，静态、无方向、无速度）到前端缓存，确保真实文本尽量就绪；允许快速滚动/拖条跳转时偶发占位（尽力而为，非强保证）。
@@ -33,4 +32,3 @@ TBD - created by archiving change fix-logviewer-preload-buffer. Update Purpose a
 - **WHEN** 滚动过程中窗口 re-anchor 多次触发拉取
 - **THEN** 不做时间防抖/节流，靠 re-anchor 滞后自然限流
 - **AND** 已发出的在途请求不被取消，返回后按行号幂等合并到缓存
-
