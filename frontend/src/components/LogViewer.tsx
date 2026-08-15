@@ -14,6 +14,7 @@ import { LogRow } from './logViewer/LogRow';
 import { computeRevealScrollTop } from '../utils/revealScroll';
 import { computePrefetchRange } from '../utils/prefetchRange';
 import { wheelDeltaToLogicalPx } from '../utils/wheelDelta';
+import { computeViewportTranslateY } from '../utils/viewportTranslate';
 import { useVirtualScroll } from '../hooks/useVirtualScroll';
 import { PerformanceIndicator } from './PerformanceIndicator';
 
@@ -201,8 +202,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   }, [desiredWindowStart, windowBuffer]);
 
   const windowEnd = Math.min(totalLines, windowStart + windowSize);
-  // 窗口内偏移（像素）：视口顶部应显示 topVisibleLine，窗口首行是 windowStart
-  const windowOffsetPx = Math.max(0, topVisibleLine - windowStart) * lineHeight;
   // 窗口内渲染的行数
   const itemCount = windowEnd - windowStart;
 
@@ -341,9 +340,10 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 数据变化（管线重跑/重索引）仅重置拉取标记触发重拉；不在此清空 bridgedLines，
+  // 否则切 tab（syncAll→pipelineFinished→updateTrigger）会造成占位闪烁
   useEffect(() => {
     lastFetchRef.current = { start: -1, end: -1 };
-    setBridgedLines(new Map());
   }, [updateTrigger]);
 
   useEffect(() => {
@@ -592,10 +592,10 @@ export const LogViewer: React.FC<LogViewerProps> = ({
         {isContentReady && (
           <div className="absolute top-0 left-0" style={{ height: viewportHeight, width: '100%' }}>
             <ErrorBoundary>
-              {/* 窗口内行：translateY(scrollTop - windowOffsetPx) 使窗口内容对齐到视口（视口在 content 坐标 scrollTop 处） */}
+              {/* 滚动压缩下内容按逻辑滚动对齐（见 computeViewportTranslateY） */}
               <div
                 style={{
-                  transform: `translateY(${scrollTop - windowOffsetPx}px)`,
+                  transform: `translateY(${computeViewportTranslateY(windowStart, lineHeight, logicalScrollTop, scrollTop)}px)`,
                   height: itemCount * lineHeight,
                   width: '100%',
                   willChange: 'transform',
