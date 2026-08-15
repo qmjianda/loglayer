@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-15
+goal: 修复添加过滤图层后滚动条卡在旧位置：内容缩到1页但滚动条仍在第N页（Overview Ruler transform 虚撑 scrollHeight
+  阻止 clamp）
