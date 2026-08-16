@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
+      allowedHosts: ['ca.ccszxc.xin'],
       proxy: {
         '/api': {
           target: 'http://127.0.0.1:12345',
