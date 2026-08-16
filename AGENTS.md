@@ -211,11 +211,12 @@ spec 的 AC 验收条件(WHEN-THEN Scenarios) → 编写验收测试 → 运行(
 - **索引优化**：`docs/INDEXING_OPTIMIZATION.md`（索引性能相关）。
 - **历史 ADR**：`docs/TECHNICAL_DECISIONS.md`（冻结，只读）。
 - **会话模板**：`.opencode/commands/session-template.md`。
-- 代码查询优先使用 codegraph（`codegraph_explore` MCP / `codegraph explore` CLI）以减少文件读取；本仓库已建 `.codegraph/` 索引（gitignored），索引滞后写入约 1s，编辑后仍可信任未列入 staleness 的文件。
+- 代码查询优先使用 codegraph（`codegraph_explore` MCP / `codegraph explore` CLI）以减少文件读取；本仓库已建 `.codegraph/` 索引（gitignored）。**WSL 环境使用前先 `codegraph sync`**（见"规则"）。
 
 
 ## 规则
 
+- **代码理解优先用 codegraph（而非 grep/逐文件读）**：本仓库已建 `.codegraph/` 索引，`codegraph_explore` MCP / `codegraph explore` CLI 一次调用即返回相关符号源码 + 调用路径 + 影响面，比 grep 更准且省 token。**WSL 环境下（仓库位于 `/mnt/d/...` drvfs 挂载）文件监听（inotify）不可靠，codegraph 索引不会自动同步改动——使用前必须先跑 `codegraph sync` 更新索引**，否则可能读到陈旧代码。索引滞后写入约 1s；若工具返回 staleness 提示，按提示对列出的文件改用 Read 确认。
 - **拼好码策略（能复用绝不自研）**：开发新能力时优先采用成熟开源实现，禁止自造轮子。
   - **关键方案落地前必须先调研成熟方案**（库/框架/参考实现），写入 OpenSpec 的 proposal/design；只有确认没有合适开源方案时才允许自研，并说明理由。
   - 已有成熟依赖优先复用：前端 UI 组件（radix-ui、dockview、cmdk、sonner、lucide-react、react-virtuoso、zustand）、后端（fastapi、pydantic、cachetools、pywebview、websockets）等；能在这些依赖上实现的，不新写组件/工具函数。
