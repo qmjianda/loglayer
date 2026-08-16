@@ -125,6 +125,7 @@ const AppContent: React.FC = () => {
     updateLayers,
     addLayer,
     handleDrop,
+    toggleLayer,
     undo,
     redo,
     canUndo,
@@ -837,11 +838,7 @@ const AppContent: React.FC = () => {
           onLayerRemove={(id) =>
             updateLayers((prev) => prev.filter((l) => l.id !== id && l.groupId !== id))
           }
-          onLayerToggle={(id) =>
-            updateLayers((prev) =>
-              prev.map((l) => (l.id === id ? { ...l, enabled: !l.enabled } : l)),
-            )
-          }
+          onLayerToggle={(id) => toggleLayer(id)}
           onLayerUpdate={(id, update) =>
             updateLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...update } : l)))
           }

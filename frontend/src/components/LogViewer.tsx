@@ -11,6 +11,7 @@ import { getLogViewerColors } from '../theme';
 import { AppSettings } from '../hooks/useSettings';
 import { detectJson } from '../utils/jsonTree';
 import { LogRow } from './logViewer/LogRow';
+import { HighlightColorMenu } from './logViewer/HighlightColorMenu';
 import { computeRevealScrollTop } from '../utils/revealScroll';
 import { computePrefetchRange } from '../utils/prefetchRange';
 import { wheelDeltaToLogicalPx } from '../utils/wheelDelta';
@@ -664,18 +665,15 @@ export const LogViewer: React.FC<LogViewerProps> = ({
                   >
                     发送给 AI
                   </button>
-                  <button
-                    className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200"
-                    onClick={() => {
+                  <HighlightColorMenu
+                    onPick={(color) => {
                       onAddLayer?.(LayerType.HIGHLIGHT, {
                         query: contextMenu.text,
-                        color: '#facc15',
+                        color,
                       });
                       setContextMenu(null);
                     }}
-                  >
-                    以此高亮
-                  </button>
+                  />
                   <button
                     className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200"
                     onClick={() => {

@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { Command } from '../components/CommandPalette';
 import { useSearchStore } from '../store/searchStore';
 import { LayerType } from '../types';
+import { getRecentColors, RECOMMENDED_COLORS } from '../constants/colors';
 import type { FileData } from './useFileManagement';
 
 interface UseCommandsDeps {
@@ -102,8 +103,19 @@ export const useCommands = ({
       shortcut: 'Ctrl+Shift+L',
       category: '图层',
       action: () => {
-        // 添加一个默认的高亮图层
         addLayer(LayerType.HIGHLIGHT, { query: '', color: '#fbbf24', enabled: true });
+      },
+    },
+    {
+      id: 'layer.highlightSelection',
+      label: '高亮选中文本',
+      shortcut: 'Ctrl+Shift+H',
+      category: '图层',
+      action: () => {
+        const selectedText = window.getSelection()?.toString().trim() ?? '';
+        if (!selectedText) return;
+        const color = getRecentColors()[0] ?? RECOMMENDED_COLORS[0];
+        addLayer(LayerType.HIGHLIGHT, { query: selectedText, color });
       },
     },
     {
@@ -153,6 +165,7 @@ export const useCommands = ({
 
       const isP = e.key.toLowerCase() === 'p';
       const isT = e.key.toLowerCase() === 't';
+      const isH = e.key.toLowerCase() === 'h';
       const isComma = e.key === ',';
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
       const isShift = e.shiftKey;
@@ -161,6 +174,16 @@ export const useCommands = ({
       if (isCmdOrCtrl && isP && isShift) {
         e.preventDefault();
         setIsCommandPaletteVisible(true);
+      }
+
+      // Ctrl+Shift+H: 高亮选中文本
+      if (isCmdOrCtrl && isH && isShift) {
+        e.preventDefault();
+        const selectedText = window.getSelection()?.toString().trim() ?? '';
+        if (selectedText) {
+          const color = getRecentColors()[0] ?? RECOMMENDED_COLORS[0];
+          addLayer(LayerType.HIGHLIGHT, { query: selectedText, color });
+        }
       }
 
       // Ctrl+Shift+T: 文件监视
@@ -184,7 +207,13 @@ export const useCommands = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleToggleWatch, setIsSettingsVisible, setIsCommandPaletteVisible, setIsDebugVisible]);
+  }, [
+    handleToggleWatch,
+    setIsSettingsVisible,
+    setIsCommandPaletteVisible,
+    setIsDebugVisible,
+    addLayer,
+  ]);
 
   return commands;
 };

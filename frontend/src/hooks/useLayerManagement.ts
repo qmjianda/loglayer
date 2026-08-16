@@ -17,6 +17,20 @@ import { useLayerRegistry } from './useLayerRegistry';
 const MAX_HISTORY = 100;
 const DEFAULT_PRESET_ID = 'system-default-preset';
 
+/** 图层类型显示名简称（图层交互重设计：名称去啰嗦化） */
+const LAYER_SHORT_NAMES: Record<string, string> = {
+  HIGHLIGHT: '高亮',
+  FILTER: '过滤',
+  ROWTINT: '行着色',
+  LEVEL: '级别',
+  TIME_RANGE: '时间范围',
+  RANGE: '范围',
+  TRANSFORM: '转换',
+  EXTRACT: '提取',
+  MARK: '标记',
+  PYTHON: '脚本',
+};
+
 export interface UseLayerManagementProps {
   activeFileId: string | null;
   activeFile: FileData | undefined;
@@ -48,6 +62,8 @@ export interface UseLayerManagementReturn {
     targetId: string | null,
     position: 'inside' | 'before' | 'after',
   ) => void;
+  /** 启停图层：文件夹级联到子图层（数据级同步，后端 sync 按 enabled 过滤自然正确） */
+  toggleLayer: (id: string) => void;
 
   // 历史记录
   undo: () => void;
@@ -198,6 +214,20 @@ export function useLayerManagement({
     );
   }, [activeFileId, setFiles]);
 
+  const toggleLayer = useCallback(
+    (id: string) => {
+      if (!activeFileId) return;
+      updateLayers((prev) => {
+        const target = prev.find((l) => l.id === id);
+        const nextEnabled = target ? !target.enabled : false;
+        return prev.map((l) =>
+          l.id === id || l.groupId === id ? { ...l, enabled: nextEnabled } : l,
+        );
+      });
+    },
+    [activeFileId, updateLayers],
+  );
+
   // 重做
   const redo = useCallback(() => {
     if (!activeFileId) return;
@@ -271,7 +301,7 @@ export function useLayerManagement({
 
       const newLayer: LogLayer = {
         id: newId,
-        name: entry.display_name,
+        name: LAYER_SHORT_NAMES[type as string] ?? entry.display_name,
         type: type as LayerType,
         enabled: true,
         groupId: parentId,
@@ -400,23 +430,46 @@ export function useLayerManagement({
       let added = 0;
       let enabled = 0;
       const newLayers: LogLayer[] = [];
+      // 预设中 FOLDER id → 应用后实际 FOLDER id 的映射，保证子图层挂在真实父节点下
+      const folderIdMap = new Map<string, string>();
 
       preset.layers.forEach((l) => {
-        if (l.type === LayerType.FOLDER) return;
+        if (l.type === LayerType.FOLDER) {
+          const existingFolder = layers.find(
+            (el) => el.type === LayerType.FOLDER && el.name === l.name,
+          );
+          if (existingFolder) {
+            folderIdMap.set(l.id, existingFolder.id);
+            if (!existingFolder.enabled) {
+              newLayers.push({ ...existingFolder, enabled: true });
+            }
+          } else {
+            const newFolder: LogLayer = {
+              ...l,
+              id: Math.random().toString(36).substr(2, 9),
+              enabled: true,
+              config: JSON.parse(JSON.stringify(l.config || {})),
+            };
+            folderIdMap.set(l.id, newFolder.id);
+            newLayers.push(newFolder);
+            added++;
+          }
+          return;
+        }
 
         const existing = layers.find((el) => el.type === l.type && el.name === l.name);
         if (existing) {
-          // 同 kind 同 name：置为启用
           if (!existing.enabled) {
             newLayers.push({ ...existing, enabled: true });
           }
           enabled++;
         } else {
-          // 缺失：构造新图层追加（id 随机、config 深拷贝、groupId 保持）
+          const parentId = l.groupId ? folderIdMap.get(l.groupId) : undefined;
           newLayers.push({
             ...l,
             id: Math.random().toString(36).substr(2, 9),
             enabled: true,
+            groupId: parentId,
             config: JSON.parse(JSON.stringify(l.config || {})),
           });
           added++;
@@ -449,6 +502,7 @@ export function useLayerManagement({
     updateLayers,
     addLayer,
     handleDrop,
+    toggleLayer,
     undo,
     redo,
     canUndo: past.length > 0,

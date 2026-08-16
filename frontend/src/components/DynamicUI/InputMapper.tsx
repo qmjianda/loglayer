@@ -11,6 +11,7 @@ interface InputMapperProps {
   isSearchField?: boolean;
   searchConfig?: { regex?: boolean; caseSensitive?: boolean; wholeWord?: boolean };
   onSearchConfigChange?: (config: any) => void;
+  autoFocus?: boolean;
 }
 
 export const InputMapper: React.FC<InputMapperProps> = ({
@@ -20,6 +21,7 @@ export const InputMapper: React.FC<InputMapperProps> = ({
   isSearchField,
   searchConfig,
   onSearchConfigChange,
+  autoFocus = false,
 }) => {
   switch (field.type) {
     case 'str':
@@ -31,6 +33,7 @@ export const InputMapper: React.FC<InputMapperProps> = ({
             config={searchConfig}
             onConfigChange={onSearchConfigChange}
             placeholder={field.display_name}
+            autoFocus={autoFocus}
           />
         );
       }

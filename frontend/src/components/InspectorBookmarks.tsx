@@ -30,13 +30,13 @@ export const InspectorBookmarks: React.FC<InspectorBookmarksProps> = ({
             return (
               <div
                 key={idx}
-                className="group flex flex-col px-3 py-2 hover:bg-white/5 cursor-pointer border-l-2 border-transparent hover:border-amber-500 transition-all"
+                className="group flex flex-col px-3 py-1.5 hover:bg-white/5 cursor-pointer border-l-2 border-transparent hover:border-amber-500 transition-all"
                 onClick={(e) => {
                   e.stopPropagation();
                   onJumpToBookmark(idx);
                 }}
               >
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-0.5">
                   <div className="flex items-center gap-2">
                     <span className="text-amber-500 text-[10px] font-mono">
                       #{(idx + 1).toLocaleString()}

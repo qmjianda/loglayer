@@ -109,6 +109,7 @@ interface DynamicFormProps {
   config: any;
   onUpdate: (update: any) => void;
   fileId?: string | null;
+  autoFocusQuery?: boolean;
 }
 
 export const DynamicForm: React.FC<DynamicFormProps> = ({
@@ -116,6 +117,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   config,
   onUpdate,
   fileId,
+  autoFocusQuery = false,
 }) => {
   const fields = registryEntry.ui_schema;
 
@@ -162,6 +164,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               wholeWord: config['wholeWord'],
             }}
             onSearchConfigChange={(upd) => onUpdate(upd)}
+            autoFocus={autoFocusQuery}
           />
         )}
 

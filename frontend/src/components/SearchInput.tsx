@@ -14,6 +14,7 @@ interface SearchInputProps {
     wholeWord?: boolean;
   }) => void;
   placeholder?: string;
+  autoFocus?: boolean;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
 }
@@ -24,6 +25,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
   config,
   onConfigChange,
   placeholder = '搜索...',
+  autoFocus = false,
   onMouseEnter,
   onMouseLeave,
 }) => {
@@ -39,6 +41,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        autoFocus={autoFocus}
         onMouseDown={(e) => e.stopPropagation()}
       />
       <div className="absolute right-1 flex items-center space-x-0.5 pointer-events-auto">

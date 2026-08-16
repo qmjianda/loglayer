@@ -167,8 +167,8 @@ export function useUIState({
         return;
       }
 
-      // Ctrl+H: 搜索历史
-      if (isCmdOrCtrl && isH && !isInput) {
+      // Ctrl+H: 搜索历史（Ctrl+Shift+H 让位给"高亮选中文本"）
+      if (isCmdOrCtrl && isH && !isShift && !isInput) {
         e.preventDefault();
         onShowSearchHistory?.();
         return;

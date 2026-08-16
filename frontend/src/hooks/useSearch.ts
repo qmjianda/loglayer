@@ -13,6 +13,9 @@ import { useSearchStore } from '../store/searchStore';
 import { timingLog } from '../utils/timing';
 import { useDebouncedValue, SEARCH_DEBOUNCE_MS } from './useDebouncedValue';
 
+/** 数据层配置变更触发后端 syncAll 的防抖窗口（layer-interaction-redesign D6） */
+export const LAYER_SYNC_DEBOUNCE_MS = 400;
+
 export type { SearchConfig, SearchMode };
 
 export interface UseSearchProps {
@@ -172,18 +175,26 @@ export function useSearch({
       bumpSearchSeq(activePanelId);
     }
 
+    // 数据层配置防抖（layer-interaction-redesign D6）：layersFunctionalHash 变化
+    // （含 FILTER/TRANSFORM 配置输入）经 400ms 防抖后才触发后端 syncAll 重算；
+    // 视觉层渲染在前端本地（直接读 layer config）不受此影响，保持实时。
     // 在途请求可取消（D6）：新触发/依赖变化/卸载时先执行上一轮 cleanup → abort 挂起请求；
     // AbortError 由 syncAll 静默吞掉，不抛未捕获异常。
     const controller = new AbortController();
-    syncAll(activeFileId, layers, searchConf, controller.signal);
-    timingLog('sync_all.request', activeFileId, searchConf ? 'search' : 'no-search');
+    const syncTimer = setTimeout(() => {
+      syncAll(activeFileId, layers, searchConf, controller.signal);
+      timingLog('sync_all.request', activeFileId, searchConf ? 'search' : 'no-search');
 
-    if (!debouncedQuery) {
-      setIsSearchingStore(activePanelId, false);
-      setCurrentMatch(activePanelId, -1, -1);
-    }
+      if (!debouncedQuery) {
+        setIsSearchingStore(activePanelId, false);
+        setCurrentMatch(activePanelId, -1, -1);
+      }
+    }, LAYER_SYNC_DEBOUNCE_MS);
 
-    return () => controller.abort();
+    return () => {
+      clearTimeout(syncTimer);
+      controller.abort();
+    };
   }, [
     layersFunctionalHash,
     debouncedQuery,

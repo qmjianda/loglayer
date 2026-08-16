@@ -2,6 +2,7 @@ import React, { memo, useMemo } from 'react';
 import { LogLayer, LogLine, SearchConfig } from '../../types';
 import { LOG_VIEWER_COLORS } from '../../theme';
 import { renderLayers, renderWithIsolation } from '../../rendering/registry';
+import { isLayerEffectivelyEnabled } from '../../utils/layerEnabled';
 import {
   computeGutterWidth,
   gutterDigits,
@@ -155,7 +156,8 @@ export const LogRow: React.FC<LogRowProps> = memo(
 
     // 前端按图层配置即时计算图层高亮/行样式（memoize by content+layers，替代后端逐行计算）
     const layerResult = useMemo(() => {
-      const active = layers.filter((l) => l.enabled && !l.isSystemManaged);
+      const byId = new Map(layers.map((l) => [l.id, l]));
+      const active = layers.filter((l) => isLayerEffectivelyEnabled(l, byId));
       if (active.length === 0) return { segments: [] as HighlightSegment[], rowStyle: undefined };
       return renderLayers(
         active.map((l) => l.type as string),

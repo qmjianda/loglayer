@@ -1,13 +1,12 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { LogLayer, LayerType } from '../types';
-import { DynamicForm } from './DynamicUI/DynamicForm';
 import { useLayerRegistry } from '../hooks/useLayerRegistry';
 
 interface LayersPanelProps {
   layers: LogLayer[];
   stats: Record<string, { count: number; distribution: number[] }>;
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (id: string | null) => void;
   onRemove: (id: string) => void;
   onToggle: (id: string) => void;
   onUpdate: (id: string, update: any) => void;
@@ -116,14 +115,14 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     (window as any).__draggedLayerId = null;
   };
 
-  const getLayerIcon = (layer: LogLayer) => {
+  const getLayerIcon = (layer: LogLayer, configColor: string | null) => {
     const entry = registry[layer.type];
     const iconKey = entry?.icon || 'default';
 
     const ICON_LIBRARY: Record<string, React.ReactNode> = {
       filter: (
         <svg
-          className="w-3.5 h-3.5 text-blue-400"
+          className="w-3.5 h-3.5 text-current"
           fill="none"
           stroke="currentColor"
           strokeWidth="2.5"
@@ -133,13 +132,13 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
         </svg>
       ),
       highlight: (
-        <svg className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+        <svg className="w-3.5 h-3.5 text-current" fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 21a9 9 0 110-18 9 9 0 010 18z" />
         </svg>
       ),
       range: (
         <svg
-          className="w-3.5 h-3.5 text-teal-400"
+          className="w-3.5 h-3.5 text-current"
           fill="none"
           stroke="currentColor"
           strokeWidth="2.5"
@@ -150,7 +149,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
       ),
       time: (
         <svg
-          className="w-3.5 h-3.5 text-purple-400"
+          className="w-3.5 h-3.5 text-current"
           fill="none"
           stroke="currentColor"
           strokeWidth="2.5"
@@ -161,7 +160,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
       ),
       transform: (
         <svg
-          className="w-3.5 h-3.5 text-orange-400"
+          className="w-3.5 h-3.5 text-current"
           fill="none"
           stroke="currentColor"
           strokeWidth="2.5"
@@ -177,7 +176,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
       ),
       level: (
         <svg
-          className="w-3.5 h-3.5 text-red-400"
+          className="w-3.5 h-3.5 text-current"
           fill="none"
           stroke="currentColor"
           strokeWidth="2.5"
@@ -187,12 +186,12 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
         </svg>
       ),
       rowtint: (
-        <svg className="w-3.5 h-3.5 text-pink-400" fill="currentColor" viewBox="0 0 24 24">
+        <svg className="w-3.5 h-3.5 text-current" fill="currentColor" viewBox="0 0 24 24">
           <path d="M4 5h16v3H4V5zm0 5h16v3H4v-3zm0 5h16v3H4v-3z" />
         </svg>
       ),
       bookmark: (
-        <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+        <svg className="w-3.5 h-3.5 text-current" fill="currentColor" viewBox="0 0 24 24">
           <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
         </svg>
       ),
@@ -228,8 +227,14 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     const isEditing = editingId === layer.id;
     const parent = layer.groupId ? layers.find((l) => l.id === layer.groupId) : null;
     const effectivelyDisabled = !layer.enabled || (parent && !parent.enabled);
-    const registryEntry = registry[layer.type];
     const layerCount = stats[layer.id]?.count || 0;
+    const configColor = typeof layer.config?.color === 'string' ? layer.config.color : null;
+    const matchPreview =
+      typeof layer.config?.query === 'string'
+        ? layer.config.query
+        : typeof layer.config?.pattern === 'string'
+          ? layer.config.pattern
+          : null;
 
     const saveName = () => {
       if (editValue.trim() && editValue.trim() !== layer.name) {
@@ -277,7 +282,8 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
               onSelect(layer.id);
               if (layer.isCollapsed) onUpdate(layer.id, { isCollapsed: false });
             } else {
-              onUpdate(layer.id, { isCollapsed: !layer.isCollapsed });
+              // 再次单击已选中的图层：取消选中，属性区恢复文件摘要
+              onSelect(null);
             }
           }}
           onDoubleClick={() => {
@@ -288,23 +294,26 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
             }
           }}
         >
-          {/* Collapse toggle arrow */}
-          <div
-            className={`no-drag w-5 h-5 flex items-center justify-center shrink-0 text-gray-500 transition-transform cursor-pointer hover:text-gray-300
-            ${(isFolder ? layer.isCollapsed : !isSelected || layer.isCollapsed) ? '-rotate-90' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onUpdate(layer.id, { isCollapsed: !layer.isCollapsed });
-            }}
-          >
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
+          {/* Collapse toggle arrow（仅文件夹；非文件夹属性区已固定，无需折叠） */}
+          {isFolder && (
+            <div
+              className={`no-drag w-5 h-5 flex items-center justify-center shrink-0 text-gray-500 transition-transform cursor-pointer hover:text-gray-300
+              ${layer.isCollapsed ? '-rotate-90' : ''}`}
+              title="折叠"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdate(layer.id, { isCollapsed: !layer.isCollapsed });
+              }}
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+          )}
 
           {/* Drag Handle Icon (visible on hover) */}
           <div className="w-4 h-5 flex items-center justify-center shrink-0 cursor-grab active:cursor-grabbing text-gray-700 group-hover:text-gray-500 transition-colors">
@@ -313,8 +322,12 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
             </svg>
           </div>
 
-          <div className="shrink-0 w-6 h-6 flex items-center justify-center">
-            {getLayerIcon(layer)}
+          <div
+            className="shrink-0 w-6 h-6 flex items-center justify-center"
+            data-testid={`layer-color-${layer.id}`}
+            style={configColor ? { color: configColor } : undefined}
+          >
+            {getLayerIcon(layer, configColor)}
           </div>
 
           {/* Name/Edit area */}
@@ -342,6 +355,14 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                 {layer.name}
               </span>
             )}
+            {!isFolder && matchPreview && (
+              <span
+                data-testid={`layer-preview-${layer.id}`}
+                className="text-[9px] text-gray-600 truncate max-w-[90px] shrink ml-1.5 font-mono"
+              >
+                {matchPreview}
+              </span>
+            )}
             {!isFolder && layerCount > 0 && (
               <span className="text-[9px] bg-black/40 px-1.5 py-0.5 rounded text-gray-500 font-mono ml-2 shrink-0 border border-white/5">
                 {layerCount.toLocaleString()}
@@ -355,7 +376,26 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onUpdate(layer.id, { enabled: !layer.enabled });
+                setEditingId(layer.id);
+                setEditValue(layer.name);
+                setIsInputActive(true);
+              }}
+              className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-white/5 rounded transition-colors"
+              title="重命名"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle(layer.id);
               }}
               className={`p-1.5 ${layer.enabled ? 'text-blue-500' : 'text-gray-400'} hover:bg-white/5 rounded`}
               title={layer.enabled ? '禁用' : '启用'}
@@ -390,29 +430,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-500 z-[100] pointer-events-none shadow-[0_0_5px_rgba(59,130,246,0.8)]" />
         )}
 
-        {/* Nested Content Wrapper */}
-        <div
-          className={`flex flex-col ${(isFolder ? layer.isCollapsed : !isSelected || layer.isCollapsed) ? 'h-0 overflow-hidden' : ''}`}
-        >
-          {/* Config Form (only for non-folders) */}
-          {!isFolder && isSelected && registryEntry && (
-            <div
-              className="no-drag px-3 pb-3 space-y-3 border-t border-black/10 pt-3 bg-black/5"
-              onMouseEnter={() => setIsInputActive(true)}
-              onMouseLeave={() => setIsInputActive(false)}
-              onMouseDown={(e) => e.stopPropagation()}
-              onDragOver={(e) => e.preventDefault()} // Prevent parent drag highlighting here
-            >
-              <DynamicForm
-                registryEntry={registryEntry}
-                config={layer.config}
-                fileId={fileId}
-                onUpdate={(cfg: any) => onUpdate(layer.id, { config: { ...layer.config, ...cfg } })}
-              />
-            </div>
-          )}
-        </div>
-
         {/* Render stats bar at bottom of card */}
         {!isFolder && isSelected && renderStatsBar(layer)}
       </div>
@@ -432,33 +449,14 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
       ));
   };
 
-  // === NEW: Categorize layers by category from registry ===
-  const RENDERING_TYPES = ['HIGHLIGHT', 'ROWTINT', 'BOOKMARK'];
-
-  const processingLayers = layers.filter(
-    (l) => !RENDERING_TYPES.includes(l.type) && l.groupId === undefined,
-  );
-  const renderingLayers = layers.filter(
-    (l) => RENDERING_TYPES.includes(l.type) && l.groupId === undefined,
-  );
-
-  const ZoneHeader: React.FC<{ title: string; icon: React.ReactNode; count: number }> = ({
-    title,
-    icon,
-    count,
-  }) => (
-    <div className="flex items-center gap-2 px-3 py-2 bg-theme-base border-b border-[#333] text-[10px] uppercase tracking-wide text-gray-500 font-semibold select-none">
-      {icon}
-      <span>{title}</span>
-      <span className="ml-auto text-[9px] bg-black/40 px-1.5 py-0.5 rounded text-gray-600 font-mono">
-        {count}
-      </span>
-    </div>
-  );
-
   return (
     <div
       className="flex flex-col select-none"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onSelect(null);
+        }
+      }}
       onDragOver={(e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
@@ -477,52 +475,14 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
         setDropPosition(null);
       }}
     >
-      {/* Processing Zone */}
-      {(processingLayers.length > 0 || layers.length === 0) && (
-        <>
-          <ZoneHeader
-            title="处理层"
-            icon={
-              <svg
-                className="w-3 h-3 text-blue-400"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-              >
-                <path d="M3 4h18l-7 9v6l-4 2V13L3 4z" />
-              </svg>
-            }
-            count={processingLayers.length}
-          />
-          {processingLayers.map((layer) => (
-            <React.Fragment key={layer.id}>
-              {renderLayerCard(layer, 0)}
-              {layer.type === LayerType.FOLDER &&
-                !layer.isCollapsed &&
-                renderRecursive(layer.id, 1)}
-            </React.Fragment>
-          ))}
-        </>
-      )}
-
-      {/* Rendering Zone */}
-      {(renderingLayers.length > 0 || layers.length === 0) && (
-        <>
-          <ZoneHeader
-            title="渲染层"
-            icon={
-              <svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 21a9 9 0 110-18 9 9 0 010 18z" />
-              </svg>
-            }
-            count={renderingLayers.length}
-          />
-          {renderingLayers.map((layer) => (
-            <React.Fragment key={layer.id}>{renderLayerCard(layer, 0)}</React.Fragment>
-          ))}
-        </>
-      )}
+      {layers
+        .filter((l) => l.groupId === undefined)
+        .map((layer) => (
+          <React.Fragment key={layer.id}>
+            {renderLayerCard(layer, 0)}
+            {layer.type === LayerType.FOLDER && !layer.isCollapsed && renderRecursive(layer.id, 1)}
+          </React.Fragment>
+        ))}
 
       {dragOverId === 'root' && (
         <div className="h-[2px] bg-blue-500 m-4 rounded-full animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
