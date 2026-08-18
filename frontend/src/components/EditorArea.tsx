@@ -199,7 +199,7 @@ const WelcomeWatermark: React.FC<IWatermarkPanelProps> = () => {
 
   return (
     <div
-      className="flex-1 flex flex-col items-center justify-center text-gray-600 bg-theme-base cursor-pointer hover:bg-theme-surface transition-colors"
+      className="h-full w-full flex flex-col items-center justify-center text-gray-600 bg-theme-base cursor-pointer hover:bg-theme-surface transition-colors"
       onClick={data.onOpen}
     >
       <svg
@@ -534,7 +534,7 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
         onDragOver={handleDragOver}
       >
         <DockviewReact
-          className={themeClass}
+          className={`${themeClass} h-full w-full`}
           onReady={onReady}
           components={{ logViewer: LogViewerPanel }}
           watermarkComponent={WelcomeWatermark}
