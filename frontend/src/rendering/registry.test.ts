@@ -3,8 +3,44 @@
  * 覆盖 HIGHLIGHT / ROWTINT / LEVEL 内置渲染器、错误隔离降级与 renderLayers 组合。
  */
 import { describe, it, expect } from 'vitest';
-import { renderWithIsolation, renderLayers, getRenderer } from './registry';
+import {
+  renderWithIsolation,
+  renderLayers,
+  getRenderer,
+  registerWidgetRenderer,
+  renderWidgetWithIsolation,
+} from './registry';
+import type { WidgetRenderInput } from '../hooks/usePluginWidgets';
 import type { RenderResult } from './types';
+
+const widgetInput: WidgetRenderInput = {
+  data: { text: 'healthy' },
+  config: {},
+  widget: {
+    type: 'WIDGET_STATUS',
+    plugin_id: 'acme.status',
+    display_name: 'Status',
+    description: '',
+    slot: 'statusbar',
+    renderer_id: 'test.metric',
+    config: {},
+    role: 'statusbar',
+    refresh_interval: 0,
+  },
+};
+
+describe('固定 widget renderer', () => {
+  it('unknown renderer degrades locally', () => {
+    expect(renderWidgetWithIsolation('missing.renderer', widgetInput)).toBeUndefined();
+  });
+
+  it('isolates renderer failures', () => {
+    registerWidgetRenderer('test.failure', () => {
+      throw new Error('broken');
+    });
+    expect(renderWidgetWithIsolation('test.failure', widgetInput)).toEqual({});
+  });
+});
 
 describe('HIGHLIGHT 渲染器', () => {
   it('按 query 字面量匹配产出精确 segments（大小写不敏感）', () => {

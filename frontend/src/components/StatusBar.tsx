@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { usePluginWidgets } from '../hooks/usePluginWidgets';
+import { usePluginWidgets, type WidgetRenderInput } from '../hooks/usePluginWidgets';
+import { renderWidgetWithIsolation } from '../rendering/registry';
 import { useSettings } from '../hooks/useSettings';
 import { PerformanceIndicator } from './PerformanceIndicator';
 import { PerformanceMetrics } from '../hooks/useVirtualScroll';
@@ -118,17 +119,22 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         {widgets.map((w) => {
           const data = widgetData[w.type];
           if (!data) return null;
+          const input: WidgetRenderInput = { data, config: w.config, widget: w };
+          const rendered = renderWidgetWithIsolation(w.renderer_id, input);
+          const text = rendered?.text ?? data.text ?? w.display_name;
+          const color = rendered?.color ?? data.color;
+          const tooltip = rendered?.tooltip ?? data.tooltip ?? w.display_name;
           return (
             <div
               key={w.type}
               className="flex items-center space-x-1 px-2 py-0.5 rounded hover:bg-white/10 cursor-help transition-colors border-x border-white/5"
-              title={data.tooltip || w.display_name}
-              style={{ color: data.color }}
+              title={tooltip}
+              style={color ? { color } : undefined}
             >
               {data.icon && (
                 <span className="mr-1">{/* Icon render support can be added here */}</span>
               )}
-              <span className="font-medium whitespace-nowrap">{data.text || w.display_name}</span>
+              <span className="font-medium whitespace-nowrap">{text}</span>
             </div>
           );
         })}

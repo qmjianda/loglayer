@@ -2,6 +2,11 @@
 // type → render(content, config) → {segments, rowStyle}
 // 渲染器为纯函数；所有调用经错误隔离包装，单个渲染器异常不影响其他图层与日志显示。
 import { HighlightSegment, Renderer, RenderResult } from './types';
+import type {
+  WidgetRenderInput,
+  WidgetRenderOutput,
+  WidgetRenderer,
+} from '../hooks/usePluginWidgets';
 
 type RendererRegistry = Map<string, Renderer>;
 
@@ -216,3 +221,30 @@ registerRenderer('LEVEL', ((content: string, rawConfig: unknown): RenderResult =
   }
   return { segments };
 }) as Renderer);
+
+type WidgetRendererRegistry = Map<string, WidgetRenderer>;
+const widgetRegistry: WidgetRendererRegistry = new Map();
+
+export function registerWidgetRenderer(rendererId: string, renderer: WidgetRenderer): void {
+  widgetRegistry.set(rendererId, renderer);
+}
+
+export function getWidgetRenderer(rendererId: string): WidgetRenderer | undefined {
+  return widgetRegistry.get(rendererId);
+}
+
+const DEFAULT_WIDGET_OUTPUT: WidgetRenderOutput = {};
+
+export function renderWidgetWithIsolation(
+  rendererId: string,
+  input: WidgetRenderInput,
+): WidgetRenderOutput | undefined {
+  if (!rendererId) return undefined;
+  const renderer = widgetRegistry.get(rendererId);
+  if (!renderer) return undefined;
+  try {
+    return renderer(input) ?? DEFAULT_WIDGET_OUTPUT;
+  } catch {
+    return DEFAULT_WIDGET_OUTPUT;
+  }
+}
