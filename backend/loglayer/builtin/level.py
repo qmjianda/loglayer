@@ -1,8 +1,8 @@
 
 from loglayer.ui import MultiSelectInput
-from loglayer.core import NativeProcessingLayer
+from loglayer.core import NativeFilterLayer
 
-class LevelLayer(NativeProcessingLayer):
+class LevelLayer(NativeFilterLayer):
     """等级图层：按日志等级进行过滤"""
     display_name = "等级图层"
     description = "按日志等级进行过滤"

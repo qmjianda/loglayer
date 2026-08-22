@@ -4,9 +4,9 @@ import threading
 from bridge import PipelineWorker
 from loglayer.builtin.filter import FilterLayer
 from loglayer.builtin.level import LevelLayer
-from loglayer.core import BaseLayer, LayerStage
+from loglayer.core import LayerStage
 
-class CustomLogicLayer(BaseLayer):
+class CustomLogicLayer(FilterLayer):
     """Custom logic layer for testing mixed pipeline"""
     stage = LayerStage.LOGIC
     display_name = "Custom Logic"

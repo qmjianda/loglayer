@@ -1,6 +1,6 @@
 
-from typing import List, Dict, Optional, Any
-from dataclasses import dataclass, field
+from typing import Dict, Optional
+from dataclasses import dataclass
 from .ui import Component
 
 @dataclass
@@ -16,8 +16,6 @@ class LayerCategory:
     FILTERING = "filtering"      # 过滤层: 决定可见性 (只读内容)
     TRANSFORM = "transform"      # 转换层: 修改内容 (如脱敏、替换)
     RENDERING = "rendering"      # 渲染层: 增加装饰 (如高亮、样式)
-    # 兼容旧代码
-    PROCESSING = "transform"
 
 class LayerStage:
     """图层执行阶段"""
@@ -49,6 +47,10 @@ class FilterLayer(Component):
     def filter_line(self, content: str, index: int = -1) -> bool:
         """返回 True: 保留; 返回 False: 丢弃"""
         return True
+
+    def process_line(self, content: str) -> str:
+        """过滤层默认不改写内容；管线对 logic 层统一调用该方法"""
+        return content
 
     def reset(self):
         pass
@@ -83,7 +85,8 @@ class TransformLayer(Component):
 class RenderingLayer(Component):
     """
     渲染增强层基类。
-    职责：不改变内容，仅提供装饰信息。
+    职责：不改变内容，仅提供装饰信息。视觉计算在前端静态 renderer 完成，
+    后端仅保存其元数据，不执行 highlight_line/get_row_style。
     """
     category = LayerCategory.RENDERING
     icon = "highlight"
@@ -95,56 +98,3 @@ class RenderingLayer(Component):
     def get_row_style(self, content: str) -> dict:
         """返回整行样式"""
         return {}
-
-# ============================================================
-# 向后兼容定义
-# ============================================================
-
-class DataProcessingLayer(FilterLayer, TransformLayer):
-    """[DEPRECATED] 旧的处理层基类 (合并了过滤和转换)。
-    图层协议 v2 起按类别区分 FilterLayer/TransformLayer；本类仅为兼容旧插件保留，
-    Phase 2 结束后移除。新图层请直接继承 FilterLayer / TransformLayer / RenderingLayer。
-    """
-    category = "processing"
-
-    def process_line(self, content: str) -> Any:
-        # 为了兼容旧代码，这里可能返回 str 或 ProcessedLine
-        return content
-
-class NativeProcessingLayer(DataProcessingLayer):
-    stage = LayerStage.NATIVE
-    def get_rg_args(self) -> list: return []
-
-BaseLayer = DataProcessingLayer
-NativeLayer = NativeProcessingLayer
-PluginLayer = DataProcessingLayer
-
-# ============================================================
-# UI 挂件
-# ============================================================
-
-class UIWidget(Component):
-    """
-    UI 挂件基类。
-    允许插件向主界面槽位（状态栏、侧边栏等）注入动态内容。
-    """
-    role = "statusbar"           # 位置: statusbar, sidebar, editor_toolbar
-    refresh_interval = 5.0      # 自动刷新间隔 (秒)，0 表示不自动刷新
-    
-    def get_data(self) -> dict:
-        """返回要在 UI 中渲染的数据"""
-        return {}
-
-# ============================================================
-# 向后兼容别名 (将在后续版本移除)
-# ============================================================
-
-# 旧的 BaseLayer 现在指向 DataProcessingLayer
-BaseLayer = DataProcessingLayer
-
-# 旧的 NativeLayer 现在指向 NativeProcessingLayer
-NativeLayer = NativeProcessingLayer
-
-# 旧的 PluginLayer 现在指向 DataProcessingLayer
-PluginLayer = DataProcessingLayer
-

@@ -1,8 +1,8 @@
 
 from loglayer.ui import IntInput
-from loglayer.core import DataProcessingLayer
+from loglayer.core import FilterLayer
 
-class RangeLayer(DataProcessingLayer):
+class RangeLayer(FilterLayer):
     """范围图层：显示指定行号范围内的内容"""
     display_name = "范围图层"
     description = "显示指定行号范围内的内容"
