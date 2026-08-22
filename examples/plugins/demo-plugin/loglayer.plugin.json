@@ -1,0 +1,25 @@
+{
+  "id": "demo.basics",
+  "name": "Demo Basics",
+  "version": "1.0.0",
+  "api": ">=1.0,<2.0",
+  "entry": "plugin:plugin",
+  "capabilities": [
+    {
+      "id": "anonymize",
+      "type": "TRANSFORM",
+      "version": "1.0.0",
+      "display_name": "Anonymizer",
+      "description": "Mask IPv4 addresses with [MASKED]",
+      "icon": "replace"
+    },
+    {
+      "id": "system-stats",
+      "type": "UIWidget",
+      "version": "1.0.0",
+      "display_name": "System Stats",
+      "slot": "statusbar",
+      "renderer_id": "builtin.metric"
+    }
+  ]
+}
