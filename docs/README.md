@@ -1,6 +1,6 @@
 # LogLayer 文档目录
 
-> AI 助手必读：新会话以根目录 `AGENTS.md` 为唯一入口（概况、规则、架构地图、导航），开发状态经 `openspec-cn list --json` 实时查询。
+> 开发规范：新会话以根目录 `AGENTS.md` 为唯一入口（概况、规则、架构地图、导航），开发状态经 `openspec-cn list --json` 实时查询。
 
 ## 文档列表
 
@@ -13,7 +13,7 @@
 
 ## 相关链接
 
-- [AGENTS.md](../AGENTS.md) - AI 开发规范、架构地图与导航
+- [AGENTS.md](../AGENTS.md) - 开发规范、架构地图与导航
 - [openspec/](../openspec/) - 能力规范、活跃变更与归档
 - [openspec/backlog.md](../openspec/backlog.md) - 待决策项
 
