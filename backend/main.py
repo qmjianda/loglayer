@@ -254,10 +254,7 @@ def get_ui_widgets():
 @app.get("/api/get_widget_data")
 def get_widget_data(type_id: str):
     """获取指定挂件的实时数据"""
-    widget = bridge._registry.create_widget_instance(type_id)
-    if widget:
-        return widget.get_data()
-    return {}
+    return bridge._registry.get_widget_data(type_id)
 
 
 @app.post("/api/reload_plugins")
