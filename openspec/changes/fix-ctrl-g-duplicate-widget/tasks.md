@@ -16,5 +16,5 @@
 ## 3. 验证与收尾
 
 - [x] 3.1 运行 1.1–1.3 验收测试转绿
-- [ ] 3.2 `npx tsc --noEmit` + `npm run lint` + `npm run format:check` 通过
+- [x] 3.2 `npx tsc --noEmit` + `npm run lint` + `npm run format:check` 通过
 - [ ] 3.3 手动回归：Enter 跳转定位正确、Escape 关闭、多面板分屏下行为正常
