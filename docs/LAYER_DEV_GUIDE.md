@@ -52,9 +52,9 @@ backend/loglayer/
   - `highlight_line(content) -> list` - 高亮区域
   - `get_row_style(content) -> dict` - 整行样式
 
-### 4. 原生处理层 (NativeProcessingLayer)
+### 4. 原生处理层 (NativeFilterLayer)
 - **职责**: 使用 ripgrep 进行高性能过滤
-- **基类**: `NativeProcessingLayer`
+- **基类**: `NativeFilterLayer`
 - **方法**: `get_rg_args() -> list`
 
 ---
@@ -67,9 +67,9 @@ backend/loglayer/
 
 ```python
 from loglayer.ui import StrInput, BoolInput
-from loglayer.core import NativeProcessingLayer
+from loglayer.core import NativeFilterLayer
 
-class MyLayer(NativeProcessingLayer):
+class MyLayer(NativeFilterLayer):
     """我的自定义图层"""
     display_name = "我的图层"
     description = "这是一个自定义过滤图层"
@@ -141,9 +141,9 @@ SearchInput(
 ```python
 # backend/loglayer/builtin/keyword_filter.py
 from loglayer.ui import MultiSelectInput
-from loglayer.core import NativeProcessingLayer
+from loglayer.core import NativeFilterLayer
 
-class KeywordFilterLayer(NativeProcessingLayer):
+class KeywordFilterLayer(NativeFilterLayer):
     """关键词过滤图层"""
     display_name = "关键词过滤"
     description = "按关键词过滤日志"
@@ -255,6 +255,45 @@ class MaskTransformLayer(TransformLayer):
 # 测试 ripgrep 参数
 rg -i -e "ERROR" -v test.log
 ```
+
+---
+
+## 标准插件开发
+
+新插件使用 `loglayer.plugin.json` manifest 和 `loglayer.plugins` entry point，
+通过 `RegistryFacade` 注册能力。支持四类能力：`FILTER` 和 `TRANSFORM` 在后端
+流水线运行，`RENDERING` 使用应用内静态 renderer，`UIWidget` 只能使用
+`sidebar`、`inspector`、`statusbar`、`editor_toolbar` 固定槽位。
+
+外部插件必须声明 `id`、`name`、`version`、`api`、`entry` 和 `capabilities`：
+
+```json
+{
+  "id": "acme.redaction",
+  "name": "Redaction",
+  "version": "1.0.0",
+  "api": ">=1.0,<2.0",
+  "entry": "plugin:plugin",
+  "capabilities": [
+    {"id": "mask", "type": "TRANSFORM", "version": "1.0.0"}
+  ]
+}
+```
+
+插件包可以在 `pyproject.toml` 中声明：
+
+```toml
+[project.entry-points."loglayer.plugins"]
+redaction = "acme_redaction.plugin:plugin"
+```
+
+源码开发使用 `pip install -e .`；Frozen onedir 应用从可执行文件同级的
+`plugins/` 目录加载受信任插件，不依赖当前工作目录。插件只有一种格式：
+manifest（`loglayer.plugin.json`）+ 标准 Hook；仓库示例见
+`examples/plugins/demo-plugin/`。
+
+插件运行在应用进程内，拥有该进程的文件、网络和环境变量权限。本版本不提供
+沙箱或权限隔离，也不支持任意 React、JavaScript 或远程前端模块加载。
 
 ---
 
