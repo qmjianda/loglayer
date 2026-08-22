@@ -15,7 +15,7 @@ import {
 } from 'react';
 import { useSearchStore } from '../store/searchStore';
 
-export type ActiveView = 'main' | 'search' | 'ai' | 'help';
+export type ActiveView = 'main' | 'search' | 'help';
 
 export interface UseUIStateProps {
   undo: () => void;

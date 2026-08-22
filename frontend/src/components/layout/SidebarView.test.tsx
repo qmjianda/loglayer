@@ -27,7 +27,6 @@ const baseProps = {
   setSearchQuery: vi.fn(),
   searchMatchCount: 0,
   currentMatchNumber: 0,
-  aiPanelInitialContent: '',
   isWatching: false,
   hasNewContent: false,
   onToggleWatch: vi.fn(),
@@ -40,7 +39,6 @@ const baseProps = {
   onJumpToLine: vi.fn(),
   onJumpToRank: vi.fn(async () => -1),
   onApplySuggestion: vi.fn(),
-  onCloseAI: vi.fn(),
 };
 
 describe('SidebarView 布局组件（3.1）', () => {

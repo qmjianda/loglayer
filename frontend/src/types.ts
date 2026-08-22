@@ -66,7 +66,7 @@ export interface LayerStats {
   distribution: number[];
 }
 
-// 日志级别统计（右侧操作台摘要 / AI 设置 / 统计共用）
+// 日志级别统计（右侧操作台摘要 / 统计共用）
 export interface LogLevelStats {
   ERROR: number;
   WARN: number;

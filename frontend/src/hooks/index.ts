@@ -24,5 +24,3 @@ export * from './useDrag';
 // useLoadingState merged into useFileState
 export * from './usePluginWidgets';
 export * from './useLayerRegistry';
-export * from './useAIChat';
-export * from './useAISettings';

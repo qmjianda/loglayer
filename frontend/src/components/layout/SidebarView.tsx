@@ -1,7 +1,7 @@
 /**
  * SidebarView - 左侧边栏与视图切换区（refactor-app-orchestration）。
  *
- * 承载：Sidebar 按钮列 + 侧栏面板容器（资源管理器/搜索/AI 视图）+ 宽度拖拽 handle。
+ * 承载：Sidebar 按钮列 + 侧栏面板容器（资源管理器/搜索视图）+ 宽度拖拽 handle。
  * 从 App.tsx 提取，通过 props 契约接收数据与回调。
  */
 import React from 'react';
@@ -9,13 +9,12 @@ import { Sidebar } from '../Sidebar';
 import { UnifiedPanel } from '../UnifiedPanel';
 import { SearchPanel } from '../SearchPanel';
 import { SearchResultsPanel } from '../SearchResultsPanel';
-import { AIChatPanel } from '../AIChatPanel';
 import type { FileData } from '../../hooks/useFileManagement';
 import type { SearchConfig, LogLayer } from '../../types';
 
 export interface SidebarViewProps {
-  activeView: 'main' | 'search' | 'ai' | 'help';
-  setActiveView: (v: 'main' | 'search' | 'ai' | 'help') => void;
+  activeView: 'main' | 'search' | 'help';
+  setActiveView: (v: 'main' | 'search' | 'help') => void;
   sidebarWidth: number;
   setSidebarWidth: (w: number) => void;
   isMobile: boolean;
@@ -29,7 +28,6 @@ export interface SidebarViewProps {
   setSearchQuery: (q: string) => void;
   searchMatchCount: number;
   currentMatchNumber: number;
-  aiPanelInitialContent: string;
   isWatching: boolean;
   hasNewContent: boolean;
   onToggleWatch: () => void;
@@ -42,8 +40,6 @@ export interface SidebarViewProps {
   onFindNavigate: (direction: 'next' | 'prev') => void;
   onJumpToLine: (idx: number) => void;
   onJumpToRank: (rank: number) => Promise<number>;
-  onApplySuggestion: (type: string, value: string) => void;
-  onCloseAI: () => void;
 }
 
 export const SidebarView: React.FC<SidebarViewProps> = ({
@@ -62,7 +58,6 @@ export const SidebarView: React.FC<SidebarViewProps> = ({
   setSearchQuery,
   searchMatchCount,
   currentMatchNumber,
-  aiPanelInitialContent,
   isWatching,
   hasNewContent,
   onToggleWatch,
@@ -75,8 +70,6 @@ export const SidebarView: React.FC<SidebarViewProps> = ({
   onFindNavigate,
   onJumpToLine,
   onJumpToRank,
-  onApplySuggestion,
-  onCloseAI,
 }) => {
   return (
     <>
@@ -161,15 +154,6 @@ export const SidebarView: React.FC<SidebarViewProps> = ({
               }}
             />
           </>
-        )}
-
-        {/* AI 助手视图 */}
-        {activeView === 'ai' && (
-          <AIChatPanel
-            initialContent={aiPanelInitialContent}
-            onClose={onCloseAI}
-            onApplySuggestion={onApplySuggestion}
-          />
         )}
       </div>
     </>
