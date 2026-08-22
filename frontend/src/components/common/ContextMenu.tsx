@@ -1,12 +1,12 @@
 /**
  * ContextMenu - Radix UI based context menu for LogViewer
  *
- * Provides keyboard-accessible context menu with Copy, AI, Highlight, Filter, Bookmark options.
+ * Provides keyboard-accessible context menu with Copy, Highlight, Filter, Bookmark options.
  */
 
 import React from 'react';
 import * as ContextMenuPrimitive from '@radix-ui/react-context-menu';
-import { Copy, Bot, Highlighter, Filter, Bookmark, BookmarkCheck } from 'lucide-react';
+import { Copy, Highlighter, Filter, Bookmark, BookmarkCheck } from 'lucide-react';
 
 export interface ContextMenuItem {
   id: string;
@@ -28,7 +28,6 @@ export interface ContextMenuProps {
   trigger: React.ReactNode;
   groups?: ContextMenuGroup[];
   onCopy?: (text: string) => void;
-  onSendToAI?: (text: string) => void;
   onAddHighlight?: (query: string) => void;
   onAddFilter?: (query: string) => void;
   onToggleBookmark?: (lineIndex: number) => void;
@@ -114,7 +113,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   trigger,
   groups,
   onCopy,
-  onSendToAI,
   onAddHighlight,
   onAddFilter,
   onToggleBookmark,
@@ -135,14 +133,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           <Copy size={14} />
           <span>Copy</span>
           <span className="ml-auto text-xs text-[var(--fg-muted)]">Ctrl+C</span>
-        </ContextMenuItem>
-
-        <ContextMenuSeparator />
-
-        {/* Send to AI */}
-        <ContextMenuItem disabled={!hasSelection} onClick={() => onSendToAI?.(selectedText)}>
-          <Bot size={14} />
-          <span>Send to AI</span>
         </ContextMenuItem>
 
         <ContextMenuSeparator />

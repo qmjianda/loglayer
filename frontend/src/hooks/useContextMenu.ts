@@ -15,7 +15,6 @@ export interface ContextMenuState {
 
 export interface UseContextMenuOptions {
   onCopy?: (text: string) => void;
-  onSendToAI?: (text: string) => void;
   onAddHighlight?: (query: string) => void;
   onAddFilter?: (query: string) => void;
   onToggleBookmark?: (lineIndex: number) => void;
@@ -28,7 +27,6 @@ export interface UseContextMenuReturn {
   openContextMenu: (x: number, y: number, text: string, lineIndex?: number) => void;
   closeContextMenu: () => void;
   handleCopy: () => void;
-  handleSendToAI: () => void;
   handleAddHighlight: () => void;
   handleAddFilter: () => void;
   handleToggleBookmark: () => void;
@@ -52,13 +50,6 @@ export function useContextMenu(options: UseContextMenuOptions = {}): UseContextM
     }
     closeContextMenu();
   }, [contextMenu, options.onCopy, closeContextMenu]);
-
-  const handleSendToAI = useCallback(() => {
-    if (contextMenu?.text && options.onSendToAI) {
-      options.onSendToAI(contextMenu.text);
-    }
-    closeContextMenu();
-  }, [contextMenu, options.onSendToAI, closeContextMenu]);
 
   const handleAddHighlight = useCallback(() => {
     if (contextMenu?.text && options.onAddHighlight) {
@@ -93,7 +84,6 @@ export function useContextMenu(options: UseContextMenuOptions = {}): UseContextM
     openContextMenu,
     closeContextMenu,
     handleCopy,
-    handleSendToAI,
     handleAddHighlight,
     handleAddFilter,
     handleToggleBookmark,
