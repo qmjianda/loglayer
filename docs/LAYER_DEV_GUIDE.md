@@ -12,9 +12,6 @@
 4. [UI 输入组件](#ui-输入组件)
 5. [注册图层](#注册图层)
 6. [完整示例](#完整示例)
-7. [插件系统](#插件系统)
-8. [迁移旧图层](#迁移旧图层)
-9. [测试与安全边界](#测试与安全边界)
 
 ---
 
@@ -55,9 +52,9 @@ backend/loglayer/
   - `highlight_line(content) -> list` - 高亮区域
   - `get_row_style(content) -> dict` - 整行样式
 
-### 4. 原生处理层 (NativeProcessingLayer)
+### 4. 原生处理层 (NativeFilterLayer)
 - **职责**: 使用 ripgrep 进行高性能过滤
-- **基类**: `NativeProcessingLayer`
+- **基类**: `NativeFilterLayer`
 - **方法**: `get_rg_args() -> list`
 
 ---
@@ -70,9 +67,9 @@ backend/loglayer/
 
 ```python
 from loglayer.ui import StrInput, BoolInput
-from loglayer.core import NativeProcessingLayer
+from loglayer.core import NativeFilterLayer
 
-class MyLayer(NativeProcessingLayer):
+class MyLayer(NativeFilterLayer):
     """我的自定义图层"""
     display_name = "我的图层"
     description = "这是一个自定义过滤图层"
@@ -144,9 +141,9 @@ SearchInput(
 ```python
 # backend/loglayer/builtin/keyword_filter.py
 from loglayer.ui import MultiSelectInput
-from loglayer.core import NativeProcessingLayer
+from loglayer.core import NativeFilterLayer
 
-class KeywordFilterLayer(NativeProcessingLayer):
+class KeywordFilterLayer(NativeFilterLayer):
     """关键词过滤图层"""
     display_name = "关键词过滤"
     description = "按关键词过滤日志"
@@ -261,160 +258,42 @@ rg -i -e "ERROR" -v test.log
 
 ---
 
-## 插件系统
+## 标准插件开发
 
-插件系统用于把后端 Python 图层和配置扩展为可安装的外部包。插件由
-`plugin_contract.py` 定义契约，由 `plugin_discovery.py` 发现，由
-`plugin_loader.py` 加载，并通过 `plugin_hooks.py` 接入应用生命周期。插件
-注册表通过 `RegistryFacade` 对外提供统一入口。插件使用 Pluggy hook，入口点
-组名固定为 `loglayer.plugins`。
+新插件使用 `loglayer.plugin.json` manifest 和 `loglayer.plugins` entry point，
+通过 `RegistryFacade` 注册能力。支持四类能力：`FILTER` 和 `TRANSFORM` 在后端
+流水线运行，`RENDERING` 使用应用内静态 renderer，`UIWidget` 只能使用
+`sidebar`、`inspector`、`statusbar`、`editor_toolbar` 固定槽位。
 
-### 能力边界
-
-插件的处理能力必须明确归类，不要把后端处理和前端视觉混在一起：
-
-| 类型 | 运行位置 | 用途 | 典型接口 |
-|------|----------|------|----------|
-| `FILTER` | 后端流水线 | 决定日志行是否保留 | `filter_line(content, index) -> bool` |
-| `TRANSFORM` | 后端流水线 | 修改日志内容或结构 | `process_line(content) -> ProcessedLine` |
-| `RENDERING` | 前端静态渲染器 | 计算高亮片段、行样式或等级 | 渲染器注册表中的 renderer |
-| `UIWidget` | 固定前端插槽 | 提供受支持的配置或操作界面 | `sidebar`、`inspector`、`statusbar`、`editor_toolbar` |
-
-`FILTER` 和 `TRANSFORM` 可以通过插件进入后端处理流水线。`RENDERING` 不会
-加载任意 React 代码，而是由前端已有的静态 renderer 根据插件声明的配置计算
-`segments` 或 `rowStyle`。`UIWidget` 只能挂载到固定 UI 插槽，不能创建任意
-路由、替换页面或注入未知组件。当前系统不承诺任意前端插件、远程 React 加载
-或沙箱隔离。
-
-### manifest
-
-外部插件包必须在包根目录提供 `loglayer.plugin.json`。manifest 只描述身份、
-版本、能力和入口点，不应把可执行代码写进 JSON：
+外部插件必须声明 `id`、`name`、`version`、`api`、`entry` 和 `capabilities`：
 
 ```json
 {
-  "id": "acme.error-filter",
-  "name": "错误过滤器",
+  "id": "acme.redaction",
+  "name": "Redaction",
   "version": "1.0.0",
-  "description": "按错误级别筛选日志",
-  "api_version": "1",
-  "capabilities": ["FILTER", "UIWidget"],
-  "ui_slots": ["inspector"],
-  "config_schema": {
-    "level": {"type": "string", "default": "ERROR"}
-  }
+  "api": ">=1.0,<2.0",
+  "entry": "plugin:plugin",
+  "capabilities": [
+    {"id": "mask", "type": "TRANSFORM", "version": "1.0.0"}
+  ]
 }
 ```
 
-`id` 必须稳定且全局唯一，`version` 使用可比较的版本号。声明
-`RENDERING` 时应引用系统已有的 renderer 类型和可序列化配置，不得声明任意
-JavaScript 文件。`ui_slots` 只能使用 `sidebar`、`inspector`、`statusbar`、
-`editor_toolbar`。
-
-### Python 插件与 entry point
-
-Python 包通过 `pyproject.toml` 注册 `loglayer.plugins` entry point。entry point
-指向实现 `plugin_hooks.py` 所需 hook 的模块或插件类：
+插件包可以在 `pyproject.toml` 中声明：
 
 ```toml
 [project.entry-points."loglayer.plugins"]
-error_filter = "acme_loglayer_plugin:plugin"
+redaction = "acme_redaction.plugin:plugin"
 ```
 
-一个最小插件可以实现 `FILTER`，并通过 `RegistryFacade` 注册自己的图层：
+源码开发使用 `pip install -e .`；Frozen onedir 应用从可执行文件同级的
+`plugins/` 目录加载受信任插件，不依赖当前工作目录。插件只有一种格式：
+manifest（`loglayer.plugin.json`）+ 标准 Hook；仓库示例见
+`examples/plugins/demo-plugin/`。
 
-```python
-from loglayer.core import NativeProcessingLayer
-from loglayer.registry import RegistryFacade
-from loglayer.ui import DropdownInput
-
-
-class ErrorFilterLayer(NativeProcessingLayer):
-    display_name = "错误过滤器"
-    description = "只保留指定级别的日志"
-    inputs = [DropdownInput("level", "级别", options=["ERROR", "WARN"])]
-
-    def get_rg_args(self) -> list[str]:
-        return ["-e", rf"\\b{self.level}\\b"]
-
-
-def plugin(manager) -> None:
-    RegistryFacade(manager).register("ACME_ERROR_FILTER", ErrorFilterLayer)
-```
-
-实际插件应按 `plugin_contract.py` 中的契约创建 manifest 对应的对象，并按
-`plugin_hooks.py` 提供的 hook 进行注册。不要直接修改全局注册表或绕过
-`RegistryFacade`。`plugin_discovery.py` 负责读取 manifest 和 entry point，
-`plugin_loader.py` 负责校验后加载。加载失败时应保留应用主体可用，并报告插件
-ID、版本和失败原因。
-
-### 外部插件安装流程
-
-1. 在插件项目中生成 `loglayer.plugin.json`、Python 模块、`pyproject.toml` 和测试。
-2. 构建 wheel，或在开发环境使用 `pip install -e .` 安装。
-3. 确认目标 LogLayer 与 `api_version` 兼容，再把插件安装到同一个 Python 环境。
-4. 重启 LogLayer，让 `plugin_discovery.py` 重新扫描 `loglayer.plugins`。
-5. 在图层注册表和对应固定 UI 插槽中检查插件是否出现。
-
-源码包安装示例：
-
-```bash
-python -m pip install ./dist/acme_loglayer_plugin-1.0.0-py3-none-any.whl
-```
-
-开发安装示例：
-
-```bash
-python -m pip install -e ./acme-loglayer-plugin
-```
-
-### EXE 安装
-
-Frozen EXE 仍然在应用进程内运行 Python 插件。插件不能假定用户能修改 EXE
-内部文件，也不能把插件 wheel 复制到任意目录后期待自动发现。发布插件时应
-提供与 EXE 版本匹配的安装说明，并使用应用支持的插件目录或安装器入口。若
-当前 EXE 版本没有外部插件目录配置，应发布包含插件的新版 EXE，而不是指导
-用户替换打包文件。
-
----
-
-## 迁移旧图层
-
-旧版内置图层通常直接导入 `LayerRegistry` 并调用 `register_builtin`。迁移时：
-
-1. 保留原图层的 `FILTER` 或 `TRANSFORM` 行为，不要在迁移中改变匹配语义。
-2. 为插件补充稳定 `id`、`version`、`api_version` 和 `loglayer.plugin.json`。
-3. 把直接注册改为插件 hook，通过 `RegistryFacade` 注册。
-4. 如果旧图层包含高亮或行颜色，把它拆成前端已有 `RENDERING` renderer 能理解
-   的声明和配置，不要把 React 组件放进 Python 插件。
-5. 如果旧图层有配置面板，把面板映射到 `inspector` 或其他固定 `UIWidget` 插槽。
-6. 为旧配置提供兼容的字段默认值，并为旧 ID 到新 ID 的映射添加迁移测试。
-
-旧图层仍是内置图层时，不需要为了使用插件系统强行拆包。只有需要独立发布、
-独立安装或第三方维护时才应迁移为外部插件。
-
----
-
-## 测试与安全边界
-
-插件至少应覆盖以下测试：
-
-```bash
-python -m pytest tests/unit/test_plugin_contract.py
-python -m pytest tests/unit/test_plugin_discovery.py
-python -m pytest tests/unit/test_plugin_loader.py
-```
-
-插件自己的测试还应验证 manifest 校验、entry point 发现、重复 ID、版本不兼容、
-加载失败隔离、FILTER 或 TRANSFORM 的实际输出，以及允许的 UI 插槽。涉及前端
-静态 renderer 的能力，应测试配置到 `segments` 或 `rowStyle` 的映射，而不是
-测试动态加载 React 模块。
-
-外部插件是受信任的进程内 Python 代码。插件可以访问应用进程拥有的文件、网络、
-环境变量和其他 Python 能力，manifest、Pluggy 或 EXE 打包都不会提供安全沙箱。
-安装前必须审核来源、依赖和代码权限。不要在文档、manifest 或 AI 生成结果中
-承诺沙箱、权限隔离或安全执行；需要不信任代码隔离时，应使用独立进程或操作系统
-级别的隔离方案，并另行设计和验证。
+插件运行在应用进程内，拥有该进程的文件、网络和环境变量权限。本版本不提供
+沙箱或权限隔离，也不支持任意 React、JavaScript 或远程前端模块加载。
 
 ---
 
@@ -426,8 +305,3 @@ python -m pytest tests/unit/test_plugin_loader.py
 | `backend/loglayer/ui.py` | UI 组件定义 |
 | `backend/loglayer/registry.py` | 图层注册逻辑 |
 | `frontend/src/components/LayersPanel.tsx` | 图层管理 UI |
-| `backend/loglayer/plugin_contract.py` | 插件 manifest 与能力契约 |
-| `backend/loglayer/plugin_discovery.py` | manifest 和 entry point 发现 |
-| `backend/loglayer/plugin_hooks.py` | Pluggy hook 定义 |
-| `backend/loglayer/plugin_loader.py` | 插件校验与加载 |
-| `backend/loglayer/registry.py` | `RegistryFacade` 和图层注册 |

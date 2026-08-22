@@ -51,12 +51,10 @@ python tools/package_offline.py --exe
 
 ## 4. 插件扩展 (Plugins)
 
-LogLayer 自动加载 `app/plugins/` (源码模式)。独立可执行程序 (Frozen 模式)
-从可执行文件同级的 `plugins/` 目录（即 `LogLayer_Standalone/plugins/`）加载插件，
-不依赖当前工作目录或打包内部路径。
-- 源码模式：`.py` 插件文件放置在 `backend/plugins/` 目录下，随源码包分发。
-- Frozen 模式：将插件放入 `LogLayer_Standalone/plugins/` 目录（打包时自动创建，
-  并预置内置示例插件），无需重新打包即可生效。
+LogLayer 源码模式从配置的插件目录加载插件；Frozen 模式从可执行文件同级的
+`plugins/` 目录加载插件，不依赖当前工作目录或 PyInstaller 内部路径。
+- 源码模式：新插件使用 `loglayer.plugin.json` manifest 和标准 entry point，示例见 `examples/plugins/demo-plugin/`。
+- Frozen 模式：将受信任插件放入 `LogLayer_Standalone/plugins/`，无需重新打包。
 
 ## 5. 常见问题 (FAQ)
 

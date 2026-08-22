@@ -48,7 +48,7 @@ class SearchInput(Input):
 class Component:
     """
     UI 组件基类。
-    BaseLayer 继承自此类，实现了后端配置项与前端 UI 的自动映射。
+    图层基类继承自此类，实现了后端配置项与前端 UI 的自动映射。
     """
     display_name = "Base Component" # 在图层列表中显示的名称
     description = ""               # 描述文案

@@ -222,39 +222,29 @@ registerRenderer('LEVEL', ((content: string, rawConfig: unknown): RenderResult =
   return { segments };
 }) as Renderer);
 
-// ================================================================
-// Widget Renderer Registry（固定插件槽位元数据边界）
-// ================================================================
-// Widget renderer 与 line renderer 分离：widget renderer 渲染 UI chrome（statusbar/sidebar），
-// 不产出 segments/rowStyle。未注册的 renderer_id 静默降级为默认 text 渲染。
-
 type WidgetRendererRegistry = Map<string, WidgetRenderer>;
 const widgetRegistry: WidgetRendererRegistry = new Map();
 
-export function registerWidgetRenderer(renderer_id: string, renderer: WidgetRenderer): void {
-  widgetRegistry.set(renderer_id, renderer);
+export function registerWidgetRenderer(rendererId: string, renderer: WidgetRenderer): void {
+  widgetRegistry.set(rendererId, renderer);
 }
 
-export function getWidgetRenderer(renderer_id: string): WidgetRenderer | undefined {
-  return widgetRegistry.get(renderer_id);
+export function getWidgetRenderer(rendererId: string): WidgetRenderer | undefined {
+  return widgetRegistry.get(rendererId);
 }
 
 const DEFAULT_WIDGET_OUTPUT: WidgetRenderOutput = {};
 
-/**
- * 错误隔离的 widget 渲染：空/未注册 renderer_id → undefined，抛错 → widget-local 降级。
- */
 export function renderWidgetWithIsolation(
-  renderer_id: string,
+  rendererId: string,
   input: WidgetRenderInput,
 ): WidgetRenderOutput | undefined {
-  if (!renderer_id) return undefined;
-  const renderer = widgetRegistry.get(renderer_id);
+  if (!rendererId) return undefined;
+  const renderer = widgetRegistry.get(rendererId);
   if (!renderer) return undefined;
   try {
     return renderer(input) ?? DEFAULT_WIDGET_OUTPUT;
   } catch {
-    console.error(`[WidgetRenderer] Renderer "${renderer_id}" failed, falling back to default`);
     return DEFAULT_WIDGET_OUTPUT;
   }
 }

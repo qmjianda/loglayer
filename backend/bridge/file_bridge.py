@@ -80,8 +80,11 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         self.executor = ThreadPoolExecutor(max_workers=self._executor_max_workers)
         self._zombie_workers = []
         self._zombie_cleanup_counter = 0  # 清理计数器
-        plugin_dir = os.path.join(os.getcwd(), "backend", "plugins")
-        self._registry = LayerRegistry(plugin_dir)
+        if getattr(sys, "frozen", False):
+            plugin_dir = Path(sys.executable).resolve().parent / "plugins"
+        else:
+            plugin_dir = Path(__file__).resolve().parents[2] / "examples" / "plugins"
+        self._registry.plugin_dir = plugin_dir
         self._registry.discover_plugins()
 
     def _cache_db_path(self) -> str:
@@ -983,8 +986,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         return json.dumps(stats)
 
     def reload_plugins(self) -> bool:
-        self._registry.discover_plugins()
-        return True
+        return self._registry.reload_plugins()
 
     def _on_pipeline_finished(self, file_id, visible_indices, search_matches):
         if file_id not in self._sessions:
