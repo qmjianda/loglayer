@@ -23,6 +23,7 @@ import { AppSettings } from '../hooks/useSettings';
 import { LayerType } from '../types';
 import { panelIdForFile } from '../utils';
 import { useSearchStore } from '../store/searchStore';
+import { RestoreState } from '../hooks/useWorkspaceConfig';
 
 const SAVE_DELAY_MS = 500;
 
@@ -54,6 +55,7 @@ interface EditorAreaData {
   hasNewContent: boolean;
   /** 当前激活文件的书签（视觉行号 → 注释），供前端渲染书签样式（2.8 数据/视觉分离） */
   bookmarks: Record<number, string>;
+  restoreState: RestoreState;
   onOpen: () => void;
   onLineClick: (idx: number) => void;
   onAddLayer: (type: LayerType, config?: any) => void;
@@ -197,12 +199,32 @@ const WelcomeWatermark: React.FC<IWatermarkPanelProps> = () => {
     return <PendingFilesWall count={data.pendingCliFiles} />;
   }
 
+  if (data.restoreState === 'pending' && data.files.length === 0) {
+    return (
+      <div
+        className="h-full w-full flex flex-col items-center justify-center text-theme-secondary bg-theme-base"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <div
+          className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"
+          aria-hidden="true"
+        />
+        <p className="text-sm font-medium">正在恢复工作区…</p>
+      </div>
+    );
+  }
+
   return (
-    <div
-      className="h-full w-full flex flex-col items-center justify-center text-gray-600 bg-theme-base cursor-pointer hover:bg-theme-surface transition-colors"
+    <button
+      type="button"
+      className="h-full w-full flex flex-col items-center justify-center text-theme-secondary bg-theme-base cursor-pointer hover:bg-theme-surface transition-colors"
       onClick={data.onOpen}
+      aria-label="浏览并打开日志文件或文件夹"
     >
       <svg
+        aria-hidden="true"
         className="w-12 h-12 mb-4 opacity-20"
         fill="none"
         stroke="currentColor"
@@ -214,8 +236,8 @@ const WelcomeWatermark: React.FC<IWatermarkPanelProps> = () => {
         />
       </svg>
       <p className="text-sm font-medium">将日志文件拖拽至此处打开</p>
-      <p className="text-[10px] mt-2 opacity-50">或点击浏览并打开文件/文件夹</p>
-    </div>
+      <p className="text-[10px] mt-2 text-theme-secondary">或点击浏览并打开文件/文件夹</p>
+    </button>
   );
 };
 
@@ -228,6 +250,7 @@ export interface EditorAreaProps extends EditorAreaData {
   initialLayout?: string | null;
   /** 布局变化回调（防抖后调用），由上层写回 kv['layout'] */
   onLayoutChange?: (json: string) => void;
+  restoreState: RestoreState;
 }
 
 // 旧布局面板 id 为 `log-<fileId>`（fileId 每次会话变化，刷新后对不上）。
@@ -402,10 +425,6 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
     const knownIds = new Set(openFiles.map((f) => f.id));
     const knownUris = new Set(openFiles.map((f) => f.path).filter(Boolean));
 
-    // 文件列表尚未加载（如刷新后 workspace config 异步恢复中）时，
-    // 不清理任何面板，避免删除 fromJSON 刚恢复的布局。
-    if (openFiles.length === 0) return;
-
     for (const panel of [...api.panels]) {
       const fid = panel.params?.fileId;
       const uri = panel.params?.uri;
@@ -414,6 +433,8 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
         api.removePanel(panel);
       }
     }
+
+    if (openFiles.length === 0) return;
 
     for (const file of openFiles) {
       const panelId = panelIdForFile(file.path);
@@ -468,6 +489,7 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
       resolvedTheme: props.resolvedTheme,
       hasNewContent: props.hasNewContent,
       bookmarks: props.bookmarks,
+      restoreState: props.restoreState,
       onOpen: props.onOpen,
       onLineClick: props.onLineClick,
       onAddLayer: props.onAddLayer,
@@ -496,6 +518,7 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
       props.resolvedTheme,
       props.hasNewContent,
       props.bookmarks,
+      props.restoreState,
       props.onOpen,
       props.onLineClick,
       props.onAddLayer,

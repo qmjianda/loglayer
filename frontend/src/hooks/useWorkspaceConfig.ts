@@ -30,6 +30,8 @@ export interface UseWorkspaceConfigProps {
   handleFileActivate: (id: string) => void;
 }
 
+export type RestoreState = 'pending' | 'ready' | 'empty';
+
 export interface UseWorkspaceConfigReturn {
   saveConfig: () => Promise<boolean>;
   loadConfig: () => Promise<boolean>;
@@ -37,6 +39,8 @@ export interface UseWorkspaceConfigReturn {
   layout: string | null;
   /** 写回 kv['layout']（防抖在 EditorArea 内部完成） */
   saveLayout: (json: string) => void;
+  /** 工作区恢复生命周期状态：pending=持久化读取中, ready=恢复完成或有文件, empty=无保存会话 */
+  restoreState: RestoreState;
 }
 
 export function useWorkspaceConfig({
@@ -50,7 +54,11 @@ export function useWorkspaceConfig({
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedHashRef = useRef<string>('');
   const isLoadingRef = useRef<boolean>(false);
+  const restoreRequestRef = useRef(0);
   const [layout, setLayout] = useState<string | null>(null);
+  const [restoreState, setRestoreState] = useState<RestoreState>(
+    workspaceRoot?.path ? 'pending' : 'empty',
+  );
 
   // Determine the config folder path
   const getConfigPath = useCallback((): string | null => {
@@ -117,13 +125,18 @@ export function useWorkspaceConfig({
     const configPath = getConfigPath();
     if (!configPath) return false;
 
+    const requestId = restoreRequestRef.current;
+    const isCurrentRequest = () => requestId === restoreRequestRef.current;
+
     isLoadingRef.current = true;
     try {
       // 布局独立于文件历史加载：即使无文件也恢复分屏结构
       const savedLayout = await getWorkspaceState('layout', configPath);
+      if (!isCurrentRequest()) return false;
       setLayout(savedLayout);
 
       const config = await loadWorkspaceConfig(configPath);
+      if (!isCurrentRequest()) return false;
       if (!config) return false;
 
       // Handle new schema (files list)
@@ -163,16 +176,19 @@ export function useWorkspaceConfig({
         }));
 
         setFiles(newFiles);
+        setRestoreState('ready');
 
         // 仅自动打开 wasOpen=true 的文件；wasOpen=false 的历史文件只进列表
         newFiles.forEach((f) => {
           if (f.wasOpen && f.path) {
+            const markRestoreFailure = () => {
+              if (!isCurrentRequest()) return;
+              setFiles((prev) => prev.map((x) => (x.id === f.id ? { ...x, wasOpen: false } : x)));
+            };
             openFile(f.id, f.path).then((ok) => {
               // 打开失败（如路径不存在）：降级为历史文件，避免永久 loading
-              if (!ok) {
-                setFiles((prev) => prev.map((x) => (x.id === f.id ? { ...x, wasOpen: false } : x)));
-              }
-            });
+              if (!ok) markRestoreFailure();
+            }, markRestoreFailure);
           }
         });
 
@@ -181,14 +197,14 @@ export function useWorkspaceConfig({
         if (activeAbs) {
           const found = newFiles.find((f) => f.path === activeAbs && f.wasOpen);
           if (found) {
-            setTimeout(() => setActiveFileId(found.id), 100);
+            setActiveFileId(found.id);
           } else {
             const firstOpen = newFiles.find((f) => f.wasOpen);
-            if (firstOpen) setTimeout(() => setActiveFileId(firstOpen.id), 100);
+            if (firstOpen) setActiveFileId(firstOpen.id);
           }
         } else {
           const firstOpen = newFiles.find((f) => f.wasOpen);
-          if (firstOpen) setTimeout(() => setActiveFileId(firstOpen.id), 100);
+          if (firstOpen) setActiveFileId(firstOpen.id);
         }
 
         lastSavedHashRef.current = getSessionHash(newFiles, config.activeFilePath);
@@ -213,20 +229,35 @@ export function useWorkspaceConfig({
   // Auto-load when workspace changes
   useEffect(() => {
     if (workspaceRoot?.path) {
-      // Always reload config when workspace changes (user explicitly switched folders)
-      loadConfig().then((success) => {
-        if (!success) {
-          // No config found, clear current session
+      const requestId = restoreRequestRef.current + 1;
+      restoreRequestRef.current = requestId;
+      setRestoreState('pending');
+      setFiles([]);
+      setActiveFileId(null);
+      loadConfig()
+        .then((success) => {
+          if (requestId !== restoreRequestRef.current) return;
+          if (!success) {
+            setFiles([]);
+            setActiveFileId(null);
+            setRestoreState('empty');
+            console.log('[WorkspaceConfig] No config found for new workspace, cleared session');
+          }
+        })
+        .catch(() => {
+          if (requestId !== restoreRequestRef.current) return;
           setFiles([]);
           setActiveFileId(null);
-          console.log('[WorkspaceConfig] No config found for new workspace, cleared session');
-        }
-      });
+          setRestoreState('empty');
+        });
     } else {
-      // 工作区关闭：清空已加载布局，避免旧布局串到下一工作区
+      restoreRequestRef.current += 1;
       setLayout(null);
+      setFiles([]);
+      setActiveFileId(null);
+      setRestoreState('empty');
     }
-  }, [workspaceRoot?.path]); // Only triggers on root change
+  }, [workspaceRoot?.path]);
 
   // 布局持久化：EditorArea 防抖后经此写回 kv['layout']
   const saveLayout = useCallback(
@@ -254,5 +285,5 @@ export function useWorkspaceConfig({
     };
   }, [files, activeFileId, activeFilePath]); // Triggers on any file/layer change
 
-  return { saveConfig, loadConfig, layout, saveLayout };
+  return { saveConfig, loadConfig, layout, saveLayout, restoreState };
 }

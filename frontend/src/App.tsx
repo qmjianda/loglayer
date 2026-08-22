@@ -54,6 +54,7 @@ import { useCommands } from './hooks/useCommands';
 import { useSettings, SettingsProvider } from './hooks/useSettings';
 import { useResponsive } from './hooks/useResponsive';
 import { useFileWatch } from './hooks/useFileWatch';
+import { FILE_LOADING_MESSAGE } from './constants/statusMessages';
 
 const AppContent: React.FC = () => {
   // ===== 设置管理 (Settings Management) =====
@@ -352,7 +353,7 @@ const AppContent: React.FC = () => {
   // ===== 工作区持久化 (Workspace Config Persistence) =====
   // 自动将当前打开的文件和图层配置保存到本地磁盘（.loglayer 目录），
   // 布局经 kv['layout'] 随工作区持久化（EditorArea 通过 onLayoutChange 回写）。
-  const { layout: editorLayout, saveLayout } = useWorkspaceConfig({
+  const { layout: editorLayout, saveLayout, restoreState } = useWorkspaceConfig({
     workspaceRoot,
     files,
     setFiles,
@@ -678,7 +679,7 @@ const AppContent: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-[10px] text-gray-500 font-mono truncate max-w-xs">
-            {fileName || (isProcessing ? '正在解析文件...' : '就绪')}
+            {fileName || (isProcessing ? `${FILE_LOADING_MESSAGE}...` : '就绪')}
             {files.length > 1 && ` (+${files.length - 1})`}
           </div>
           {/* 右侧操作台折叠按钮（与左侧 sidebar 折叠对称） */}
@@ -787,6 +788,7 @@ const AppContent: React.FC = () => {
                 resolvedTheme={resolvedTheme}
                 hasNewContent={hasNewContent}
                 bookmarks={bookmarks}
+                restoreState={restoreState}
                 onOpen={handleOpen}
                 onLineClick={(idx) => setHighlightedIndex(idx)}
                 onAddLayer={(type, config) => addLayer(type, config)}
@@ -870,6 +872,7 @@ const AppContent: React.FC = () => {
         size={fileSize}
         isProcessing={isProcessing || (activeFileId ? loadingFileIds.has(activeFileId) : false)}
         isLayerProcessing={isLayerProcessing}
+        isSearching={isSearching}
         operationStatus={operationStatus}
         searchMatchCount={searchMatchCount}
         currentLine={highlightedIndex !== null ? highlightedIndex + 1 : undefined}
