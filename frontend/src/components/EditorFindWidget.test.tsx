@@ -4,9 +4,14 @@
  * 1.3：元素顺序 [输入框(含 Aa/全字/正则)] [计数] [↑][↓] [✕]；无匹配时"无结果"错误态
  * 1.4：focusRequest 变化时输入框 focus+select；非激活面板（isActive=false）容器带非交互 class
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { EditorFindWidget } from './EditorFindWidget';
+import { useSearchStore } from '../store/searchStore';
+
+beforeEach(() => {
+  useSearchStore.setState({ tabs: {}, activePanelId: null });
+});
 
 afterEach(cleanup);
 
@@ -53,6 +58,19 @@ describe('EditorFindWidget 结构对齐（1.3）', () => {
       container.querySelector('.border-red-500') !== null ||
       container.querySelector('.text-error') !== null;
     expect(hasErrorClass).toBe(true);
+  });
+
+  it('搜索进行中显示"搜索中"而非"无结果"，且不进入错误态（issue #7 延伸）', () => {
+    useSearchStore.getState().ensureTab(baseProps.panelId);
+    useSearchStore.getState().setIsSearching(baseProps.panelId, true);
+    const { container } = render(<EditorFindWidget {...baseProps} matchCount={0} />);
+
+    expect(screen.getByText('搜索中')).toBeTruthy();
+    expect(screen.queryByText('无结果')).toBeNull();
+    const hasErrorClass =
+      container.querySelector('.border-red-500') !== null ||
+      container.querySelector('.text-error') !== null;
+    expect(hasErrorClass).toBe(false);
   });
 
   it('输入框聚焦时带聚焦边框 class', () => {

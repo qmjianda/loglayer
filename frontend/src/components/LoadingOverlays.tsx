@@ -1,4 +1,5 @@
 import React from 'react';
+import { FILE_LOADING_MESSAGE } from '../constants/statusMessages';
 
 interface IndexingOverlayProps {
   progress: number;
@@ -30,7 +31,7 @@ export const IndexingOverlay: React.FC<IndexingOverlayProps> = ({ progress, file
         </div>
       </div>
       <h3 className="text-[13px] font-bold text-white mb-1 uppercase tracking-wider">
-        正在构建索引
+        {FILE_LOADING_MESSAGE}
       </h3>
       <p className="text-[10px] text-gray-500 font-mono truncate max-w-[200px]">{fileName}</p>
       <div className="mt-6 flex gap-1.5">
@@ -122,7 +123,7 @@ export const FileLoadingSkeleton: React.FC<FileLoadingSkeletonProps> = ({ fileNa
           </svg>
         </div>
         <div className="text-center">
-          <p className="text-sm font-medium text-white">正在加载文件</p>
+          <p className="text-sm font-medium text-white">{FILE_LOADING_MESSAGE}</p>
           {fileName && (
             <p className="text-xs text-gray-500 mt-1 font-mono max-w-[180px] truncate">
               {fileName}

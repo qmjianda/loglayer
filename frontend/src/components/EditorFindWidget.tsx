@@ -1,4 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useSearchStore } from '../store/searchStore';
+import { SEARCHING_MESSAGE } from '../constants/statusMessages';
 
 export type SearchMode = 'highlight' | 'filter';
 
@@ -46,6 +48,10 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
   const [isResizing, setIsResizing] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const lastFocusRequestRef = useRef<number>(focusRequest);
+  // 搜索进行中（per-tab）：结果未返回时计数区显示"搜索中"，不显示"无结果"
+  const isSearching = useSearchStore((s) =>
+    panelId ? (s.tabs[panelId]?.isSearching ?? false) : false,
+  );
 
   // 挂载即聚焦（Ctrl+F 打开语义）；面板非激活时不抢焦点
   useEffect(() => {
@@ -120,7 +126,7 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
     }
   };
 
-  const hasError = query.trim().length > 0 && matchCount === 0;
+  const hasError = !isSearching && query.trim().length > 0 && matchCount === 0;
 
   return (
     <div
@@ -224,7 +230,13 @@ export const EditorFindWidget: React.FC<EditorFindWidgetProps> = ({
           hasError ? 'text-error' : 'text-theme-secondary'
         }`}
       >
-        {hasError ? '无结果' : matchCount > 0 ? `${currentMatch} / ${matchCount}` : '0 / 0'}
+        {isSearching
+          ? SEARCHING_MESSAGE
+          : hasError
+            ? '无结果'
+            : matchCount > 0
+              ? `${currentMatch} / ${matchCount}`
+              : '0 / 0'}
       </div>
 
       <div className="flex items-center shrink-0 select-none">

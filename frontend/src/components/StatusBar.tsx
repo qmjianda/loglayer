@@ -1,8 +1,14 @@
-import React, { useState } from 'react';
-import { usePluginWidgets } from '../hooks/usePluginWidgets';
+import React from 'react';
+import { usePluginWidgets, type WidgetRenderInput } from '../hooks/usePluginWidgets';
+import { renderWidgetWithIsolation } from '../rendering/registry';
 import { useSettings } from '../hooks/useSettings';
 import { PerformanceIndicator } from './PerformanceIndicator';
 import { PerformanceMetrics } from '../hooks/useVirtualScroll';
+import {
+  FILE_LOADING_MESSAGE,
+  formatOperationStatus,
+  getOperationStatusMessage,
+} from '../constants/statusMessages';
 
 interface StatusBarProps {
   lines: number;
@@ -10,6 +16,7 @@ interface StatusBarProps {
   size: number;
   isProcessing?: boolean;
   isLayerProcessing?: boolean;
+  isSearching?: boolean;
   operationStatus?: { op: string; progress: number; error?: string } | null;
   searchMatchCount?: number;
   currentLine?: number;
@@ -27,6 +34,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   size,
   isProcessing,
   isLayerProcessing,
+  isSearching,
   operationStatus,
   searchMatchCount,
   currentLine,
@@ -51,32 +59,25 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
   const getStatusMessage = () => {
     if (operationStatus) {
-      if (operationStatus.error) return `错误: ${operationStatus.error}`;
-      const prefix =
-        operationStatus.op === 'indexing'
-          ? '正在建立索引'
-          : operationStatus.op === 'filtering'
-            ? '正在过滤日志'
-            : operationStatus.op === 'searching'
-              ? '正在搜索'
-              : '正在处理';
-      return `${prefix}... ${operationStatus.progress > 0 ? `(${Math.round(operationStatus.progress)}%)` : ''}`;
+      return formatOperationStatus(operationStatus);
     }
-    if (isLayerProcessing && isProcessing) return '正在并行处理数据...';
-    if (isProcessing) return '正在加载流式日志...';
-    if (isLayerProcessing) return '正在刷新处理管道...';
+    if (isLayerProcessing && isProcessing) return `${getOperationStatusMessage('other')}...`;
+    if (isProcessing) return `${getOperationStatusMessage('indexing')}...`;
+    if (isLayerProcessing) return `${getOperationStatusMessage('other')}...`;
+    if (isSearching) return `${getOperationStatusMessage('searching')}...`;
     if (pendingCliFiles && pendingCliFiles > 0)
-      return `正在打开文件... (${pendingCliFiles} 个待处理)`;
+      return `${FILE_LOADING_MESSAGE}... (${pendingCliFiles} 个待处理)`;
     return '就绪';
   };
 
   return (
-    <div
-      className={`h-6 bg-theme-active text-white flex items-center justify-between px-3 text-[11px] font-medium shrink-0 transition-colors duration-300`}
-    >
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-1.5 hover:bg-white/10 px-1 rounded transition-colors">
-          {isProcessing || isLayerProcessing ? (
+    <div className="h-6 bg-theme-active text-white flex items-center justify-between px-3 text-[11px] font-medium leading-none shrink-0 transition-colors duration-300 overflow-hidden">
+      <div className="flex items-center space-x-4 min-w-0 flex-1 overflow-hidden whitespace-nowrap">
+        <div className="flex items-center space-x-1.5 hover:bg-white/10 px-1 rounded transition-colors shrink-0">
+          {isProcessing ||
+          isLayerProcessing ||
+          isSearching ||
+          Boolean(operationStatus && !operationStatus.error) ? (
             <svg
               className="w-3.5 h-3.5 animate-spin"
               viewBox="0 0 24 24"
@@ -100,7 +101,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           )}
-          <span className="font-bold tracking-tight">{getStatusMessage()}</span>
+          <span className="font-bold tracking-tight whitespace-nowrap">{getStatusMessage()}</span>
         </div>
 
         {/* File Watch Indicator */}
@@ -115,35 +116,48 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         )}
 
         {/* Plugin Dynamic Widgets */}
-        {widgets.map((w) => {
-          const data = widgetData[w.type];
-          if (!data) return null;
-          return (
-            <div
-              key={w.type}
-              className="flex items-center space-x-1 px-2 py-0.5 rounded hover:bg-white/10 cursor-help transition-colors border-x border-white/5"
-              title={data.tooltip || w.display_name}
-              style={{ color: data.color }}
-            >
-              {data.icon && (
-                <span className="mr-1">{/* Icon render support can be added here */}</span>
-              )}
-              <span className="font-medium whitespace-nowrap">{data.text || w.display_name}</span>
-            </div>
-          );
-        })}
+        <div className="hidden sm:flex items-center space-x-1">
+          {widgets.map((w) => {
+            const data = widgetData[w.type];
+            if (!data) return null;
 
-        <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors opacity-80">
+            const input: WidgetRenderInput = { data, config: w.config, widget: w };
+            const rendered = renderWidgetWithIsolation(w.renderer_id, input);
+
+            const text = rendered?.text ?? data.text ?? w.display_name;
+            const color = rendered?.color ?? data.color;
+            const tooltip = rendered?.tooltip ?? data.tooltip ?? w.display_name;
+            const className = rendered?.className;
+
+            return (
+              <div
+                key={w.type}
+                className={`flex items-center space-x-1 px-2 py-0.5 rounded hover:bg-white/10 cursor-help transition-colors border-x border-white/5${className ? ` ${className}` : ''}`}
+                title={tooltip}
+                style={color ? { color } : undefined}
+              >
+                {data.icon && (
+                  <span className="mr-1">{/* Icon render support can be added here */}</span>
+                )}
+                <span className="font-medium whitespace-nowrap">{text}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors opacity-80 shrink-0 hidden sm:block">
           UTF-8
         </div>
 
         {showPerformance && performanceMetrics && (
-          <PerformanceIndicator metrics={performanceMetrics} visible={true} />
+          <div className="hidden sm:block shrink-0">
+            <PerformanceIndicator metrics={performanceMetrics} visible={true} />
+          </div>
         )}
       </div>
-      <div className="flex items-center space-x-6">
+      <div className="hidden sm:flex items-center space-x-3 shrink-0 whitespace-nowrap">
         {searchMatchCount !== undefined && searchMatchCount > 0 && (
-          <div className="bg-yellow-500/20 px-1.5 py-0.5 rounded text-yellow-200 border border-yellow-500/30 flex items-center space-x-1">
+          <div className="hidden sm:flex bg-yellow-500/20 px-1.5 py-0.5 rounded text-yellow-200 border border-yellow-500/30 items-center space-x-1">
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
               <path
                 fillRule="evenodd"
@@ -165,11 +179,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({
             </>
           )}
         </div>
-        <div className="opacity-90">Size: {formatSize(size || 0)}</div>
+        <div className="opacity-90 hidden sm:block">Size: {formatSize(size || 0)}</div>
         <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors hidden sm:block">
           Tab Size: 2
         </div>
-        <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors font-mono whitespace-nowrap">
+        <div className="hover:bg-white/10 px-1 cursor-pointer transition-colors font-mono whitespace-nowrap hidden sm:block">
           Ln {currentLine || 1}, Col 1
         </div>
 

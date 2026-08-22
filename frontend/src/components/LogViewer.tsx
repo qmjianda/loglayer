@@ -18,6 +18,7 @@ import { wheelDeltaToLogicalPx } from '../utils/wheelDelta';
 import { computeViewportTranslateY } from '../utils/viewportTranslate';
 import { useVirtualScroll } from '../hooks/useVirtualScroll';
 import { PerformanceIndicator } from './PerformanceIndicator';
+import { FILE_LOADING_MESSAGE, SEARCHING_MESSAGE } from '../constants/statusMessages';
 
 interface LogViewerProps {
   totalLines: number;
@@ -580,9 +581,13 @@ export const LogViewer: React.FC<LogViewerProps> = ({
             style={{ height: viewportHeight || 400, width: '100%' }}
           >
             {isIndexing ? (
-              <>正在构建索引... {Math.round(indexingProgress)}%</>
+              <>
+                {FILE_LOADING_MESSAGE}... {Math.round(indexingProgress)}%
+              </>
             ) : isSearching ? (
-              <>正在搜索... {totalLines.toLocaleString()} 行待处理</>
+              <>
+                {SEARCHING_MESSAGE}... {totalLines.toLocaleString()} 行待处理
+              </>
             ) : (
               <>Loading lines...</>
             )}
