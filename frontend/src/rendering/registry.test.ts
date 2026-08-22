@@ -3,8 +3,16 @@
  * 覆盖 HIGHLIGHT / ROWTINT / LEVEL 内置渲染器、错误隔离降级与 renderLayers 组合。
  */
 import { describe, it, expect } from 'vitest';
-import { renderWithIsolation, renderLayers, getRenderer } from './registry';
+import {
+  renderWithIsolation,
+  renderLayers,
+  getRenderer,
+  registerWidgetRenderer,
+  getWidgetRenderer,
+  renderWidgetWithIsolation,
+} from './registry';
 import type { RenderResult } from './types';
+import type { WidgetRenderInput, WidgetRenderOutput } from '../hooks/usePluginWidgets';
 
 describe('HIGHLIGHT 渲染器', () => {
   it('按 query 字面量匹配产出精确 segments（大小写不敏感）', () => {
@@ -139,5 +147,70 @@ describe('renderLayers 组合', () => {
     const r: RenderResult = renderLayers([], 'content', []);
     expect(r.segments).toEqual([]);
     expect(r.rowStyle).toBeUndefined();
+  });
+});
+
+describe('Widget Renderer Registry', () => {
+  const sampleInput: WidgetRenderInput = {
+    data: { text: 'hello', color: '#f00' },
+    config: { key: 'value' },
+    widget: {
+      type: 'W_TEST',
+      plugin_id: '',
+      display_name: 'Test',
+      description: '',
+      slot: 'statusbar',
+      renderer_id: 'test-r',
+      config: {},
+      role: 'statusbar',
+      refresh_interval: 0,
+    },
+  };
+
+  it('registerWidgetRenderer + getWidgetRenderer round-trip', () => {
+    const renderer = (input: WidgetRenderInput): WidgetRenderOutput => ({
+      text: `custom: ${input.data.text}`,
+    });
+    registerWidgetRenderer('test-r', renderer);
+    expect(getWidgetRenderer('test-r')).toBe(renderer);
+  });
+
+  it('getWidgetRenderer returns undefined for unregistered id', () => {
+    expect(getWidgetRenderer('nonexistent')).toBeUndefined();
+  });
+
+  it('renderWidgetWithIsolation returns undefined for empty renderer_id', () => {
+    expect(renderWidgetWithIsolation('', sampleInput)).toBeUndefined();
+  });
+
+  it('renderWidgetWithIsolation returns undefined for unregistered renderer_id', () => {
+    expect(renderWidgetWithIsolation('unknown-id', sampleInput)).toBeUndefined();
+  });
+
+  it('renderWidgetWithIsolation calls registered renderer', () => {
+    registerWidgetRenderer('styled', (input): WidgetRenderOutput => ({
+      text: input.data.text?.toUpperCase(),
+      color: input.data.color,
+      className: 'custom-class',
+    }));
+    const result = renderWidgetWithIsolation('styled', sampleInput);
+    expect(result).toEqual({ text: 'HELLO', color: '#f00', className: 'custom-class' });
+  });
+
+  it('renderWidgetWithIsolation catches renderer errors (widget-local降级)', () => {
+    registerWidgetRenderer('throws', () => {
+      throw new Error('boom');
+    });
+    const result = renderWidgetWithIsolation('throws', sampleInput);
+    expect(result).toEqual({});
+  });
+
+  it('renderWidgetWithIsolation returns empty object when renderer returns null', () => {
+    registerWidgetRenderer(
+      'null-ret',
+      (() => null) as unknown as (input: WidgetRenderInput) => WidgetRenderOutput,
+    );
+    const result = renderWidgetWithIsolation('null-ret', sampleInput);
+    expect(result).toEqual({});
   });
 });

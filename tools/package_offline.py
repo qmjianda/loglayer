@@ -115,14 +115,14 @@ def package_app():
             subprocess.check_call("pyinstaller --version", shell=True)
             add_data_sep = ";" if sys.platform == "win32" else ":"
 
-            # Note: We include plugins directory explicitly for UI widgets discovery
+            # Note: 插件不再打进包内——运行时从可执行文件同级的 plugins/ 目录
+            # （sys.executable 父目录 / plugins）加载，产物旁由下方创建。
             pyinst_cmd = [
                 "pyinstaller",
                 "--noconfirm",
                 "--onedir",
                 "--windowed",
                 f"--add-data=dist{add_data_sep}www",
-                f"--add-data=backend/plugins{add_data_sep}plugins",  # Include plugins
                 f"--add-data=dist_offline/app/bin{add_data_sep}bin",
                 "--paths=backend",
                 "--name=LogLayer",
@@ -142,6 +142,33 @@ def package_app():
 
             print(f"Moving frozen output to {frozen_target}...")
             shutil.move(str(frozen_dist), str(frozen_target))
+
+            # 外部插件目录：与可执行文件同级（sys.executable 父目录 / plugins）。
+            # 预置内置示例插件以保留既有行为；用户插件直接放入该目录，无需重打包。
+            external_plugins = frozen_target / "plugins"
+            external_plugins.mkdir(parents=True, exist_ok=True)
+            sample_plugins = backend_dir / "plugins"
+            if sample_plugins.exists():
+                for sample_file in sample_plugins.iterdir():
+                    if sample_file.name == "__pycache__":
+                        continue
+                    target = external_plugins / sample_file.name
+                    if sample_file.is_dir():
+                        shutil.copytree(sample_file, target, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(sample_file, target)
+            # 写一份说明，让打包产物的运行时插件约定可见、可发现。
+            readme = external_plugins / "README.txt"
+            if not readme.exists():
+                readme.write_text(
+                    "LogLayer 插件目录（外部、可写）\n"
+                    "==============================\n"
+                    "本目录与可执行文件同级，运行时从本目录加载 .py 插件。\n"
+                    "将你的插件文件放入此目录即可生效，无需重新打包。\n"
+                    "（内置示例插件亦在此处，可删除。）\n",
+                    encoding="utf-8",
+                )
+            print(f"External plugins directory created: {external_plugins}")
 
         except Exception as e:
             print(f"PyInstaller build failed: {e}")

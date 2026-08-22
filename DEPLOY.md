@@ -51,9 +51,12 @@ python tools/package_offline.py --exe
 
 ## 4. 插件扩展 (Plugins)
 
-LogLayer 自动加载 `app/plugins/` (源码模式) 或集成在可执行文件中的插件。
-- 所有的 `.py` 插件文件应放置在 `backend/plugins/` 目录下。
-- 打包脚本会自动将该目录包含在分发包中。
+LogLayer 自动加载 `app/plugins/` (源码模式)。独立可执行程序 (Frozen 模式)
+从可执行文件同级的 `plugins/` 目录（即 `LogLayer_Standalone/plugins/`）加载插件，
+不依赖当前工作目录或打包内部路径。
+- 源码模式：`.py` 插件文件放置在 `backend/plugins/` 目录下，随源码包分发。
+- Frozen 模式：将插件放入 `LogLayer_Standalone/plugins/` 目录（打包时自动创建，
+  并预置内置示例插件），无需重新打包即可生效。
 
 ## 5. 常见问题 (FAQ)
 
