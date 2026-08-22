@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { LogLine, LogLayer, LayerType } from '../types';
 import { readProcessedLines } from '../bridge_client';
 import { BookmarkPopover } from './BookmarkPopover';
-import { EditorGoToLineWidget } from './EditorGoToLineWidget';
 import { ErrorBoundary } from './ErrorBoundary';
 import { JsonTreeView } from './JsonTreeView';
 import { LOG_VIEWER, computeGutterWidth } from '../constants';
@@ -127,7 +126,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     comment: string;
   } | null>(null);
   const [expandedJsonLine, setExpandedJsonLine] = useState<number | null>(null);
-  const [showGoToLine, setShowGoToLine] = useState(false);
 
   // 当前渲染窗口（逻辑行区间）
   const [windowStart, setWindowStart] = useState(0);
@@ -441,46 +439,12 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     };
   }, [onSelectedTextChange]);
 
-  // === 键盘导航 ===
-  const scrollToLine = useCallback(
-    (index: number) => {
-      if (!containerRef.current) return;
-      const top = computeRevealScrollTop(
-        topVisibleLine,
-        visibleRows,
-        viewportHeight,
-        lineHeight,
-        index,
-        maxLogicalScroll,
-        maxPhysicalScroll,
-        useScaling,
-      );
-      if (top !== null) {
-        containerRef.current.scrollTo({ top, behavior: 'auto' });
-      }
-    },
-    [
-      useScaling,
-      maxLogicalScroll,
-      maxPhysicalScroll,
-      lineHeight,
-      viewportHeight,
-      topVisibleLine,
-      visibleRows,
-    ],
-  );
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+G 跳转行号由 App 级统一处理（useUIState → AppOverlays），
+      // 此处不再监听，避免双实例与内嵌 widget autofocus 引发的滚动归零
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? e.metaKey : e.ctrlKey;
-
-      if (e.key === 'g' && modifier && !e.shiftKey) {
-        e.preventDefault();
-        setShowGoToLine(true);
-        return;
-      }
-      if (showGoToLine) return;
 
       // Ctrl+A 全选当前可视文本（虚拟化下仅可视区可原生选中）
       if (e.key === 'a' && modifier) {
@@ -504,7 +468,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showGoToLine, highlightedIndex, onLineClick]);
+  }, [highlightedIndex, onLineClick]);
 
   // === context menu ===
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -775,18 +739,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
             </div>,
             document.body,
           )}
-
-        {showGoToLine && (
-          <EditorGoToLineWidget
-            totalLines={totalLines}
-            onGo={(lineNum) => {
-              onLineClick?.(lineNum - 1);
-              scrollToLine(lineNum - 1);
-              setShowGoToLine(false);
-            }}
-            onClose={() => setShowGoToLine(false)}
-          />
-        )}
 
         {hasNewContent && onScrollToNewContent && (
           <button

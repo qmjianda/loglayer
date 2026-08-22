@@ -36,6 +36,8 @@ export interface AppOverlaysProps {
   setIsShortcutsVisible: (v: boolean) => void;
   isGoToLineVisible: boolean;
   setIsGoToLineVisible: (v: boolean) => void;
+  /** Ctrl+G 幂等守卫计数：已打开时递增 → 既有输入框重新聚焦 */
+  goToLineFocusRequest: number;
   totalLines: number;
   onGoToLine: (lineNum: number) => void;
 }
@@ -57,17 +59,19 @@ export const AppOverlays: React.FC<AppOverlaysProps> = ({
   setIsShortcutsVisible,
   isGoToLineVisible,
   setIsGoToLineVisible,
+  goToLineFocusRequest,
   totalLines,
   onGoToLine,
 }) => {
   return (
     <>
-      {/* 悬浮组件：Ctrl+G 跳转行号 */}
+      {/* 悬浮组件：Ctrl+G 跳转行号（fixed 视口锚定，不随滚动容器移动） */}
       {isGoToLineVisible && (
         <EditorGoToLineWidget
           totalLines={totalLines}
           onGo={onGoToLine}
           onClose={() => setIsGoToLineVisible(false)}
+          focusRequest={goToLineFocusRequest}
         />
       )}
 

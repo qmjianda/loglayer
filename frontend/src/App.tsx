@@ -292,6 +292,7 @@ const AppContent: React.FC = () => {
     setInspectorWidth,
     isGoToLineVisible,
     setIsGoToLineVisible,
+    goToLineFocusRequest,
     scrollToIndex,
     setScrollToIndex,
     highlightedIndex,
@@ -884,6 +885,7 @@ const AppContent: React.FC = () => {
         setIsShortcutsVisible={setIsShortcutsVisible}
         isGoToLineVisible={isGoToLineVisible}
         setIsGoToLineVisible={setIsGoToLineVisible}
+        goToLineFocusRequest={goToLineFocusRequest}
         totalLines={activeFile?.lineCount || 0}
         onGoToLine={(lineNum) => {
           handleJumpToLine(lineNum - 1, activeFile?.lineCount || 0);

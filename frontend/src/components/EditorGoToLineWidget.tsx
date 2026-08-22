@@ -4,19 +4,34 @@ interface EditorGoToLineWidgetProps {
   totalLines: number;
   onGo: (line: number) => void;
   onClose: () => void;
+  /**
+   * 聚焦请求计数（Ctrl+G 幂等守卫）：widget 已打开时再次按下 Ctrl+G，
+   * 全局处理递增该计数 → 输入框重新聚焦并全选，不新建实例。
+   */
+  focusRequest?: number;
 }
 
 export const EditorGoToLineWidget: React.FC<EditorGoToLineWidgetProps> = ({
   totalLines,
   onGo,
   onClose,
+  focusRequest = 0,
 }) => {
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastFocusRequestRef = useRef(focusRequest);
 
   useEffect(() => {
-    inputRef.current?.focus();
+    inputRef.current?.focus({ preventScroll: true });
   }, []);
+
+  // focusRequest 递增：重新聚焦已有输入框（不重建实例）
+  useEffect(() => {
+    if (focusRequest === lastFocusRequestRef.current) return;
+    lastFocusRequestRef.current = focusRequest;
+    inputRef.current?.focus({ preventScroll: true });
+    inputRef.current?.select();
+  }, [focusRequest]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -32,7 +47,7 @@ export const EditorGoToLineWidget: React.FC<EditorGoToLineWidgetProps> = ({
   const isValid = !value || (parseInt(value, 10) > 0 && parseInt(value, 10) <= totalLines);
 
   return (
-    <div className="absolute top-0 left-1/2 -translate-x-1/2 z-40 w-[400px] animate-in slide-in-from-top-4 duration-150">
+    <div className="fixed top-0 left-1/2 -translate-x-1/2 z-[60] w-[400px] animate-in slide-in-from-top-4 duration-150">
       <div className="bg-dark-1 shadow-2xl rounded-b border border-t-0 border-theme-default p-2">
         <div
           className={`flex items-center bg-theme-input border rounded overflow-hidden transition-colors ${isValid ? 'border-blue-500/50' : 'border-red-500'}`}

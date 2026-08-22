@@ -51,6 +51,7 @@ export interface UseUIStateReturn {
   // Find/GoTo widgets
   isGoToLineVisible: boolean;
   setIsGoToLineVisible: (visible: boolean) => void;
+  goToLineFocusRequest: number;
 
   // Scroll/highlight
   scrollToIndex: number | null;
@@ -108,6 +109,8 @@ export function useUIState({
 
   // GoTo widget（find widget 可见性由 searchStore per-tab 管理）
   const [isGoToLineVisible, setIsGoToLineVisible] = useState(false);
+  // Ctrl+G 幂等守卫：widget 已打开时递增计数让既有输入框重新聚焦，不新建实例
+  const [goToLineFocusRequest, setGoToLineFocusRequest] = useState(0);
 
   // Scroll/highlight
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
@@ -197,7 +200,11 @@ export function useUIState({
         }
       } else if (isCmdOrCtrl && isG) {
         e.preventDefault();
-        setIsGoToLineVisible(true);
+        if (isGoToLineVisible) {
+          setGoToLineFocusRequest((n) => n + 1);
+        } else {
+          setIsGoToLineVisible(true);
+        }
       } else if (e.key === 'F2') {
         e.preventDefault();
         if (isShift) {
@@ -280,6 +287,7 @@ export function useUIState({
     setInspectorWidth,
     isGoToLineVisible,
     setIsGoToLineVisible,
+    goToLineFocusRequest,
     scrollToIndex,
     setScrollToIndex,
     highlightedIndex,
