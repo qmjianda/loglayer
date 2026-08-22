@@ -17,7 +17,7 @@ interface UseCommandsDeps {
   handleToggleWatch: () => void;
   findNextSearchMatchWithJump: (direction: 'next' | 'prev') => void;
   setIsGoToLineVisible: (v: boolean) => void;
-  setActiveView: (v: 'main' | 'search' | 'ai' | 'help') => void;
+  setActiveView: (v: 'main' | 'search' | 'help') => void;
   setIsCommandPaletteVisible: (v: boolean) => void;
   setIsSettingsVisible: (v: boolean) => void;
   setIsDebugVisible: (v: boolean | ((prev: boolean) => boolean)) => void;
@@ -95,7 +95,6 @@ export const useCommands = ({
       category: '视图',
       action: () => setActiveView('search'),
     },
-    { id: 'view.ai', label: 'AI 助手', category: '视图', action: () => setActiveView('ai') },
     { id: 'view.help', label: '帮助视图', category: '视图', action: () => setActiveView('help') },
     {
       id: 'layer.new',

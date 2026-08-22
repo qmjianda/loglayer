@@ -36,14 +36,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       fill: false,
     },
     {
-      id: 'ai',
-      icon: (
-        <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-      ),
-      label: 'AI 助手',
-      fill: false,
-    },
-    {
       id: 'help',
       icon: (
         <path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -53,8 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  // 搜索 / AI 功能尚未实现，暂不对外展示（保留 icons 定义，后续实现后移除过滤即可恢复）
-  const visibleIcons = icons.filter((item) => item.id !== 'search' && item.id !== 'ai');
+  const visibleIcons = icons.filter((item) => item.id !== 'search');
 
   return (
     <div className="w-12 bg-theme-header flex flex-col items-center py-2 shrink-0 h-full border-r border-theme-subtle">

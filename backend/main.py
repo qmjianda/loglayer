@@ -28,7 +28,6 @@ from contextlib import asynccontextmanager
 # Import refactored bridge
 from bridge import FileBridge, get_log_files_recursive
 from bridge.utils import select_window_icon
-from ai.endpoints import router as ai_router
 
 # Global bridge instance
 bridge = FileBridge()
@@ -84,10 +83,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Include AI router
-app.include_router(ai_router)
-
 
 # WebSocket Manager
 class ConnectionManager:

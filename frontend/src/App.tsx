@@ -192,7 +192,6 @@ const AppContent: React.FC = () => {
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [isShortcutsVisible, setIsShortcutsVisible] = useState(false);
   const [isDebugVisible, setIsDebugVisible] = useState(false);
-  const [aiPanelInitialContent, setAiPanelInitialContent] = useState('');
   const [logLevelStats, setLogLevelStats] = useState<LogLevelStats>({
     ERROR: 0,
     WARN: 0,
@@ -737,7 +736,6 @@ const AppContent: React.FC = () => {
           setSearchQuery={setSearchQuery}
           searchMatchCount={searchMatchCount}
           currentMatchNumber={currentMatchNumber}
-          aiPanelInitialContent={aiPanelInitialContent}
           isWatching={isWatching}
           hasNewContent={hasNewContent}
           onToggleWatch={handleToggleWatch}
@@ -750,17 +748,6 @@ const AppContent: React.FC = () => {
           onFindNavigate={findNextSearchMatchWithJump}
           onJumpToLine={(idx) => handleJumpToLine(idx, activeFile?.lineCount || 0)}
           onJumpToRank={jumpToRank}
-          onApplySuggestion={(type, value) => {
-            if (type === 'filter') {
-              addLayer(LayerType.FILTER, { query: value });
-            } else if (type === 'highlight') {
-              addLayer(LayerType.HIGHLIGHT, { query: value, color: '#facc15' });
-            }
-          }}
-          onCloseAI={() => {
-            setActiveView('main');
-            setAiPanelInitialContent('');
-          }}
         />
 
         {/* 主内容区域：显示日志视图或帮助文档 */}
@@ -795,10 +782,6 @@ const AppContent: React.FC = () => {
                 onToggleBookmark={handleToggleBookmark}
                 onUpdateBookmarkComment={handleUpdateBookmarkComment}
                 onSelectedTextChange={setCanvasSelectedText}
-                onSendToAI={(text) => {
-                  setAiPanelInitialContent(text);
-                  setActiveView('ai');
-                }}
                 onScrollToNewContent={() => {
                   clearNewContent();
                   if (activeFile?.lineCount) {

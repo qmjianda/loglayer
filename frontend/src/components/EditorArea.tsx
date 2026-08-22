@@ -62,7 +62,6 @@ interface EditorAreaData {
   onToggleBookmark: (lineIndex: number) => void;
   onUpdateBookmarkComment: (lineIndex: number, comment: string) => void;
   onSelectedTextChange: (text: string) => void;
-  onSendToAI: (text: string) => void;
   onScrollToNewContent: () => void;
   /** find widget 导航回调（App 级 findNextSearchMatch，走 activePanelId，仅激活面板触发） */
   onFindNavigate: (direction: 'next' | 'prev') => void;
@@ -152,7 +151,6 @@ const LogViewerPanel: React.FC<IDockviewPanelProps<LogViewerPanelParams>> = ({ p
           onToggleBookmark={data.onToggleBookmark}
           onUpdateBookmarkComment={data.onUpdateBookmarkComment}
           onSelectedTextChange={data.onSelectedTextChange}
-          onSendToAI={data.onSendToAI}
           updateTrigger={data.bridgedUpdateTrigger}
           settings={data.settings}
           resolvedTheme={data.resolvedTheme}
@@ -496,7 +494,6 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
       onToggleBookmark: props.onToggleBookmark,
       onUpdateBookmarkComment: props.onUpdateBookmarkComment,
       onSelectedTextChange: props.onSelectedTextChange,
-      onSendToAI: props.onSendToAI,
       onScrollToNewContent: props.onScrollToNewContent,
       onFindNavigate: props.onFindNavigate,
     }),
@@ -525,7 +522,6 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
       props.onToggleBookmark,
       props.onUpdateBookmarkComment,
       props.onSelectedTextChange,
-      props.onSendToAI,
       props.onScrollToNewContent,
       props.onFindNavigate,
     ],

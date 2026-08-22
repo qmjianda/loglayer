@@ -1,0 +1,5 @@
+- [x] Add focused backend/frontend removal acceptance tests and record the expected red baseline.
+- [x] Delete backend/ai and remove AI router registration and startup/config references.
+- [x] Remove AI frontend components/hooks/wiring while preserving ordinary viewer actions and TIME_RANGE fields.
+- [x] Remove AI-only dependencies, API-key injection, and current documentation/configuration references.
+- [x] Run focused green tests, repository checks, and static reference audit; resolve regressions.

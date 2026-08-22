@@ -38,7 +38,6 @@ interface LogViewerProps {
   onToggleBookmark?: (lineIndex: number) => void;
   onUpdateBookmarkComment?: (lineIndex: number, comment: string) => void;
   onSelectedTextChange?: (text: string) => void;
-  onSendToAI?: (text: string) => void;
   updateTrigger?: number;
   /** 当前文件的图层列表（前端渲染器按此计算图层高亮/行样式，替代后端逐行计算） */
   layers?: LogLayer[];
@@ -91,7 +90,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   onToggleBookmark,
   onUpdateBookmarkComment,
   onSelectedTextChange,
-  onSendToAI,
   updateTrigger,
   layers = EMPTY_LAYERS,
   layerStats = {},
@@ -660,15 +658,6 @@ export const LogViewer: React.FC<LogViewerProps> = ({
                     }}
                   >
                     复制选中内容
-                  </button>
-                  <button
-                    className="w-full text-left px-3 py-1.5 hover:bg-blue-600 text-gray-200"
-                    onClick={() => {
-                      onSendToAI?.(contextMenu.text);
-                      setContextMenu(null);
-                    }}
-                  >
-                    发送给 AI
                   </button>
                   <HighlightColorMenu
                     onPick={(color) => {
