@@ -30,8 +30,6 @@ const SAVE_DELAY_MS = 500;
 interface LogViewerPanelParams {
   fileId: string;
   uri?: string;
-  /** dockview 面板 id（`log-view-<hash>`），作为 per-tab 搜索状态的 key */
-  panelId?: string;
 }
 
 // 面板组件可访问的实时数据（经 Context 注入）
@@ -85,10 +83,11 @@ function resolveFile(
 }
 
 // dockview `logViewer` 面板组件：经 params.fileId / params.uri 渲染现有 LogViewer
-const LogViewerPanel: React.FC<IDockviewPanelProps<LogViewerPanelParams>> = ({ params }) => {
+const LogViewerPanel: React.FC<IDockviewPanelProps<LogViewerPanelParams>> = ({ params, api }) => {
   const data = useContext(EditorAreaContext);
   const file = resolveFile(data?.files || [], params);
-  const panelId = params.panelId ?? '';
+  // 面板身份唯一来源：dockview panel id（激活事件/Ctrl+F 请求链均使用它）
+  const panelId = api.id;
 
   // per-tab 搜索状态：本面板自己的 tab（widget 与高亮均按此渲染，不串用激活面板的词）
   const tab = useSearchStore((s) => (panelId ? s.tabs[panelId] : null));
@@ -351,7 +350,7 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
                 id: panelId,
                 component: 'logViewer',
                 title: file.name,
-                params: { fileId: file.id, uri: file.path, panelId },
+                params: { fileId: file.id, uri: file.path },
                 inactive: true,
               });
             }
@@ -447,7 +446,7 @@ export const EditorArea: React.FC<EditorAreaProps> = (props) => {
           id: panelId,
           component: 'logViewer',
           title: file.name,
-          params: { fileId: file.id, uri: file.path, panelId },
+          params: { fileId: file.id, uri: file.path },
           inactive: true,
         });
       }

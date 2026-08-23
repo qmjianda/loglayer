@@ -185,6 +185,8 @@ export function useUIState({
         e.preventDefault();
         redo();
       } else if (isCmdOrCtrl && isF) {
+        // 注意：Ctrl+F 有意不受 isInput 守卫限制——任何焦点位置（含其他输入框）
+        // 按下都应打开/聚焦 find widget，与其他快捷键的不对称是设计行为
         e.preventDefault();
         const selText = canvasSelectedText || window.getSelection()?.toString() || '';
         if (selText) {
