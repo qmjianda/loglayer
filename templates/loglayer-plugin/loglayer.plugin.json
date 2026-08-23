@@ -1,0 +1,15 @@
+{
+  "id": "my.plugin",
+  "name": "My Plugin",
+  "version": "0.1.0",
+  "api": ">=1.0,<2.0",
+  "entry": "plugin:plugin",
+  "capabilities": [
+    {
+      "id": "my-filter",
+      "type": "FILTER",
+      "version": "0.1.0",
+      "display_name": "My Filter"
+    }
+  ]
+}

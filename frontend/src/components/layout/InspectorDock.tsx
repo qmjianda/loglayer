@@ -6,6 +6,7 @@
  */
 import React from 'react';
 import { InspectorPanel } from '../InspectorPanel';
+import { PluginWidgetSlot } from '../PluginWidgetSlot';
 import type { FileData } from '../../hooks/useFileManagement';
 import type { LogLayer, LayerType, LayerPreset, LogLevelStats } from '../../types';
 
@@ -139,6 +140,9 @@ export const InspectorDock: React.FC<InspectorDockProps> = ({
         logLevelStats={logLevelStats}
         statsLoading={statsLoading}
       />
+
+      {/* 插件固定槽位：inspector（无插件时渲染 null） */}
+      <PluginWidgetSlot slot="inspector" className="p-2 space-y-2 border-t border-subtle" />
     </div>
   );
 };

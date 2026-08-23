@@ -39,7 +39,9 @@ class Plugin:
             "system-stats",
             slot="statusbar",
             renderer_id="builtin.metric",
+            config={},
             data_provider=system_stats_data,
+            refresh_interval=2.0,
         )
 
 

@@ -289,8 +289,8 @@ redaction = "acme_redaction.plugin:plugin"
 
 源码开发使用 `pip install -e .`；Frozen onedir 应用从可执行文件同级的
 `plugins/` 目录加载受信任插件，不依赖当前工作目录。插件只有一种格式：
-manifest（`loglayer.plugin.json`）+ 标准 Hook；仓库示例见
-`examples/plugins/demo-plugin/`。
+manifest（`loglayer.plugin.json`）+ 标准 Hook。最小模板见
+`templates/loglayer-plugin/`，完整示例见 `examples/plugins/demo-plugin/`。
 
 插件运行在应用进程内，拥有该进程的文件、网络和环境变量权限。本版本不提供
 沙箱或权限隔离，也不支持任意 React、JavaScript 或远程前端模块加载。

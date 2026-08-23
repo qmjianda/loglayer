@@ -9,6 +9,7 @@ import { Sidebar } from '../Sidebar';
 import { UnifiedPanel } from '../UnifiedPanel';
 import { SearchPanel } from '../SearchPanel';
 import { SearchResultsPanel } from '../SearchResultsPanel';
+import { PluginWidgetSlot } from '../PluginWidgetSlot';
 import type { FileData } from '../../hooks/useFileManagement';
 import type { SearchConfig, LogLayer } from '../../types';
 
@@ -155,6 +156,9 @@ export const SidebarView: React.FC<SidebarViewProps> = ({
             />
           </>
         )}
+
+        {/* 插件固定槽位：sidebar（无插件时渲染 null） */}
+        <PluginWidgetSlot slot="sidebar" className="mt-auto p-2 space-y-2 border-t border-subtle" />
       </div>
     </>
   );

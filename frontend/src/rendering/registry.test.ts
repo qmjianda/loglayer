@@ -9,6 +9,7 @@ import {
   getRenderer,
   registerWidgetRenderer,
   renderWidgetWithIsolation,
+  getWidgetRenderer,
 } from './registry';
 import type { WidgetRenderInput } from '../hooks/usePluginWidgets';
 import type { RenderResult } from './types';
@@ -175,5 +176,48 @@ describe('renderLayers 组合', () => {
     const r: RenderResult = renderLayers([], 'content', []);
     expect(r.segments).toEqual([]);
     expect(r.rowStyle).toBeUndefined();
+  });
+});
+
+describe('插件静态边界（无动态代码加载）', () => {
+  const widgetInput = (rendererId: string, text = 'plugin-text') => ({
+    data: { text },
+    config: {},
+    widget: {
+      type: 'W_P',
+      plugin_id: 'acme.p',
+      display_name: 'P',
+      description: '',
+      slot: 'statusbar' as const,
+      renderer_id: rendererId,
+      config: {},
+      role: 'statusbar' as const,
+      refresh_interval: 0,
+    },
+  });
+
+  it('远程/路径形态的 renderer_id 不被加载，降级为 undefined', () => {
+    expect(
+      renderWidgetWithIsolation(
+        'http://evil.example/x.js',
+        widgetInput('http://evil.example/x.js'),
+      ),
+    ).toBeUndefined();
+    expect(
+      renderWidgetWithIsolation('../plugins/evil', widgetInput('../plugins/evil')),
+    ).toBeUndefined();
+    expect(getWidgetRenderer('http://evil.example/x.js')).toBeUndefined();
+  });
+
+  it('新视觉能力必须先在应用 registry 注册，之后 manifest 才能引用', () => {
+    expect(renderWidgetWithIsolation('future.trend', widgetInput('future.trend'))).toBeUndefined();
+    registerWidgetRenderer('future.trend', ({ data }) => ({ text: `[${data.text}]` }));
+    expect(renderWidgetWithIsolation('future.trend', widgetInput('future.trend'))?.text).toBe(
+      '[plugin-text]',
+    );
+  });
+
+  it('未知字段进入 extra，不产生任何执行通道', () => {
+    expect(renderWidgetWithIsolation('', widgetInput('', 'x'))).toBeUndefined();
   });
 });

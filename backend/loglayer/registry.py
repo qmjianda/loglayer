@@ -286,7 +286,13 @@ class RegistryFacade:
         record = self._records.get(type_id)
         if record is None or record.factory is None:
             return None
-        return record.factory(config)
+        instance = record.factory(config)
+        # 管线按 stage/category 分流；插件实例从记录注入，作者无需重复声明
+        if not hasattr(instance, "stage"):
+            instance.stage = record.stage
+        if not hasattr(instance, "category"):
+            instance.category = record.category
+        return instance
 
     def is_rendering_layer(self, type_id: str) -> bool:
         record = self._records.get(type_id)

@@ -11,6 +11,7 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { DockviewApi } from 'dockview-react';
 import { EditorArea } from './components/EditorArea';
+import { PluginWidgetSlot } from './components/PluginWidgetSlot';
 import { EditorGoToLineWidget } from './components/EditorGoToLineWidget';
 import { HelpPanel } from './components/HelpPanel';
 import { StatusBar } from './components/StatusBar';
@@ -353,7 +354,11 @@ const AppContent: React.FC = () => {
   // ===== 工作区持久化 (Workspace Config Persistence) =====
   // 自动将当前打开的文件和图层配置保存到本地磁盘（.loglayer 目录），
   // 布局经 kv['layout'] 随工作区持久化（EditorArea 通过 onLayoutChange 回写）。
-  const { layout: editorLayout, saveLayout, restoreState } = useWorkspaceConfig({
+  const {
+    layout: editorLayout,
+    saveLayout,
+    restoreState,
+  } = useWorkspaceConfig({
     workspaceRoot,
     files,
     setFiles,
@@ -757,6 +762,11 @@ const AppContent: React.FC = () => {
             <HelpPanel />
           ) : (
             <>
+              {/* 插件固定槽位：editor_toolbar（无插件时渲染 null） */}
+              <PluginWidgetSlot
+                slot="editor_toolbar"
+                className="flex items-center gap-2 px-2 py-1 border-b border-subtle bg-theme-base shrink-0"
+              />
               {/* 中间编辑器区域（dockview 分屏承载） */}
               <EditorArea
                 files={files}
