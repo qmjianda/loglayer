@@ -12,8 +12,8 @@
 
 - [x] 1.2.1 Add backend acceptance test files under `tests/unit/` for manifest validation, API compatibility, Hook isolation, deterministic duplicate handling, registry atomicity, discovery sources, legacy adaptation, path resolution, reload, and layer execution boundaries
 - [x] 1.2.2 Add backend integration tests under `tests/integration/` for a real `loglayer.plugins` entry point, declaration-only REST metadata, and an external plugin loaded from a temporary directory
-- [ ] 1.2.3 Add frontend tests under `frontend/src/**/__tests__/` or the existing frontend test location for every fixed slot, unknown slot, unknown renderer, renderer isolation, and the absence of dynamic plugin React loading
-- [ ] 1.2.4 Add an E2E test under `tests/e2e/` that loads an external Filter or Transform and observes processed output, plus an E2E test that proves an unknown renderer does not download or execute plugin React code
+- [x] 1.2.3 Add frontend tests under `frontend/src/**/__tests__/` or the existing frontend test location for every fixed slot, unknown slot, unknown renderer, renderer isolation, and the absence of dynamic plugin React loading
+- [x] 1.2.4 Add an E2E test under `tests/e2e/` that loads an external Filter or Transform and observes processed output, plus an E2E test that proves an unknown renderer does not download or execute plugin React code
 - [x] 1.2.5 Run the new unit and integration tests and confirm the expected red checkpoint caused by missing implementation before production code
 
 ## 2. Backend Plugin Contract and Discovery
@@ -59,28 +59,28 @@
 
 - [x] 4.2.1 Update `tools/package_offline.py` and `LogLayer.spec` to preserve the onedir sibling `plugins/` convention without bundling user plugins, while retaining both platform ripgrep binaries and existing package resource behavior
 - [x] 4.2.2 Verify frozen startup tolerates a missing sibling `plugins/` directory and still loads built-ins from any current working directory; make frozen path startup tests pass
-- [ ] 4.2.3 Preserve runtime ripgrep platform selection, POSIX execute-bit self-check and graceful degradation, and the absence of `LogLayer.bat` and `LogLayer.sh`; make offline packaging regression tests pass, including the case where rg self-check fails but plugin discovery continues
+- [x] 4.2.3 Preserve runtime ripgrep platform selection, POSIX execute-bit self-check and graceful degradation, and the absence of `LogLayer.bat` and `LogLayer.sh`; make offline packaging regression tests pass, including the case where rg self-check fails but plugin discovery continues
 
 ## 5. Frontend Fixed Plugin Slots
 
 ### 5.1 Typed Metadata and Routing
 
 - [x] 5.1.1 Add typed `WidgetMetadata` parsing and exhaustive slot routing in the frontend metadata boundary, accepting only `sidebar`, `inspector`, `statusbar`, and `editor_toolbar`; make fixed-slot and unknown-slot tests pass
-- [ ] 5.1.2 Connect widget metadata consumption to `SidebarView`, `InspectorDock`, `StatusBar`, and `EditorToolbar` without exposing Python factories or plugin source to the browser; make valid metadata rendering tests pass
+- [x] 5.1.2 Connect widget metadata consumption to `SidebarView`, `InspectorDock`, `StatusBar`, and `EditorToolbar` without exposing Python factories or plugin source to the browser; make valid metadata rendering tests pass
 - [x] 5.1.3 Extend the static renderer contract in `frontend/src/rendering/registry.ts` and reuse `renderWithIsolation()` so unknown renderer IDs skip only that widget and renderer exceptions produce widget-local no-op behavior; make renderer error isolation tests pass
-- [ ] 5.1.4 Keep frontend loading limited to application-bundled static renderers and declarative config; add a regression assertion that no plugin directory, manifest, network response, or runtime path can dynamically import React code, and make the fixed boundary E2E test pass
+- [x] 5.1.4 Keep frontend loading limited to application-bundled static renderers and declarative config; add a regression assertion that no plugin directory, manifest, network response, or runtime path can dynamically import React code, and make the fixed boundary E2E test pass
 
 ### 5.2 Layer-System Integration
 
-- [ ] 5.2.1 Consume plugin rendering metadata through the existing static layer renderer registry and preserve frontend execution for RENDERING, while leaving backend FILTER and TRANSFORM behavior unchanged; make layer-system-v2 frontend acceptance tests pass
-- [ ] 5.2.2 Document and test that a new unique visual renderer requires an application registry change first, followed by a stable manifest renderer ID, rather than runtime plugin code loading; make the static renderer contract test pass
+- [x] 5.2.1 Consume plugin rendering metadata through the existing static layer renderer registry and preserve frontend execution for RENDERING, while leaving backend FILTER and TRANSFORM behavior unchanged; make layer-system-v2 frontend acceptance tests pass
+- [x] 5.2.2 Document and test that a new unique visual renderer requires an application registry change first, followed by a stable manifest renderer ID, rather than runtime plugin code loading; make the static renderer contract test pass
 
 ## 6. Plugin Authoring Skill, Templates, and Documentation
 
 ### 6.1 Authoring Assets
 
 - [x] 6.1.1 Add the plugin authoring guide under `docs/` covering manifest fields, capability declarations, entry point installation, external directory layout, API compatibility, legacy migration, fixed UI slots, static renderer rules, deterministic validation, and trusted in-process Python limits; make documentation link and example checks pass
-- [ ] 6.1.2 Add a minimal package template and external-directory template with `loglayer.plugin.json`, entry module, Hook registration, one capability, install instructions, source layout, and acceptance-test skeleton; make template validation tests pass
+- [x] 6.1.2 Add a minimal package template and external-directory template with `loglayer.plugin.json`, entry module, Hook registration, one capability, install instructions, source layout, and acceptance-test skeleton; make template validation tests pass
 - [x] 6.1.3 Add the `plugin-authoring` skill under the project skill directory, requiring capability and slot questions, manifest and source generation, installation or external-loading instructions, and acceptance tests for manifest, discovery, duplicate IDs, failures, compatibility, and declared behavior; make skill structure checks pass
 - [x] 6.1.4 Make the skill reject arbitrary React loading and avoid sandbox promises, hidden import side effects, registry bypasses, and incomplete-success claims; make the workflow boundary tests pass
 
@@ -95,7 +95,7 @@
 
 - [x] 7.1.1 Run all new unit and integration tests with `python3 -m pytest tests/unit tests/integration` and confirm every requirement scenario is covered by a machine-observable assertion
 - [x] 7.1.2 Run frontend type checks, lint, targeted formatting checks, and frontend tests; the repository-wide format check reports only the pre-existing untouched `frontend/src/bridge_client.ts`
-- [ ] 7.1.3 Run the complete E2E suite with `npm run e2e`, including external plugin loading and fixed renderer boundary scenarios; confirm no test depends on the current working directory or real user/plugin directories
+- [x] 7.1.3 Run the complete E2E suite with `npm run e2e`, including external plugin loading and fixed renderer boundary scenarios; confirm no test depends on the current working directory or real user/plugin directories
 - [x] 7.1.4 Run backend quality gates with `ruff check backend tests` and the repository full pytest command; confirm compatibility, reload, packaging, and ripgrep regressions remain green
 
 ### 7.2 OpenSpec Completion

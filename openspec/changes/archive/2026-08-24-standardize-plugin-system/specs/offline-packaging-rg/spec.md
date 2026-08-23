@@ -2,6 +2,19 @@
 
 保留离线包的双平台 ripgrep 行为，并增加 PyInstaller onedir 外部插件目录约定。
 
+## ADDED Requirements
+
+### Requirement: Frozen EXE 外部插件目录
+PyInstaller onedir 产物 SHALL 约定 EXE 所在目录的 `plugins/` 为外部插件目录；插件路径不得依赖启动时当前工作目录。
+
+#### Scenario: onedir EXE 加载同级插件
+- **WHEN** 用户从任意当前工作目录启动 onedir EXE，且 EXE 同级存在有效 `plugins/`
+- **THEN** 应用从 EXE 所在目录加载该目录中的插件
+
+#### Scenario: 缺少外部插件目录
+- **WHEN** onedir EXE 同级没有 `plugins/`
+- **THEN** 应用正常启动并继续提供内置能力，不因外部插件目录缺失而崩溃
+
 ## MODIFIED Requirements
 
 ### Requirement: 发布包包含全部支持平台的 rg 二进制
@@ -36,17 +49,6 @@
 #### Scenario: 外部插件不改变 rg 选择
 - **WHEN** 冻结应用同时存在 EXE 同级 `plugins/` 目录并定位 ripgrep
 - **THEN** 仍按当前平台选择包内对应的 rg 二进制
-
-### Requirement: Frozen EXE 外部插件目录
-PyInstaller onedir 产物 SHALL 约定 EXE 所在目录的 `plugins/` 为外部插件目录；插件路径不得依赖启动时当前工作目录。
-
-#### Scenario: onedir EXE 加载同级插件
-- **WHEN** 用户从任意当前工作目录启动 onedir EXE，且 EXE 同级存在有效 `plugins/`
-- **THEN** 应用从 EXE 所在目录加载该目录中的插件
-
-#### Scenario: 缺少外部插件目录
-- **WHEN** onedir EXE 同级没有 `plugins/`
-- **THEN** 应用正常启动并继续提供内置能力，不因外部插件目录缺失而崩溃
 
 ### Requirement: 发布包不包含启动脚本，rg 可执行性由应用自检
 原要求：离线发布包 SHALL 不再生成 `LogLayer.bat` / `LogLayer.sh` 启动脚本；rg 二进制的执行权限由应用在启动时自检补齐。
