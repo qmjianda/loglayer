@@ -271,10 +271,10 @@ const AppContent: React.FC = () => {
       }, 0);
     },
     onOpenFile: () => {
-      handleOpen();
+      handleOpenFolder();
     },
     onOpenFolder: () => {
-      handleNativeFolderSelect();
+      handleOpenFolder();
     },
     onShowSearchHistory: () => {
       // Ctrl+H：打开激活面板的 find widget 并触发 focus
@@ -600,7 +600,7 @@ const AppContent: React.FC = () => {
   );
 
   // 文件操作编排（统一打开/编辑器内打开/激活加载）提取至 useFileActions
-  const { openFileInEditor, handleFileActivateWithLoad, handleOpen } = useFileActions({
+  const { openFileInEditor, handleFileActivateWithLoad, handleOpenFolder } = useFileActions({
     dockApiRef,
     files,
     handleFileActivate,
@@ -627,8 +627,7 @@ const AppContent: React.FC = () => {
 
   // ===== 命令面板 (Command Palette) =====
   const commands = useCommands({
-    handleOpen,
-    handleNativeFolderSelect,
+    handleOpenFolder,
     handleToggleWatch,
     findNextSearchMatchWithJump,
     setIsGoToLineVisible,
@@ -747,7 +746,7 @@ const AppContent: React.FC = () => {
           onToggleWatch={handleToggleWatch}
           onOpenSettings={() => setIsSettingsVisible(true)}
           onOpenFileByPath={handleOpenFileByPath}
-          onOpen={handleOpen}
+          onOpen={handleOpenFolder}
           onFileActivate={handleFileActivateWithLoad}
           onFileRemove={handleFileRemove}
           onFileRemoveFromHistory={handleFileRemoveFromHistory}
@@ -787,7 +786,7 @@ const AppContent: React.FC = () => {
                 hasNewContent={hasNewContent}
                 bookmarks={bookmarks}
                 restoreState={restoreState}
-                onOpen={handleOpen}
+                onOpen={handleOpenFolder}
                 onLineClick={(idx) => setHighlightedIndex(idx)}
                 onAddLayer={(type, config) => addLayer(type, config)}
                 onToggleBookmark={handleToggleBookmark}

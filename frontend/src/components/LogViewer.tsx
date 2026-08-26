@@ -12,7 +12,7 @@ import { detectJson } from '../utils/jsonTree';
 import { LogRow } from './logViewer/LogRow';
 import { HighlightColorMenu } from './logViewer/HighlightColorMenu';
 import { computeRevealScrollTop } from '../utils/revealScroll';
-import { computePrefetchRange } from '../utils/prefetchRange';
+import { computePrefetchRange, computeMissingRanges } from '../utils/prefetchRange';
 import { wheelDeltaToLogicalPx } from '../utils/wheelDelta';
 import { computeViewportTranslateY } from '../utils/viewportTranslate';
 import { useVirtualScroll } from '../hooks/useVirtualScroll';
@@ -355,6 +355,40 @@ export const LogViewer: React.FC<LogViewerProps> = ({
   const fetchStart = windowStart;
   const fetchEnd = windowEnd;
 
+  // LOGLAYER_DEBUG 门控：关闭时零开销（O(1) 判断，不拼接字符串）
+  const _isDebug = (() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (import.meta as any).env?.VITE_DEBUG === '1';
+    } catch {
+      return false;
+    }
+  })();
+  const lastGapFetchRef = useRef<{ start: number; end: number }>({ start: -1, end: -1 });
+  const pendingFetchRef = useRef<{ start: number; end: number }>({ start: -1, end: -1 });
+
+  // Viewport 探针（D 视口失步）：仅 DEBUG 开启时输出，避免热路径拼接
+  useEffect(() => {
+    if (!_isDebug) return;
+    const ratio = maxPhysicalScroll > 0 ? maxLogicalScroll / maxPhysicalScroll : 0;
+    // eslint-disable-next-line no-console
+    console.log(
+      `[Viewport] ws=[${windowStart},${windowEnd}) desired=${desiredWindowStart} topVisible=${topVisibleLine} logical=${Math.round(logicalScrollTop)} physical=${Math.round(scrollTop)} vpH=${viewportHeight} scaling=${useScaling} ratio=${ratio.toFixed(2)} itemCount=${itemCount}`,
+    );
+  }, [
+    windowStart,
+    windowEnd,
+    desiredWindowStart,
+    topVisibleLine,
+    logicalScrollTop,
+    scrollTop,
+    viewportHeight,
+    useScaling,
+    maxLogicalScroll,
+    maxPhysicalScroll,
+    itemCount,
+  ]);
+
   useEffect(() => {
     if (!fileId || totalLines === 0) return;
     const { start, end } = computePrefetchRange(
@@ -365,15 +399,44 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     );
     if (start >= end) return;
     if (start === lastFetchRef.current.start && end === lastFetchRef.current.end) return;
-    lastFetchRef.current = { start, end };
+    if (start === pendingFetchRef.current.start && end === pendingFetchRef.current.end) return;
+    pendingFetchRef.current = { start, end };
+    const expected = end - start;
+    const t0 = performance.now();
+    const trigger = 'window';
 
     (async () => {
       try {
         const lines = await readProcessedLines(fileId, start, end - start);
         if (!mountedRef.current) return;
+        const hasNull = lines.some((l) => l == null);
+        const ok = lines.length === expected && !hasNull;
+        if (ok) {
+          lastFetchRef.current = { start, end };
+        } else {
+          // 失败/空响应/长度不足/含 null 均不标记，允许对账重试
+          lastFetchRef.current = { start: -1, end: -1 };
+          pendingFetchRef.current = { start: -1, end: -1 };
+        }
+        if (_isDebug) {
+          const ms = Math.round(performance.now() - t0);
+          // eslint-disable-next-line no-console
+          console.log(
+            `[Fetch] range=[${start},${end}) rows=${lines.length} expected=${expected} ms=${ms} fileId=${fileId} window=[${windowStart},${windowEnd}) trigger=${trigger} ok=${ok}`,
+          );
+        }
         setBridgedLines((prev) => {
           const next = new Map(prev);
-          lines.forEach((line, idx) => next.set(start + idx, line));
+          let added = 0;
+          lines.forEach((line: unknown, idx: number) => {
+            if (line == null) return;
+            next.set(start + idx, line as LogLine | string);
+            added++;
+          });
+          if (_isDebug && added !== lines.length) {
+            // eslint-disable-next-line no-console
+            console.log(`[Fetch] nullSkipped=${lines.length - added} range=[${start},${end})`);
+          }
           if (next.size > LOG_VIEWER.MAX_CACHED_LINES) {
             const center = Math.floor((start + end) / 2);
             for (const key of next.keys()) {
@@ -384,10 +447,83 @@ export const LogViewer: React.FC<LogViewerProps> = ({
           return next;
         });
       } catch (e) {
+        if (_isDebug) {
+          const ms = Math.round(performance.now() - t0);
+          // eslint-disable-next-line no-console
+          console.log(
+            `[Fetch] range=[${start},${end}) rows=0 expected=${expected} ms=${ms} fileId=${fileId} window=[${windowStart},${windowEnd}) trigger=${trigger} error=${String(e)}`,
+          );
+        }
+        lastFetchRef.current = { start: -1, end: -1 };
+        pendingFetchRef.current = { start: -1, end: -1 };
         console.error('Failed to fetch lines:', e);
       }
     })();
   }, [windowStart, windowSize, fileId, totalLines, updateTrigger]);
+
+  // D2：渲染窗口覆盖对账——校验 [windowStart, windowEnd) 是否全部命中缓存，缺口子区间合并补拉
+  useEffect(() => {
+    if (!fileId || totalLines === 0) return;
+    const gaps = computeMissingRanges(bridgedLines, windowStart, windowEnd);
+    if (gaps.length === 0) {
+      lastGapFetchRef.current = { start: -1, end: -1 };
+      return;
+    }
+    if (_isDebug) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[Reconcile] window=[${windowStart},${windowEnd}) gaps=${JSON.stringify(gaps)} bridgedSize=${bridgedLines.size}`,
+      );
+    }
+    // 去重：与上次补拉区间相同则跳过
+    const first = gaps[0];
+    // 合并所有缺口为一个区间进行补拉（若中间有已缓存岛屿，后端返回会含已缓存但前端会去重，成本可接受）
+    // 为减少无效拉取，优先拉第一个缺口
+    const gapStart = first.start;
+    const gapEnd = first.end;
+    if (gapStart === lastGapFetchRef.current.start && gapEnd === lastGapFetchRef.current.end) return;
+    // 若主预取已在途且覆盖该缺口，跳过对账补拉（避免与主 fetch 重复，见日志双 fetch 问题）
+    if (
+      pendingFetchRef.current.start !== -1 &&
+      gapStart >= pendingFetchRef.current.start &&
+      gapEnd <= pendingFetchRef.current.end
+    )
+      return;
+    lastGapFetchRef.current = { start: gapStart, end: gapEnd };
+    const t0 = performance.now();
+    (async () => {
+      try {
+        const lines = await readProcessedLines(fileId, gapStart, gapEnd - gapStart);
+        if (!mountedRef.current) return;
+        if (_isDebug) {
+          const ms = Math.round(performance.now() - t0);
+          // eslint-disable-next-line no-console
+          console.log(
+            `[Fetch] range=[${gapStart},${gapEnd}) rows=${lines.length} expected=${gapEnd - gapStart} ms=${ms} fileId=${fileId} window=[${windowStart},${windowEnd}) trigger=reconcile ok=${lines.length === gapEnd - gapStart && !lines.some((l) => l == null)}`,
+          );
+        }
+        setBridgedLines((prev) => {
+          const next = new Map(prev);
+          lines.forEach((line: unknown, idx: number) => {
+            if (line == null) return;
+            next.set(gapStart + idx, line as LogLine | string);
+          });
+          if (next.size > LOG_VIEWER.MAX_CACHED_LINES) {
+            const center = Math.floor((gapStart + gapEnd) / 2);
+            for (const key of next.keys()) {
+              if (Math.abs(Number(key) - center) > LOG_VIEWER.CACHE_CLEAR_DISTANCE)
+                next.delete(key);
+            }
+          }
+          return next;
+        });
+      } catch (e) {
+        // 允许下次对账重试
+        lastGapFetchRef.current = { start: -1, end: -1 };
+        console.error('Failed to reconcile gaps:', e);
+      }
+    })();
+  }, [bridgedLines, windowStart, windowEnd, fileId, totalLines]);
 
   // === 可视范围上报 ===
   useEffect(() => {

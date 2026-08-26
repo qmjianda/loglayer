@@ -39,12 +39,13 @@ def test_large_file_indexing():
     print(f"Indexed line count: {line_count}")
     assert line_count >= 5000, "Should index at least 5000 lines"
 
-    # Test reading line 4500 (beyond 1000)
+    # Test reading line 4500 (beyond 1000) — 定长 null 占位语义：即使异常也定长
     lines_json = bridge.read_processed_lines(file_id, 4500, 10)
     lines = json.loads(lines_json)
-    
-    assert len(lines) == 10, "Should read 10 lines"
-    assert lines[0]['content'].startswith("Line 4501"), f"Line content mismatch: {lines[0]['content']}"
+
+    assert len(lines) == 10, f"Should read 10 lines (定长), got {len(lines)}"
+    # 有效行不应为 null，占位行若存在则为 None 且不压缩后续偏移
+    assert lines[0] is not None and lines[0]['content'].startswith("Line 4501"), f"Line content mismatch: {lines[0]}"
     print("Backend virtualization check passed (can read beyond 1000 lines).")
     
     # Clean up

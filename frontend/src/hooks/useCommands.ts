@@ -12,8 +12,7 @@ import { getRecentColors, RECOMMENDED_COLORS } from '../constants/colors';
 import type { FileData } from './useFileManagement';
 
 interface UseCommandsDeps {
-  handleOpen: () => void;
-  handleNativeFolderSelect: () => Promise<{ path: string; name: string } | null>;
+  handleOpenFolder: () => void;
   handleToggleWatch: () => void;
   findNextSearchMatchWithJump: (direction: 'next' | 'prev') => void;
   setIsGoToLineVisible: (v: boolean) => void;
@@ -28,8 +27,7 @@ interface UseCommandsDeps {
 }
 
 export const useCommands = ({
-  handleOpen,
-  handleNativeFolderSelect,
+  handleOpenFolder,
   handleToggleWatch,
   findNextSearchMatchWithJump,
   setIsGoToLineVisible,
@@ -48,14 +46,14 @@ export const useCommands = ({
       label: '打开文件',
       shortcut: 'Ctrl+O',
       category: '文件',
-      action: handleOpen,
+      action: handleOpenFolder,
     },
     {
       id: 'file.openFolder',
       label: '打开文件夹',
       shortcut: 'Ctrl+Shift+O',
       category: '文件',
-      action: handleNativeFolderSelect,
+      action: handleOpenFolder,
     },
     {
       id: 'search.focus',

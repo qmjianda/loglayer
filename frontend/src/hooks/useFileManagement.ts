@@ -12,7 +12,6 @@ import {
   closeFile,
   selectFiles,
   selectFolder,
-  hasNativeDialogs,
   listLogsInFolder,
 } from '../bridge_client';
 import { basename, removeFromSet, addToSet } from '../utils';
@@ -304,21 +303,14 @@ export function useFileManagement(): UseFileManagementReturn {
     }
   }, [addNewFiles]);
 
-  // Native folder selection
-  // 返回 null 时表示需要使用远程路径选择器（--no-ui 模式）
+  // Native folder selection（纯原生对话框选择，分流决策在 useFileActions.handleOpenFolder）
+  // 返回 null 仅表示"未选中"（用户取消/出错/无桥接）
   const handleNativeFolderSelect = useCallback(async (): Promise<{
     path: string;
     name: string;
   } | null> => {
     try {
       if (!window.fileBridge) return null;
-
-      // 检测是否支持原生对话框
-      const hasDialogs = await hasNativeDialogs();
-      if (!hasDialogs) {
-        // 返回 null 触发远程路径选择器
-        return null;
-      }
 
       const folderPath = await selectFolder();
       if (!folderPath) return null;

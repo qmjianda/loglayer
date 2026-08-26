@@ -1027,27 +1027,47 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
 
     def read_processed_lines(self, file_id: str, start_line: int, count: int) -> str:
         t0 = timing_start()
+        # LOGLAYER_DEBUG 门控：关闭时零开销（不拼接字符串）
+        _debug = os.environ.get("LOGLAYER_DEBUG") == "1"
         if file_id not in self._sessions:
+            if _debug:
+                print(f"[Read] fileId={file_id} range=[{start_line},{start_line+count}) total=0 mmap=None v_indices=None cacheHit=0 skipped=0")
             return "[]"
         session = self._sessions[file_id]
         try:
-            if session.mmap is None or session.mmap.closed:
+            if session.mmap is None or getattr(session.mmap, "closed", False):
+                if _debug:
+                    mmap_state = "None" if session.mmap is None else "closed"
+                    print(f"[Read] fileId={file_id} range=[{start_line},{start_line+count}) total=0 mmap={mmap_state} v_indices=None cacheHit=0 skipped=0")
                 return "[]"
             _ = len(session.mmap)  # 验证 mmap 仍然有效
             if start_line < 0:
+                if _debug:
+                    print(f"[Read] fileId={file_id} range=[{start_line},{start_line+count}) total=0 mmap=ok v_indices=None cacheHit=0 skipped=0")
                 return "[]"
-            results = []
             v_indices = session.visible_indices
             offsets = session.line_offsets
             total = len(v_indices) if v_indices is not None else len(offsets)
             end_idx = min(start_line + count, total)
-            for i in range(start_line, end_idx):
+            # 定长语义：结果长度 == end_idx - start_line，无法提供的位置以 null 占位
+            expected = end_idx - start_line
+            if expected <= 0:
+                if _debug:
+                    print(f"[Read] fileId={file_id} range=[{start_line},{end_idx}) total={total} mmap=ok v_indices={len(v_indices) if v_indices is not None else None} cacheHit=0 skipped=0")
+                return "[]"
+            results: list = [None] * expected  # type: ignore
+            skipped = 0
+            cache_hit = 0
+            for idx, i in enumerate(range(start_line, end_idx)):
                 if i in session.rendering_cache:
-                    results.append(session.rendering_cache[i])
+                    results[idx] = session.rendering_cache[i]
+                    cache_hit += 1
                     continue
                 try:
                     real_idx = v_indices[i] if v_indices is not None else i
                     if real_idx >= len(offsets):
+                        skipped += 1
+                        results[idx] = None
                         continue
                     start_off = offsets[real_idx]
                     end_off = (
@@ -1089,10 +1109,14 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                     }
                     # LRU Cache 会自动处理容量限制
                     session.rendering_cache[i] = line_data
-                    results.append(line_data)
+                    results[idx] = line_data
                 except (IndexError, ValueError):
+                    skipped += 1
+                    results[idx] = None
                     continue
-            timing("read_lines", file_id, t0, f"rows={len(results)}")
+            if _debug:
+                print(f"[Read] fileId={file_id} range=[{start_line},{end_idx}) total={total} mmap=ok v_indices={len(v_indices) if v_indices is not None else None} cacheHit={cache_hit} skipped={skipped} rows={len(results)}")
+            timing("read_lines", file_id, t0, f"rows={len(results)} skipped={skipped}")
             return json.dumps(results)
         except (ValueError, RuntimeError) as e:
             print(f"Session error for {file_id}: {e}")

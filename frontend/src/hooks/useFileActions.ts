@@ -4,7 +4,7 @@
  * 承载 App.tsx 中可复用的文件打开/激活编排逻辑：
  * - openFileInEditor: 统一打开文件入口（已打开则激活面板，否则经 dockview addPanel）
  * - handleFileActivateWithLoad: 激活文件并确保后端同步
- * - handleOpen: 统一打开逻辑（原生对话框 / 远程选择器分流）
+ * - handleOpenFolder: 统一打开文件夹编排（原生对话框 / 远程选择器分流）
  *
  * 跨组件依赖（dock 实例、文件列表、激活回调、远程选择器等）作为参数传入，
  * 保持纯编排职责，与 useFileManagement（状态管理）分离。
@@ -71,29 +71,26 @@ export const useFileActions = ({
     [openFileInEditor],
   );
 
-  // 处理统一打开逻辑 (文件或项目)
-  const handleOpen = useCallback(async () => {
-    const hasDialogs = await hasNativeDialogs();
-
-    if (hasDialogs) {
+  // 统一"打开文件夹"编排：原生对话框可用走原生选择，否则回退到远程路径选择器（--no-ui 模式）
+  const handleOpenFolder = useCallback(async () => {
+    if (await hasNativeDialogs()) {
       const result = await handleNativeFolderSelect();
       if (result) {
         setWorkspaceRoot(result);
       }
-    } else {
-      // 远程模式：使用通用的 openPathPicker
-      openRemotePicker(({ path, isDir }) => {
-        if (isDir) {
-          const folderName = basename(path);
-          setWorkspaceRoot({ path, name: folderName });
-        } else {
-          // 如果是文件，直接打开
-          const fileName = basename(path);
-          handleOpenFileByPath(path, fileName);
-        }
-      });
+      return;
     }
+    openRemotePicker(({ path, isDir }) => {
+      if (isDir) {
+        const folderName = basename(path);
+        setWorkspaceRoot({ path, name: folderName });
+      } else {
+        // 如果是文件，直接打开
+        const fileName = basename(path);
+        handleOpenFileByPath(path, fileName);
+      }
+    });
   }, [handleNativeFolderSelect, setWorkspaceRoot, openRemotePicker, handleOpenFileByPath]);
 
-  return { openFileInEditor, handleFileActivateWithLoad, handleOpen };
+  return { openFileInEditor, handleFileActivateWithLoad, handleOpenFolder };
 };

@@ -13,8 +13,7 @@ import { LayerType } from '../types';
 import { addRecentColor, RECOMMENDED_COLORS } from '../constants/colors';
 
 const baseDeps = () => ({
-  handleOpen: vi.fn(),
-  handleNativeFolderSelect: vi.fn(),
+  handleOpenFolder: vi.fn(),
   handleToggleWatch: vi.fn(),
   findNextSearchMatchWithJump: vi.fn(),
   setIsGoToLineVisible: vi.fn(),

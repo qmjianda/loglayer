@@ -19,3 +19,30 @@ export function computePrefetchRange(
   const end = Math.min(totalLines, top + span + M);
   return { start, end };
 }
+
+/**
+ * 缺口对账：给定已缓存行号集合与渲染窗口，返回最小缺失子区间列表。
+ * 用于 [windowStart, windowEnd) 覆盖校验（D2）。
+ * 区间合并为连续段，左闭右开。
+ */
+export function computeMissingRanges(
+  cached: Set<number> | Map<number, unknown> | Iterable<number>,
+  windowStart: number,
+  windowEnd: number,
+): Array<{ start: number; end: number }> {
+  const hit = cached instanceof Set ? cached : new Set(cached instanceof Map ? cached.keys() : cached);
+  const gaps: Array<{ start: number; end: number }> = [];
+  let gapStart: number | null = null;
+  for (let i = windowStart; i < windowEnd; i++) {
+    if (!hit.has(i)) {
+      if (gapStart === null) gapStart = i;
+    } else {
+      if (gapStart !== null) {
+        gaps.push({ start: gapStart, end: i });
+        gapStart = null;
+      }
+    }
+  }
+  if (gapStart !== null) gaps.push({ start: gapStart, end: windowEnd });
+  return gaps;
+}
