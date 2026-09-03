@@ -88,20 +88,6 @@ def _ensure_executable(path: str) -> bool:
     return True
 
 
-def select_window_icon(icon_path: str) -> Optional[str]:
-    """选择 pywebview 窗口图标路径；不适用时返回 None。
-
-    Windows（WinForms 后端）仅接受 `.ico`，传 PNG 会触发 .NET
-    `Icon.Initialize` 崩溃（GitHub issue #2）。非 Windows 平台接受 PNG。
-    """
-    if not icon_path or not os.path.isfile(icon_path):
-        return None
-    if platform.system() == "Windows" and not icon_path.lower().endswith(".ico"):
-        print(f"[Main] Windows pywebview requires .ico icon, got {icon_path}; using default")
-        return None
-    return icon_path
-
-
 def get_log_files_recursive(folder_path):
     """Utility to find log files in a directory recursively."""
     log_files = []

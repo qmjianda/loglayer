@@ -13,7 +13,6 @@ import re
 import subprocess
 import threading
 import time
-import webview
 import platform
 from pathlib import Path
 import importlib
@@ -1252,22 +1251,14 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             del self._sessions[file_id]
 
     def select_files(self) -> str:
+        # 桌面壳插槽：注入对象需实现 create_file_dialog(kind, allow_multiple, file_types)
+        # kind 约定：0=OPEN（多选文件）、1=FOLDER（pywebview FileDialog 数值语义）
         if hasattr(self, "window"):
-            try:
-                from webview import FileDialog
-
-                paths = self.window.create_file_dialog(
-                    FileDialog.OPEN,
-                    allow_multiple=True,
-                    file_types=("Log files (*.log;*.txt;*.json)", "All files (*.*)"),
-                )
-            except Exception as e:
-                print(f"[Bridge] select_files error: {e}")
-                paths = self.window.create_file_dialog(
-                    0,
-                    allow_multiple=True,
-                    file_types=("Log files (*.log;*.txt;*.json)", "All files (*.*)"),
-                )
+            paths = self.window.create_file_dialog(
+                0,
+                allow_multiple=True,
+                file_types=("Log files (*.log;*.txt;*.json)", "All files (*.*)"),
+            )
             return json.dumps(paths if paths else [])
 
         # Fallback to tkinter for browser-only mode
@@ -1286,13 +1277,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
 
     def select_folder(self) -> str:
         if hasattr(self, "window"):
-            try:
-                from webview import FileDialog
-
-                path = self.window.create_file_dialog(FileDialog.FOLDER)
-            except Exception as e:
-                print(f"[Bridge] select_folder error: {e}")
-                path = self.window.create_file_dialog(1)  # 1 is FOLDER
+            path = self.window.create_file_dialog(1)
             return path[0] if path else ""
 
         # Fallback to tkinter for browser-only mode

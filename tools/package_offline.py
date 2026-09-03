@@ -8,7 +8,7 @@ from pathlib import Path
 
 def check_dependencies():
     """验证打包所需的 Python 依赖是否安装"""
-    required = ["fastapi", "uvicorn", "websockets", "webview", "psutil"]
+    required = ["fastapi", "uvicorn", "websockets", "psutil"]
     missing = []
     for mod in required:
         try:
@@ -119,7 +119,6 @@ def package_app():
                 "pyinstaller",
                 "--noconfirm",
                 "--onedir",
-                "--windowed",
                 f"--add-data=dist{add_data_sep}www",
                 f"--add-data=dist_offline/app/bin{add_data_sep}bin",
                 "--paths=backend",

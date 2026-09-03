@@ -1,7 +1,6 @@
 # Backend requirements for LogLayer
 fastapi
 uvicorn
-pywebview
 pydantic
 websockets
 psutil

@@ -5,7 +5,6 @@ import asyncio
 import hashlib
 import threading
 import uvicorn
-import webview
 import argparse
 import time
 
@@ -27,7 +26,6 @@ from contextlib import asynccontextmanager
 
 # Import refactored bridge
 from bridge import FileBridge, get_log_files_recursive
-from bridge.utils import select_window_icon
 
 # Global bridge instance
 bridge = FileBridge()
@@ -564,9 +562,8 @@ def start_app():
         url = f"http://{host}:{port}"
     if not os.path.exists(www_dir):
         # Development mode (Vite)
-        url = "http://localhost:3000"
         print(f"Backend running on http://127.0.0.1:{port}")
-        print(f"Opening dev frontend: {url}")
+        print(f"Opening dev frontend: http://localhost:3000")
     else:
         print(f"Starting LogLayer on {url}")
 
@@ -592,37 +589,19 @@ def start_app():
     # Subscribe to frontendReady to load CLI paths
     bridge.frontendReady.connect(on_ready)
 
-    if not args.no_ui:
-        # Create webview window
-        window = webview.create_window("LogLayer", url, width=1200, height=800)
-        # Pass window to bridge for native dialogs
-        bridge.window = window
+    # --no-ui 为兼容保留的 no-op flag：服务模式是唯一运行方式
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        # User interrupted
+        pass
+    except BaseException as e:
+        if not isinstance(e, KeyboardInterrupt):
+            print(f"[Main] Error: {e}")
+            import traceback
 
-        # Set window icon（Windows 仅接受 .ico，PNG 会导致启动崩溃，见 issue #2）
-        icon_path = os.path.join(base_dir, "assets", "icon.png")
-        if not os.path.exists(icon_path):
-            # Try fallback path for some environments
-            icon_path = os.path.join(os.getcwd(), "backend", "assets", "icon.png")
-        window_icon = select_window_icon(icon_path)
-
-        # Start webview
-        if window_icon:
-            webview.start(icon=window_icon)
-        else:
-            webview.start()
-    else:
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            # User interrupted
-            pass
-        except BaseException as e:
-            if not isinstance(e, KeyboardInterrupt):
-                print(f"[Main] Error: {e}")
-                import traceback
-
-                traceback.print_exc()
+            traceback.print_exc()
 
 
 if __name__ == "__main__":
