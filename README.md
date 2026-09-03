@@ -16,11 +16,10 @@ LogLayer is a high-performance log analysis tool designed to handle massive log 
 - **Layered Pipeline Engine**: A Python-powered backend pipeline that supports multiple FILTER and HIGHLIGHT layers applied in real-time.
 - **Workspace Session Persistence**: Automatically saves and restores your opened files and layer configurations into a `.loglayer/` folder.
 - **One-Click Offline Packaging**: Build a standalone, portable distribution for Windows and Linux with a single command.
-- **Lightweight Architecture**: **FastAPI + pywebview** for better browser compatibility and smaller footprint.
+- **Lightweight Architecture**: **FastAPI** local service + browser access — no system GUI libraries required.
 
 ### 🛠 Tech Stack
 - **Backend**: Python 3.10+, **FastAPI**, **uvicorn**, **WebSockets**, `mmap`, `ripgrep`.
-- **Desktop Shell**: **pywebview** (cross-platform native window).
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS 4.
 
 ### 🚦 Quick Start
@@ -39,13 +38,13 @@ cd loglayer
 npm install
 
 # Install backend dependencies
-pip install fastapi uvicorn websockets pywebview
+pip install -r requirements.txt
 ```
 
 #### 3. Running the App
 **Development Mode**: Open two terminal windows.
-1. `npm run dev`
-2. `python backend/main.py`
+1. `npm run dev` — dev frontend at http://localhost:3000
+2. `python backend/main.py` — backend service at http://127.0.0.1:12345
 
 **Standalone Packaging**:
 - **Source-based Bundle**: Run `python tools/package_offline.py`. Requires Python on the user's machine. Start with `python app/main.py` from `dist_offline/`.
@@ -66,11 +65,10 @@ LogLayer 是一款专门针对海量日志文件（1GB+）设计的高性能日�
 - **图层流水线引擎**: 基于 Python 后端的处理流水线，支持多路“过滤器（FILTER）”和“高亮（HIGHLIGHT）”图层叠加。
 - **工作区会话持久化**: 自动保存并恢复已打开的文件列表和图层配置（存储于 `.loglayer/` 目录）。
 - **一键离线发布**: 提供一键打包脚本，生成支持 Windows 和 Linux 的自包含绿色版离线应用。
-- **轻量化架构**: 采用 **FastAPI + pywebview**，拥有更好的浏览器兼容性且资源占用更低。
+- **轻量化架构**: 采用 **FastAPI** 本地服务 + 浏览器访问，无需安装任何系统级 GUI 依赖。
 
 ### 🛠 技术栈
 - **后端**: Python 3.10+, **FastAPI**, **uvicorn**, **WebSockets**, `mmap`, `ripgrep`.
-- **桌面外壳**: **pywebview** (跨平台原生窗口).
 - **前端**: React 19, TypeScript, Vite, Tailwind CSS 4.
 
 ### 🚦 快速开始
@@ -89,13 +87,13 @@ cd loglayer
 npm install
 
 # 安装后端依赖
-pip install fastapi uvicorn websockets pywebview
+pip install -r requirements.txt
 ```
 
 #### 3. 运行应用
 **开发模式**: 需要开启两个终端。
-1. `npm run dev`
-2. `python backend/main.py`
+1. `npm run dev` — 开发前端 http://localhost:3000
+2. `python backend/main.py` — 后端服务 http://127.0.0.1:12345
 
 **离线打包**:
 - **源码包**: 运行 `python tools/package_offline.py`。需要目标机器安装有 Python。启动方式：在 `dist_offline/` 下执行 `python app/main.py`。

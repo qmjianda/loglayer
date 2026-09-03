@@ -1,17 +1,17 @@
 # AGENTS.md - LogLayer Agent Guidelines
 
-高性能日志分析桌面应用（React 前端 + Python/FastAPI 后端，pywebview 桌面壳）。代码注释与文档多为中文。
+高性能日志分析工具（React 前端 + Python/FastAPI 本地服务后端，浏览器访问）。代码注释与文档多为中文。
 
 ## 项目概况
 
 | 维度 | 描述 |
 |:-----|:-----|
-| **产品形态** | 桌面应用（pywebview + FastAPI） |
+| **产品形态** | 本地服务 + 浏览器访问（FastAPI 后端，桌面壳已移除、保留插槽） |
 | **目标用户** | 开发工程师、运维人员、SRE |
 | **核心场景** | 大型日志文件分析、错误追踪、性能优化 |
 | **竞争优势** | mmap 索引、DOM 虚拟滚动、多引擎搜索 |
 
-- **后端**：Python 3.10+ | FastAPI | mmap | ripgrep | pywebview
+- **后端**：Python 3.10+ | FastAPI | mmap | ripgrep
 - **前端**：React 19 | TypeScript | Vite | Tailwind CSS 4 | react-virtuoso
 - **测试**：pytest | Playwright(e2e) | npm
 
@@ -27,8 +27,8 @@
 
 ```bash
 npm run dev                 # 前端 Vite (port 3000)，代理 /api 与 /ws 到 127.0.0.1:12345
-python backend/main.py      # 后端 FastAPI + pywebview 桌面窗口 (port 12345)
-python backend/main.py --no-ui   # 启动后端服务，不带pywebview，而是通过网页访问（当前主要使用方式可用于e2e 测试，调试，验证效果等）
+python backend/main.py      # 后端本地服务 (port 12345)，服务模式是唯一运行方式
+python backend/main.py --no-ui   # 同上；--no-ui 为兼容保留的 no-op 参数（可用于e2e 测试，调试，验证效果等）
 ```
 
 - 前后端是两个独立进程，需各开一个终端。后端端口 `--port`（默认 12345），`--host 0.0.0.0` 可外部访问。
@@ -75,7 +75,7 @@ ruff check backend tests   # ruff 检查（后端，error=0 门槛）
 ## 架构地图（粗略快照，细节以代码为准）
 
 ```
-              ┌────────────────── 桌面壳 pywebview ──────────────────┐
+              ┌────────────────── 浏览器 ─────────────────────────────┐
               │                                                      │
   backend      │            frontend                                 │
 ┌──────────────▼──┐        ┌───────────────▼───────────────────────┐  │
@@ -213,7 +213,7 @@ spec 的 AC 验收条件(WHEN-THEN Scenarios) → 编写验收测试 → 运行(
   - **不调用**：性能热路径（mmap 索引、渲染循环、搜索匹配）除非确认无性能回退；代码已清晰时不为简化而简化。范围默认限本次任务改动的文件。
 - **拼好码策略（能复用绝不自研）**：开发新能力时优先采用成熟开源实现，禁止自造轮子。
   - **关键方案落地前必须先调研成熟方案**（库/框架/参考实现），写入 OpenSpec 的 proposal/design；只有确认没有合适开源方案时才允许自研，并说明理由。
-  - 已有成熟依赖优先复用：前端 UI 组件（radix-ui、dockview、cmdk、sonner、lucide-react、react-virtuoso、zustand）、后端（fastapi、pydantic、cachetools、pywebview、websockets）等；能在这些依赖上实现的，不新写组件/工具函数。
+  - 已有成熟依赖优先复用：前端 UI 组件（radix-ui、dockview、cmdk、sonner、lucide-react、react-virtuoso、zustand）、后端（fastapi、pydantic、cachetools、websockets）等；能在这些依赖上实现的，不新写组件/工具函数。
   - 新增依赖需为成熟、维护活跃的项目（stars/发布频率/社区使用量）；不确定时先调研（librarian / GitHub / pypi-npm 检索）再定，避免引入低质量或已废弃包。
   - 自研只允许出现在"开源方案确实不满足需求"的差异点上，且自研部分要有验收测试覆盖，降低自研代码出 BUG 的概率。
   - 例：虚拟滚动用 react-virtuoso、分屏用 dockview、命令面板用 cmdk、状态用 zustand、LRU 缓存用 cachetools——已有先例，优先沿用。

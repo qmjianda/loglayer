@@ -23,29 +23,30 @@ python tools/package_offline.py --exe
 
 ### A. 使用独立可执行文件 (推荐)
 1. 进入 `dist_offline/` 目录。
-2. 运行 `LogLayer.bat`。它会自动检测并启动 `LogLayer_Standalone` 目录下的可执行程序。
+2. 直接运行 `LogLayer_Standalone/LogLayer.exe`（无需 Python 环境）。
 
-### B. 从源码运行 (需 Python 环境)
-1. 确保已安装 Python 3.10+。
-2. 安装依赖：
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. 运行 `python backend/main.py`。
+### B. 从源码包运行 (需 Python 环境)
+1. 进入 `dist_offline/` 目录。
+2. 安装依赖：`pip install -r requirements.txt`
+3. 启动服务：`python app/main.py`（或 `python backend/main.py`，`--no-ui` 为兼容保留的 no-op 参数）。
+4. 浏览器访问 `http://127.0.0.1:12345`。
 
 ---
 
 ## 3. Linux 平台部署
 
-### A. 环境准备
-确保系统已安装 `webkit2gtk` (用于 pywebview 渲染)：
-- **Ubuntu/Debian**: `sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.0`
-- **Fedora**: `sudo dnf install python3-gobject webkit2gtk3`
-
-### B. 运行程序
+### A. 使用独立可执行文件 (推荐)
 1. 进入 `dist_offline/` 目录。
-2. 赋予脚本执行权限：`chmod +x LogLayer.sh`
-3. 运行 `./LogLayer.sh`。
+2. 赋予执行权限：`chmod +x LogLayer_Standalone/LogLayer`
+3. 运行 `./LogLayer_Standalone/LogLayer`。
+
+### B. 从源码包运行 (需 Python 环境)
+1. 进入 `dist_offline/` 目录。
+2. 安装依赖：`pip install -r requirements.txt`
+3. 启动服务：`python app/main.py`。
+
+> 注：后端已移除 pywebview 桌面壳依赖，无需安装 `webkit2gtk` 等系统库；
+> 应用以本地服务运行，通过浏览器访问。
 
 ---
 
