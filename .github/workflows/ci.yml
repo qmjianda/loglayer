@@ -28,6 +28,9 @@ jobs:
       - name: Lint (ruff)
         run: ruff check backend tests
 
+      - name: Run lightweight benchmark guard
+        run: python tests/benchmarks/benchmark_guard.py
+
       - name: Verify big-file sample generator works
         run: |
           python -c "import sys; sys.path.insert(0, 'tests/benchmarks'); from gen_big_file import generate_test_file; generate_test_file('/tmp/ci_sample.log', size_gb=0.05)"
