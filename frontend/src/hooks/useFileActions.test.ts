@@ -106,7 +106,10 @@ describe('useFileActions 打开文件夹统一回退（remote-dialog-fallback）
         isDir: boolean;
       }) => void;
       cb({ path: '/var/log/app/server.log', isDir: false });
-      expect(deps.handleOpenFileByPath).toHaveBeenCalledWith('/var/log/app/server.log', 'server.log');
+      expect(deps.handleOpenFileByPath).toHaveBeenCalledWith(
+        '/var/log/app/server.log',
+        'server.log',
+      );
       expect(deps.setWorkspaceRoot).not.toHaveBeenCalled();
     });
   });

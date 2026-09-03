@@ -481,7 +481,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({
     // 为减少无效拉取，优先拉第一个缺口
     const gapStart = first.start;
     const gapEnd = first.end;
-    if (gapStart === lastGapFetchRef.current.start && gapEnd === lastGapFetchRef.current.end) return;
+    if (gapStart === lastGapFetchRef.current.start && gapEnd === lastGapFetchRef.current.end)
+      return;
     // 若主预取已在途且覆盖该缺口，跳过对账补拉（避免与主 fetch 重复，见日志双 fetch 问题）
     if (
       pendingFetchRef.current.start !== -1 &&

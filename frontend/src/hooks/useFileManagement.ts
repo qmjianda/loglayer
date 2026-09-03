@@ -7,13 +7,7 @@
 
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { LogLayer, LayerType } from '../types';
-import {
-  openFile,
-  closeFile,
-  selectFiles,
-  selectFolder,
-  listLogsInFolder,
-} from '../bridge_client';
+import { openFile, closeFile, selectFiles, selectFolder, listLogsInFolder } from '../bridge_client';
 import { basename, removeFromSet, addToSet } from '../utils';
 import { timingLog } from '../utils/timing';
 

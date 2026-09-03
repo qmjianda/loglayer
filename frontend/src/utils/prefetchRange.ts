@@ -30,7 +30,8 @@ export function computeMissingRanges(
   windowStart: number,
   windowEnd: number,
 ): Array<{ start: number; end: number }> {
-  const hit = cached instanceof Set ? cached : new Set(cached instanceof Map ? cached.keys() : cached);
+  const hit =
+    cached instanceof Set ? cached : new Set(cached instanceof Map ? cached.keys() : cached);
   const gaps: Array<{ start: number; end: number }> = [];
   let gapStart: number | null = null;
   for (let i = windowStart; i < windowEnd; i++) {

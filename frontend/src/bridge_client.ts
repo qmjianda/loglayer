@@ -618,10 +618,7 @@ export async function putWorkspaceState(
 /**
  * 从工作区文件历史中删除单条记录（幂等）。
  */
-export async function removeWorkspaceFile(
-  folderPath: string,
-  path: string,
-): Promise<boolean> {
+export async function removeWorkspaceFile(folderPath: string, path: string): Promise<boolean> {
   if (!fileBridge) return false;
   try {
     return !!(await fileBridge.remove_workspace_file(folderPath, path));
