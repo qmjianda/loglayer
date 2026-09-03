@@ -166,6 +166,7 @@ def package_app():
 
         except Exception as e:
             print(f"PyInstaller build failed: {e}")
+            sys.exit(1)
 
     print("\n" + "=" * 40)
     print(f"Done! Offline package created at:\n{dist_dir.absolute()}")
