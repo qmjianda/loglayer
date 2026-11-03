@@ -231,12 +231,21 @@ class WebBridge implements FileBridgeAPI {
     });
     return JSON.stringify(res);
   }
-  async search_ripgrep(fileId: string, query: string, regex: boolean, caseSensitive: boolean) {
+  async search_ripgrep(
+    fileId: string,
+    query: string,
+    regex: boolean,
+    caseSensitive: boolean,
+    wholeWord: boolean = false,
+    mode: 'highlight' | 'filter' = 'highlight',
+  ) {
     return this.post('search_ripgrep', {
       file_id: fileId,
       query,
       regex,
       case_sensitive: caseSensitive,
+      whole_word: wholeWord,
+      mode,
     });
   }
   async get_search_match_index(fileId: string, rank: number) {
@@ -388,9 +397,11 @@ export async function searchRipgrep(
   query: string,
   regex: boolean = false,
   caseSensitive: boolean = false,
+  wholeWord: boolean = false,
+  mode: 'highlight' | 'filter' = 'highlight',
 ): Promise<boolean> {
   if (!fileBridge) return false;
-  return fileBridge.search_ripgrep(fileId, query, regex, caseSensitive);
+  return fileBridge.search_ripgrep(fileId, query, regex, caseSensitive, wholeWord, mode);
 }
 
 export async function getSearchMatchIndex(fileId: string, rank: number): Promise<number> {

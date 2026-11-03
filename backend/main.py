@@ -268,6 +268,8 @@ def search_ripgrep(data: dict = Body(...)):
         data["query"],
         data.get("regex", False),
         data.get("case_sensitive", False),
+        data.get("whole_word", False),
+        data.get("mode", "highlight"),
     )
 
 

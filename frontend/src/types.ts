@@ -154,6 +154,8 @@ export interface FileBridgeAPI {
     query: string,
     regex: boolean,
     caseSensitive: boolean,
+    wholeWord?: boolean,
+    mode?: 'highlight' | 'filter',
   ): Promise<boolean>;
   get_search_match_index(fileId: string, rank: number): Promise<number>;
   get_nearest_search_rank(fileId: string, currentIndex: number, direction: string): Promise<number>;

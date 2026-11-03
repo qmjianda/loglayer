@@ -7,6 +7,34 @@ from typing import Optional
 from .utils import get_creationflags
 
 
+def intersect_sorted_indices(base, matches):
+    """两个升序行号数组求交（O(n+m) 双指针，保持升序）。
+
+    `base` 为 None 时表示"无图层过滤 = 全部行可见"，直接返回 `matches`；
+    调用方只读结果，不应原地修改返回数组。
+    """
+    if base is None:
+        return matches
+
+    result = array.array("I")
+    i = 0
+    j = 0
+    base_len = len(base)
+    matches_len = len(matches)
+    while i < base_len and j < matches_len:
+        left = base[i]
+        right = matches[j]
+        if left == right:
+            result.append(left)
+            i += 1
+            j += 1
+        elif left < right:
+            i += 1
+        else:
+            j += 1
+    return result
+
+
 def compute_search_matches(
     rg_path: str,
     file_path: str,

@@ -16,6 +16,7 @@ class LogSession:
         self.size = 0
         self.line_offsets = array.array("Q")
         self.visible_indices = None
+        self.base_visible_indices = None  # 仅图层过滤后的可见集（过滤模式求交的基准）
         self.search_matches = None  # 匹配行的物理行号（有序 array），非视觉索引
         self.layers = []
         self.layer_instances = []  # 处理层实例

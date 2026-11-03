@@ -156,6 +156,8 @@ export function useSearch({
           query: debouncedQuery,
           regex: searchConfig.regex,
           caseSensitive: searchConfig.caseSensitive,
+          wholeWord: searchConfig.wholeWord ?? false,
+          mode: searchConfig.mode ?? 'highlight',
         }
       : null;
 

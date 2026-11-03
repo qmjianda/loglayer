@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSearch, LAYER_SYNC_DEBOUNCE_MS } from './useSearch';
+import { SEARCH_DEBOUNCE_MS } from './useDebouncedValue';
 
 vi.mock('../bridge_client', () => ({
   syncAll: vi.fn(),
@@ -95,5 +96,36 @@ describe('useSearch 数据层配置防抖（配置生效策略）', () => {
     });
 
     expect(mockSyncAll).toHaveBeenCalledWith('f1', layers, null, expect.any(AbortSignal));
+  });
+
+  it('syncAll 搜索载荷透传整词与过滤模式（spec: per-tab-search / find-widget-per-panel）', () => {
+    renderHook((p) => useSearch(p), { initialProps: baseProps() });
+
+    act(() => {
+      useSearchStore.getState().setQuery('p1', 'ERROR');
+      useSearchStore.getState().setConfig('p1', { wholeWord: true, mode: 'filter' });
+    });
+
+    // 搜索词防抖 → 触发 effect 更新 debouncedQuery
+    act(() => {
+      vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS);
+    });
+    // 数据层同步防抖 → 触发 syncAll
+    act(() => {
+      vi.advanceTimersByTime(LAYER_SYNC_DEBOUNCE_MS);
+    });
+
+    expect(mockSyncAll).toHaveBeenCalledWith(
+      'f1',
+      [],
+      {
+        query: 'ERROR',
+        regex: false,
+        caseSensitive: false,
+        wholeWord: true,
+        mode: 'filter',
+      },
+      expect.any(AbortSignal),
+    );
   });
 });

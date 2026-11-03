@@ -37,6 +37,7 @@ from search_mixin import SearchPipeline, BookmarkPipeline
 
 from .signal import Signal
 from .session import LogSession
+from .search_matching import intersect_sorted_indices
 from .utils import (
     timing_start,
     timing,
@@ -575,6 +576,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         if offsets:
             session.line_offsets = offsets
         session.visible_indices = None
+        session.base_visible_indices = None
         session.processing_cache.clear()
         session.rendering_cache.clear()
 
@@ -798,23 +800,28 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
 
         if cache_hit and search_hit:
             # 双命中：过滤与搜索均恢复自缓存，无 worker
+            session.base_visible_indices = cached_visible
             session.visible_indices = cached_visible
             session.search_matches = cached_matches
             session.processing_cache.clear()
             session.rendering_cache.clear()
             session._pipeline_from_cache = True
             session._search_from_cache = True
+            self._apply_search_filter(session)
             indices_len = (
-                len(cached_visible)
-                if cached_visible is not None
+                len(session.visible_indices)
+                if session.visible_indices is not None
                 else len(session.line_offsets)
             )
-            matches_len = len(cached_matches) if cached_matches is not None else 0
+            matches_len = (
+                len(session.search_matches) if session.search_matches is not None else 0
+            )
             self.pipelineFinished.emit(file_id, indices_len, matches_len)
             self.operationStatusChanged.emit(file_id, "ready", 100)
             timing("pipeline.worker_start", file_id, t0, "mode=cache-both")
         elif cache_hit:
             # 过滤缓存命中：恢复可见行集，清缓存；有搜索词则仅计算搜索匹配
+            session.base_visible_indices = cached_visible
             session.visible_indices = cached_visible
             session.processing_cache.clear()
             session.rendering_cache.clear()
@@ -843,9 +850,10 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 timing("pipeline.worker_start", file_id, t0, "mode=filter-cache-search")
             else:
                 session.search_matches = None
+                self._apply_search_filter(session)
                 indices_len = (
-                    len(cached_visible)
-                    if cached_visible is not None
+                    len(session.visible_indices)
+                    if session.visible_indices is not None
                     else len(session.line_offsets)
                 )
                 self.pipelineFinished.emit(file_id, indices_len, 0)
@@ -853,6 +861,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 timing("pipeline.worker_start", file_id, t0, "mode=filter-cache")
         elif not layer_instances and not has_search:
             session.visible_indices = None
+            session.base_visible_indices = None
             session.search_matches = None
             session.processing_cache.clear()
             session.rendering_cache.clear()
@@ -987,18 +996,30 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
     def reload_plugins(self) -> bool:
         return self._registry.reload_plugins()
 
+    def _apply_search_filter(self, session):
+        """按搜索过滤模式收敛最终可见行集（fix-search-mode-parity D1）。
+
+        `base_visible_indices` 只含图层过滤结果；过滤模式再与搜索匹配求交，
+        其他模式直接回落 base。返回最终可见行集（None = 全可见）。
+        """
+        base = session.base_visible_indices
+        config = session.search_config or {}
+        matches = session.search_matches
+        if config.get("mode") == "filter" and config.get("query") and matches is not None:
+            visible = intersect_sorted_indices(base, matches)
+            # 过滤模式：匹配集同步收敛到可见集，保证计数/导航与可见行一致
+            session.search_matches = visible
+            session.visible_indices = visible
+        else:
+            session.visible_indices = base
+        return session.visible_indices
+
     def _on_pipeline_finished(self, file_id, visible_indices, search_matches):
         if file_id not in self._sessions:
             return
         session = self._sessions[file_id]
-        session.visible_indices = visible_indices
+        session.base_visible_indices = visible_indices
         session.search_matches = search_matches
-        indices_len = (
-            len(visible_indices)
-            if visible_indices is not None
-            else len(session.line_offsets)
-        )
-        matches_len = len(search_matches) if search_matches is not None else 0
         session.processing_cache.clear()
         session.rendering_cache.clear()
         # 过滤结果写回缓存（仅真实管线计算后；缓存命中路径跳过，避免污染统计）
@@ -1006,7 +1027,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
             cache_store = self._get_cache_store()
             if cache_store is not None:
                 cache_store.put_pipeline(
-                    session.path, session.layers_hash, session.visible_indices
+                    session.path, session.layers_hash, session.base_visible_indices
                 )
         # 搜索匹配写回缓存（仅真实计算路径；搜索缓存命中路径跳过）
         if session.query_hash and not session._search_from_cache:
@@ -1015,6 +1036,15 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 cache_store.put_search(
                     session.path, session.query_hash, search_matches
                 )
+        self._apply_search_filter(session)
+        indices_len = (
+            len(session.visible_indices)
+            if session.visible_indices is not None
+            else len(session.line_offsets)
+        )
+        matches_len = (
+            len(session.search_matches) if session.search_matches is not None else 0
+        )
         self.pipelineFinished.emit(file_id, indices_len, matches_len)
         self.operationStatusChanged.emit(file_id, "ready", 100)
         timing(
@@ -1225,6 +1255,8 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         query: str,
         regex: bool = False,
         case_sensitive: bool = False,
+        whole_word: bool = False,
+        mode: str = "highlight",
     ) -> bool:
         if file_id not in self._sessions:
             return False
@@ -1236,6 +1268,8 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 "query": query,
                 "regex": regex,
                 "caseSensitive": case_sensitive,
+                "wholeWord": whole_word,
+                "mode": mode,
             }
         self._start_pipeline(file_id, session.layer_instances)
         return True
