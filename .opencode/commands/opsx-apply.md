@@ -1,152 +1,177 @@
 ---
-description: 从 OpenSpec 变更中实现任务（实验性）
+description: "Implement tasks from an OpenSpec change (Experimental)"
 ---
 
-从 OpenSpec 变更中实现任务。
+Implement tasks from an OpenSpec change.
 
-**Store 选择：** 如果用户指定了某个 Store（Store 是在本机注册的独立 OpenSpec 仓库），或者工作位于某个 Store 中，请运行 `openspec-cn store list --json` 来查找已注册的 Store ID，然后在读写规范和变更的命令上传递 `--store <id>` 参数（`new change`、`status`、`instructions`、`list`、`show`、`validate`、`archive`、`doctor`、`context`）。其他命令不需要此参数。命令输出的提示信息中已包含该参数；请在后续操作中保留它。如果没有指定 Store，命令将对最近的本地 `openspec/` 根目录生效。
+**Store selection:** If the user names a store (a store is a standalone OpenSpec repo registered on this machine) or the work lives in one, run `openspec store list --json` to discover registered store ids, then pass `--store <id>` on the commands that read or write specs and changes (`new change`, `status`, `instructions`, `list`, `show`, `validate`, `archive`, `doctor`, `context`, `view`). Once selected, treat `--store <id>` as sticky for the rest of the workflow. Every unscoped example of those commands below is shorthand: before running it, append the flag. For example, run `openspec status --change "<name>" --json --store "<id>"`, not the unscoped form shown below. Other commands do not take the flag. Hints printed by commands already carry the flag; keep it on follow-ups. Without a store, commands act on the nearest local `openspec/` root.
 
-**输入**：可选地在 `/opsx-apply` 后指定变更名（例如 `/opsx-apply add-auth`）。若省略，检查能否从对话上下文推断。若模糊或歧义，你必须提示用户从可用变更中选择。
+**Input**: Optionally specify a change name (e.g., `/opsx-apply add-auth`). If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 
-**步骤**
+**Steps**
 
-1. **选择变更**
+1. **Select the change**
 
-   若提供了名称，使用它。否则：
-   - 若用户提到了某变更，从对话上下文推断
-   - 若仅存在一个活跃变更，自动选择
-   - 若存在歧义，运行 `openspec-cn list --json` 获取可用变更，并使用 **AskUserQuestion tool** 让用户选择
+   If a name is provided, use it. Otherwise:
+   - Infer from conversation context if the user mentioned a change
+   - Auto-select if only one active change exists
+   - If ambiguous, run `openspec list --json` to get available changes and ask the user to select one
 
-   始终宣告："使用变更：<name>"，以及如何覆盖（例如 `/opsx-apply <other>`）。
+   Always announce: "Using change: <name>" and how to override (e.g., `/opsx-apply <other>`).
 
-2. **检查状态以理解 schema**
+2. **Check status to understand the schema**
    ```bash
-   openspec-cn status --change "<name>" --json
+   openspec status --change "<name>" --json
    ```
-   解析 JSON 以理解：
-   - `schemaName`：使用的工作流（例如 "spec-driven"）
-   - `planningHome`、`changeRoot` 和 `actionContext`：规划范围与编辑约束
-   - 哪个产出物包含任务（spec-driven 通常是 "tasks"，其他 schema 检查状态输出）
+   Parse the JSON to understand:
+   - `schemaName`: The workflow being used (e.g., "spec-driven")
+   - `planningHome`, `changeRoot`, and `actionContext`: planning scope and edit constraints
+   - Which artifact contains the tasks (typically "tasks" for spec-driven, check status for others)
 
-3. **获取实现指令**
+3. **Get apply instructions**
 
    ```bash
-   openspec-cn instructions apply --change "<name>" --json
+   openspec instructions apply --change "<name>" --json
    ```
 
-   返回：
-   - `contextFiles`：产出物 ID -> 具体文件路径数组（因 schema 而异）
-   - 进度（总数、已完成、剩余）
-   - 带状态的任务列表
-   - 基于当前状态的动态指令
+   This returns:
+   - `contextFiles`: artifact ID -> array of concrete file paths (varies by schema - could be proposal/specs/design/tasks or spec/tests/implementation/docs)
+   - Progress (total, complete, remaining)
+   - Task list with status
+   - Dynamic instruction based on current state
+   - Optional `context`: current required project instruction input from the selected root
+   - Optional `operationGuidance`: current advisory guidance for apply
 
-   **处理状态：**
-   - 若 `state: "blocked"`（缺失产出物）：展示消息，建议使用 `/opsx-continue`
-   - 若 `state: "all_done"`：祝贺，建议归档
-   - 否则：继续实现
+   **Handle states:**
+   - If `state: "blocked"` (missing artifacts): show message, suggest using `/opsx-continue` (if it is not installed, run `openspec status --change "<name>" --json` to see the next artifact and `openspec instructions <artifact-id> --change "<name>" --json` for how to create it)
+   - If `state: "all_done"`: congratulate, suggest archive
+   - Otherwise: proceed to implementation
 
-4. **读取上下文文件**
+   Treat `context` as a required prompt-level input. Read and consider it, and
+   apply relevant project facts, conventions, and constraints while implementing.
+   Treat `operationGuidance` as optional additive advice. Read and consider every
+   entry, and follow entries that are applicable and compatible with the built-in
+   workflow.
 
-   读取实现指令输出中 `contextFiles` 下列出的每个文件路径。
-   文件因使用的 schema 而异：
-   - **spec-driven**：proposal、specs、design、tasks
-   - 其他 schema：遵循 CLI 输出的 contextFiles
+   Keep both fields separate from CLI-returned state, missing artifacts, tasks,
+   progress, `contextFiles`, and the built-in `instruction`. They are not
+   evidence of task completion, do not replace the built-in instruction, and do
+   not permit bypassing a blocked state. If context conflicts with the built-in
+   instruction, an explicit user choice, or a CLI-controlled value, report the
+   conflict and preserve the controlling value. If guidance is inapplicable or
+   conflicts with those controlling inputs, do not follow it and explain why.
+   These are prompt-level behavior contracts, not enforceable checks.
 
-5. **展示当前进度**
+4. **Read context files**
 
-   展示：
-   - 使用的 schema
-   - 进度："N/M 个任务已完成"
-   - 剩余任务概览
-   - CLI 的动态指令
+   Read every file path listed under `contextFiles` from the apply instructions output.
+   The files depend on the schema being used:
+   - **spec-driven**: proposal, specs, design, tasks
+   - Other schemas: follow the contextFiles from CLI output
 
-6. **实现任务（循环直至完成或受阻）**
+   Do not copy `context` or `operationGuidance` verbatim into implementation
+   files or planning artifacts unless the user separately asks for that content.
 
-   对每个待处理任务：
-   - 展示正在处理哪个任务
-   - 进行所需的代码更改
-   - 保持更改最小且聚焦
-   - 在任务文件中标记任务完成：`- [ ]` → `- [x]`
-   - 继续下一个任务
+5. **Show current progress**
 
-   **暂停条件：**
-   - 任务不清晰 → 请求澄清
-   - 实现揭示设计问题 → 建议更新产出物
-   - 遇到错误或阻塞 → 报告并等待指导
-   - 用户中断
+   Display:
+   - Schema being used
+   - Progress: "N/M tasks complete"
+   - Remaining tasks overview
+   - Dynamic instruction from CLI
 
-7. **完成或暂停时，展示状态**
+6. **Implement tasks (loop until done or blocked)**
 
-   展示：
-   - 本次会话完成的任务
-   - 总体进度："N/M 个任务已完成"
-   - 若全部完成：建议归档
-   - 若暂停：解释原因并等待指导
+   For each pending task:
+   - Show which task is being worked on
+   - Make the code changes required
+   - Keep changes minimal and focused
+   - Mark task complete in the tasks file: `- [ ]` → `- [x]`
+   - Continue to next task
 
-**实现期间输出**
+   **Pause if:**
+   - Task is unclear → ask for clarification
+   - Implementation reveals a design issue → suggest updating artifacts
+   - Error or blocker encountered → report and wait for guidance
+   - User interrupts
+
+7. **On completion or pause, show status**
+
+   Display:
+   - Tasks completed this session
+   - Overall progress: "N/M tasks complete"
+   - If all done: suggest archive
+   - If paused: explain why and wait for guidance
+
+**Output During Implementation**
 
 ```
-## 实现中：<change-name>（schema: <schema-name>）
+## Implementing: <change-name> (schema: <schema-name>)
 
-正在处理任务 3/7：<task description>
-[...实现进行中...]
-✓ 任务完成
+Working on task 3/7: <task description>
+[...implementation happening...]
+✓ Task complete
 
-正在处理任务 4/7：<task description>
-[...实现进行中...]
-✓ 任务完成
+Working on task 4/7: <task description>
+[...implementation happening...]
+✓ Task complete
 ```
 
-**完成时输出**
+**Output On Completion**
 
 ```
-## 实现完成
+## Implementation Complete
 
-**变更：** <change-name>
-**Schema：** <schema-name>
-**进度：** 7/7 个任务已完成 ✓
+**Change:** <change-name>
+**Schema:** <schema-name>
+**Progress:** 7/7 tasks complete ✓
 
-### 本次会话已完成
-- [x] 任务 1
-- [x] 任务 2
+### Completed This Session
+- [x] Task 1
+- [x] Task 2
 ...
 
-所有任务完成！你可以使用 `/opsx-archive` 归档此变更。
+All tasks complete! You can archive this change with `/opsx-archive`.
 ```
 
-**暂停时输出（遇到问题）**
+**Output On Pause (Issue Encountered)**
 
 ```
-## 实现暂停
+## Implementation Paused
 
-**变更：** <change-name>
-**Schema：** <schema-name>
-**进度：** 4/7 个任务已完成
+**Change:** <change-name>
+**Schema:** <schema-name>
+**Progress:** 4/7 tasks complete
 
-### 遇到的问题
+### Issue Encountered
 <description of the issue>
 
-**选项：**
+**Options:**
 1. <option 1>
 2. <option 2>
-3. 其他方法
+3. Other approach
 
-你想怎么做？
+What would you like to do?
 ```
 
-**护栏**
-- 持续处理任务直至完成或受阻
-- 开始前始终读取上下文文件（来自实现指令输出）
-- 若任务有歧义，暂停并询问后再实现
-- 若实现揭示问题，暂停并建议产出物更新
-- 保持代码更改最小且限定于每个任务
-- 完成每个任务后立即更新任务复选框
-- 遇到错误、阻塞或不清晰需求时暂停 - 不要猜测
-- 使用 CLI 输出的 contextFiles，不要假设具体文件名
+**Guardrails**
+- Keep going through tasks until done or blocked
+- Always read context files before starting (from the apply instructions output)
+- If task is ambiguous, pause and ask before implementing
+- If implementation reveals issues, pause and suggest artifact updates
+- Keep code changes minimal and scoped to each task
+- Update task checkbox immediately after completing each task
+- Pause on errors, blockers, or unclear requirements - don't guess
+- Use contextFiles from CLI output, don't assume specific file names
+- Do not use context or operation guidance as proof that a task is complete
+- Apply relevant project context; report conflicts with controlling workflow inputs
+- Consider every guidance entry; explain any inapplicable or conflicting advice
+- Do not copy runtime context or operation guidance into implementation files or planning artifacts
+- Preserve CLI-controlled blocked/ready/all-done behavior and completion criteria
 
-**流畅工作流集成**
+**Fluid Workflow Integration**
 
-此 skill 支持 "对变更的操作" 模型：
+This skill supports the "actions on a change" model:
 
-- **可随时调用**：在所有产出物完成前（若存在任务）、部分实现后、与其他操作交错
-- **允许产出物更新**：若实现揭示设计问题，建议更新产出物 - 非阶段锁定，流畅工作
+- **Can be invoked anytime**: Before all artifacts are done (if tasks exist), after partial implementation, interleaved with other actions
+- **Allows artifact updates**: If implementation reveals design issues, suggest updating artifacts - not phase-locked, work fluidly
