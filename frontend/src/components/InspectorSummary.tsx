@@ -8,7 +8,8 @@ interface InspectorSummaryProps {
   loading?: boolean;
 }
 
-const LEVELS: { key: string; label: string; color: string }[] = [
+const LEVELS: { key: keyof LogLevelStats; label: string; color: string }[] = [
+  { key: 'FATAL', label: 'FATAL', color: 'bg-red-700' },
   { key: 'ERROR', label: 'ERROR', color: 'bg-red-500' },
   { key: 'WARN', label: 'WARN', color: 'bg-yellow-500' },
   { key: 'INFO', label: 'INFO', color: 'bg-green-500' },
@@ -136,7 +137,10 @@ export const InspectorSummary: React.FC<InspectorSummaryProps> = ({
         </div>
       ) : (
         <div data-testid="summary-stats" className="space-y-1">
-          <div className="flex h-1.5 rounded-full overflow-hidden bg-black/20">
+          <div
+            className="flex h-1.5 rounded-full overflow-hidden bg-black/20"
+            title="级别分布（按行统计）"
+          >
             {LEVELS.map((l) => {
               const count = logLevelStats[l.key] || 0;
               if (count === 0) return null;
@@ -145,7 +149,7 @@ export const InspectorSummary: React.FC<InspectorSummaryProps> = ({
                   key={l.key}
                   className={`${l.color} h-full`}
                   style={{ width: `${(count / Math.max(total, 1)) * 100}%` }}
-                  title={`${l.label}: ${count.toLocaleString()}`}
+                  title={`${l.label}: ${count.toLocaleString()} 行`}
                 />
               );
             })}

@@ -44,7 +44,14 @@ const activeFile = {
   isBridged: true,
 };
 
-const zeroStats: LogLevelStats = { ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 };
+const zeroStats: LogLevelStats = {
+  FATAL: 0,
+  ERROR: 0,
+  WARN: 0,
+  INFO: 0,
+  DEBUG: 0,
+  TRACE: 0,
+};
 
 const makeLayer = (overrides: Partial<LogLayer> = {}): LogLayer => ({
   id: 'l1',

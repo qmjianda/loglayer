@@ -22,7 +22,14 @@ const activeFile: FileData = {
   isBridged: true,
 };
 
-const zeroStats: LogLevelStats = { ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 };
+const zeroStats: LogLevelStats = {
+  FATAL: 0,
+  ERROR: 0,
+  WARN: 0,
+  INFO: 0,
+  DEBUG: 0,
+  TRACE: 0,
+};
 
 describe('InspectorSummary 统计骨架（统计加载骨架）', () => {
   it('loading 时渲染统计骨架条而非空白', () => {
@@ -32,7 +39,14 @@ describe('InspectorSummary 统计骨架（统计加载骨架）', () => {
   });
 
   it('非 loading 渲染真实统计（骨架消失）', () => {
-    const stats: LogLevelStats = { ERROR: 5, WARN: 0, INFO: 10, DEBUG: 0, TRACE: 0 };
+    const stats: LogLevelStats = {
+      FATAL: 0,
+      ERROR: 5,
+      WARN: 0,
+      INFO: 10,
+      DEBUG: 0,
+      TRACE: 0,
+    };
     render(<InspectorSummary activeFile={activeFile} logLevelStats={stats} loading={false} />);
     expect(screen.queryByTestId('summary-skeleton')).toBeNull();
     expect(screen.getByTestId('summary-stats')).toBeTruthy();

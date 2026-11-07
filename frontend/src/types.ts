@@ -68,6 +68,7 @@ export interface LayerStats {
 
 // 日志级别统计（右侧操作台摘要 / 统计共用）
 export interface LogLevelStats {
+  FATAL: number;
   ERROR: number;
   WARN: number;
   INFO: number;

@@ -46,7 +46,25 @@ from .utils import (
     get_creationflags,
     get_directory_contents,
 )
-from .workers import PipelineWorker, IndexingWorker, StatsWorker, PROCESS_CLEANUP_TIMEOUT
+from .workers import (
+    PipelineWorker,
+    IndexingWorker,
+    StatsWorker,
+    PROCESS_CLEANUP_TIMEOUT,
+)
+
+
+# 文件级级别统计的级别集合与优先级（log-level-stats D1/D2）
+_LOG_LEVELS = ["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "FATAL"]
+_LOG_LEVEL_PRIORITY = {
+    "FATAL": 0,
+    "ERROR": 1,
+    "WARN": 2,
+    "INFO": 3,
+    "DEBUG": 4,
+    "TRACE": 5,
+}
+_STATS_CACHE_LIMIT_DEFAULT = 64
 
 
 class FileBridge(SearchPipeline, BookmarkPipeline):
@@ -72,6 +90,14 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         self._cache = None
         self._cache_store = None  # 统一缓存层（内存 LRU + SQLite），随 _cache 惰性构建
         self._cache_size_mb = 2048
+        # 文件级级别统计缓存（log-level-stats）：key=(realpath, size, mtime_ns)
+        self._stats_cache = {}
+        self._stats_cache_limit = _STATS_CACHE_LIMIT_DEFAULT
+        self._stats_inflight = {}
+        self._stats_cache_lock = threading.Lock()
+        self._stats_cache_hits = 0
+        self._stats_cache_misses = 0
+        self._stats_generation = 0
         # 工作区统一持久化存储（`.loglayer/workspace.db`，惰性初始化随工作区切换）
         self._workspace_store = None
         self._ensure_cache()
@@ -329,6 +355,7 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
     def clear_cache(self) -> bool:
         """清空缓存（当前编辑文件除外）。"""
         try:
+            self._clear_stats_cache()
             self._ensure_cache()
             if self._cache is None:
                 return True
@@ -917,6 +944,12 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
         """诊断接口（可观测，3.4）：缓存命中统计 + 各文件最近管线阶段耗时。"""
         cache_store = self._get_cache_store()
         stats = cache_store.get_stats() if cache_store is not None else {}
+        with self._stats_cache_lock:
+            stats_cache = {
+                "hit": self._stats_cache_hits,
+                "miss": self._stats_cache_misses,
+                "entries": len(self._stats_cache),
+            }
         sessions_info = {}
         for fid, session in self._sessions.items():
             worker = session.workers.get("pipeline")
@@ -927,31 +960,37 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 "matches": len(session.search_matches) if session.search_matches is not None else 0,
                 "visible": len(session.visible_indices) if session.visible_indices is not None else None,
             }
-        return json.dumps({"cache_stats": stats, "sessions": sessions_info})
+        return json.dumps(
+            {
+                "cache_stats": stats,
+                "stats_cache": stats_cache,
+                "sessions": sessions_info,
+            }
+        )
 
-    def _calculate_log_level_stats(self, file_path: str) -> dict:
-        """Calculate log level statistics for a file using ripgrep"""
-        log_levels = ["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "FATAL"]
-        results = {level: 0 for level in log_levels}
-
-        # rg 不可用（未找到二进制 / 路径失效）时返回全 0 并告警，
-        # 不做慢速替代（大文件逐行统计违反性能红线）。
-        if not self._rg_path or not os.path.isfile(self._rg_path):
-            print(
-                "[LogLevelStats] rg unavailable, returning zero stats "
-                f"for {file_path}"
-            )
-            return results
-
+    @staticmethod
+    def _stats_cache_key(file_path: str):
+        """统计缓存键：真实路径 + 大小 + mtime（log-level-stats D3）。"""
         try:
-            # 单次 ripgrep 扫描同时提取全部级别关键字（-o 每处匹配输出一行），
-            # 避免 6 次串行子进程启动 + 重复读文件。
-            pattern = "\\b(" + "|".join(log_levels) + ")\\b"
+            real_path = os.path.realpath(file_path)
+            file_stat = os.stat(real_path)
+            return (real_path, file_stat.st_size, file_stat.st_mtime_ns)
+        except OSError:
+            return None
+
+    def _scan_log_level_stats(self, file_path: str) -> dict:
+        """单次 rg 扫描，按行归并级别（一行只计最高优先级）。"""
+        results = {level: 0 for level in _LOG_LEVELS}
+        try:
+            pattern = "\\b(" + "|".join(_LOG_LEVELS) + ")\\b"
             cmd = [
                 self._rg_path,
                 "-i",  # case insensitive
-                "-o",
-                "--no-line-number",
+                "-o",  # 每处匹配输出一行，避免整行输出放大管道数据量
+                "--line-number",
+                "--no-filename",
+                "--color",
+                "never",
                 "-e",
                 pattern,
                 file_path,
@@ -960,27 +999,147 @@ class FileBridge(SearchPipeline, BookmarkPipeline):
                 cmd,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 creationflags=get_creationflags(),
                 timeout=30,
             )
             # returncode 0 = 有匹配；1 = 无匹配；其他为错误
             if result.returncode in (0, 1):
-                for line in result.stdout.splitlines():
-                    level = line.strip().upper()
-                    if level in results:
-                        results[level] += 1
+                current_line = -1
+                best_rank = -1
+                best_level = None
+                for raw_line in result.stdout.splitlines():
+                    line_no_str, sep, token = raw_line.partition(":")
+                    if not sep:
+                        continue
+                    try:
+                        line_no = int(line_no_str)
+                    except ValueError:
+                        continue
+                    level = token.strip().upper()
+                    rank = _LOG_LEVEL_PRIORITY.get(level)
+                    if rank is None:
+                        continue
+                    if line_no != current_line:
+                        if best_level is not None:
+                            results[best_level] += 1
+                        current_line = line_no
+                        best_rank = rank
+                        best_level = level
+                    elif rank < best_rank:
+                        best_rank = rank
+                        best_level = level
+                if best_level is not None:
+                    results[best_level] += 1
             else:
                 print(
                     f"[LogLevelStats] rg error (rc={result.returncode}): {result.stderr[:200]}"
                 )
-            for level in log_levels:
+            for level in _LOG_LEVELS:
                 timing(f"stats.level.{level}", "", None, f"count={results[level]}")
         except Exception as e:
             print(f"[LogLevelStats] Error calculating stats: {e}")
-            for level in log_levels:
-                results[level] = 0
+            return {level: 0 for level in _LOG_LEVELS}
 
         return results
+
+    def _calculate_log_level_stats(self, file_path: str) -> dict:
+        """计算文件级级别统计（按行计，带缓存与并发去重）。
+
+        - 缓存键含 size/mtime，文件变化自然失效；
+        - 同一键的并发请求只执行一次扫描；
+        - 不同键并行执行，互不阻塞。
+        """
+        zero_stats = {level: 0 for level in _LOG_LEVELS}
+
+        # rg 不可用（未找到二进制 / 路径失效）时返回全 0 并告警，
+        # 不做慢速替代（大文件逐行统计违反性能红线）；错误结果不缓存。
+        if not self._rg_path or not os.path.isfile(self._rg_path):
+            print(
+                "[LogLevelStats] rg unavailable, returning zero stats "
+                f"for {file_path}"
+            )
+            return zero_stats
+
+        key = self._stats_cache_key(file_path)
+        if key is None:
+            return self._scan_log_level_stats(file_path)
+
+        event = None
+        with self._stats_cache_lock:
+            cached = self._stats_cache.pop(key, None)
+            if cached is not None:
+                self._stats_cache[key] = cached  # 命中后移到末尾（LRU）
+                self._stats_cache_hits += 1
+                return dict(cached)
+
+            inflight = self._stats_inflight.get(key)
+            if inflight is None:
+                event = threading.Event()
+                self._stats_inflight[key] = event
+                self._stats_cache_misses += 1
+                generation = self._stats_generation
+                is_leader = True
+            else:
+                is_leader = False
+
+        if not is_leader:
+            # 等待执行者完成；若期间被 invalidate/clear，事件会被提前 set
+            inflight.wait(timeout=35)
+            with self._stats_cache_lock:
+                cached = self._stats_cache.get(key)
+                if cached is not None:
+                    self._stats_cache_hits += 1
+                    return dict(cached)
+            return zero_stats
+
+        try:
+            stats = self._scan_log_level_stats(file_path)
+            with self._stats_cache_lock:
+                # 扫描期间发生失效（文件变化/清空）则不写回，避免保存过期结果
+                if self._stats_generation == generation:
+                    self._stats_cache[key] = stats
+                    self._trim_stats_cache_locked()
+            return dict(stats)
+        finally:
+            with self._stats_cache_lock:
+                if self._stats_inflight.get(key) is event:
+                    self._stats_inflight.pop(key, None)
+            if event is not None:
+                event.set()
+
+    def _trim_stats_cache_locked(self) -> None:
+        """按最近使用淘汰，缓存容量有界（调用方需持有锁）。"""
+        while len(self._stats_cache) > self._stats_cache_limit:
+            oldest_key = next(iter(self._stats_cache))
+            if oldest_key == next(reversed(self._stats_cache)):
+                # 至少保留当前条目
+                break
+            self._stats_cache.pop(oldest_key, None)
+
+    def invalidate_stats(self, file_path: str) -> None:
+        """失效指定文件的统计缓存（供 live-tail 追加/截断后调用）。"""
+        if not file_path:
+            return
+        real_path = os.path.realpath(file_path)
+        with self._stats_cache_lock:
+            self._stats_generation += 1
+            for key in [k for k in self._stats_cache if k[0] == real_path]:
+                self._stats_cache.pop(key, None)
+            for key, event in list(self._stats_inflight.items()):
+                if key[0] == real_path:
+                    self._stats_inflight.pop(key, None)
+                    event.set()
+
+    def _clear_stats_cache(self) -> None:
+        """清空统计缓存与在途记录（供 /api/cache/clear 调用）。"""
+        with self._stats_cache_lock:
+            self._stats_generation += 1
+            self._stats_cache.clear()
+            for event in self._stats_inflight.values():
+                event.set()
+            self._stats_inflight.clear()
 
     def get_log_level_stats(self, file_id: str) -> str:
         """Get log level statistics for a file"""

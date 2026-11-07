@@ -19,7 +19,7 @@ import { IndexingOverlay } from './components/LoadingOverlays';
 import { InspectorDock } from './components/layout/InspectorDock';
 import { SidebarView } from './components/layout/SidebarView';
 import { AppOverlays } from './components/layout/AppOverlays';
-import { LayerType, LogLine, LogLevelStats } from './types';
+import { LayerType, LogLine } from './types';
 import { ProcessedCache } from './hooks/useFileManagement';
 import {
   openFile,
@@ -27,7 +27,6 @@ import {
   toggleBookmark,
   getNearestBookmarkIndex,
   getLinesByIndices,
-  getLogLevelStats,
   setCacheConfig,
   removeWorkspaceFile,
 } from './bridge_client';
@@ -55,6 +54,7 @@ import { useCommands } from './hooks/useCommands';
 import { useSettings, SettingsProvider } from './hooks/useSettings';
 import { useResponsive } from './hooks/useResponsive';
 import { useFileWatch } from './hooks/useFileWatch';
+import { useLogLevelStats } from './hooks/useLogLevelStats';
 import { FILE_LOADING_MESSAGE } from './constants/statusMessages';
 
 const AppContent: React.FC = () => {
@@ -193,47 +193,19 @@ const AppContent: React.FC = () => {
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [isShortcutsVisible, setIsShortcutsVisible] = useState(false);
   const [isDebugVisible, setIsDebugVisible] = useState(false);
-  const [logLevelStats, setLogLevelStats] = useState<LogLevelStats>({
-    ERROR: 0,
-    WARN: 0,
-    INFO: 0,
-    DEBUG: 0,
-    TRACE: 0,
-  });
-  // [perf-deepening] 统计拉取中标记（驱动 InspectorSummary 骨架屏，消除切文件后的数字跳变）
-  const [statsLoading, setStatsLoading] = useState(false);
+  const {
+    stats: logLevelStats,
+    loading: statsLoading,
+    refresh: refreshLogLevelStats,
+  } = useLogLevelStats(activeFileId);
 
-  // Fetch log level stats when active file changes
-  const fetchLogLevelStats = useCallback(async (fileId: string) => {
-    setStatsLoading(true);
-    try {
-      const stats = await getLogLevelStats(fileId);
-      setLogLevelStats({
-        ERROR: stats.ERROR || 0,
-        WARN: stats.WARN || 0,
-        INFO: stats.INFO || 0,
-        DEBUG: stats.DEBUG || 0,
-        TRACE: stats.TRACE || 0,
-        FATAL: stats.FATAL || 0,
-      });
-    } catch (e) {
-      console.error('[App] Failed to fetch log level stats:', e);
-    } finally {
-      setStatsLoading(false);
-    }
-  }, []);
-
-  // 切文件时清空旧 stats；已加载文件切换时重新拉取（分屏切 tab，issue #3）
+  // 目标文件已加载完成（后端有 session）时补拉统计；索引中则等 onFileLoaded 触发。
+  // 切文件时 hook 内部清空旧值并使在途响应失效（log-level-stats 前端竞态约束）。
   useEffect(() => {
-    if (!activeFileId) {
-      setLogLevelStats({ ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, TRACE: 0 });
-      return;
+    if (activeFileId && getBridgedCount(activeFileId) !== undefined) {
+      refreshLogLevelStats(activeFileId);
     }
-    // 目标文件已加载完成（后端有 session）时补拉统计；索引中则等 onFileLoaded 触发
-    if (getBridgedCount(activeFileId) !== undefined) {
-      fetchLogLevelStats(activeFileId);
-    }
-  }, [activeFileId, fetchLogLevelStats]);
+  }, [activeFileId, refreshLogLevelStats]);
 
   // Apply search settings from useSettings
   useEffect(() => {
@@ -443,7 +415,7 @@ const AppContent: React.FC = () => {
       setOperationStatus(null);
       markFileLoaded(fileId);
       // 文件加载完成后会话已建立：补拉级别统计（首次 fetch 可能早于 session 就绪）
-      fetchLogLevelStats(fileId);
+      refreshLogLevelStats(fileId);
       setIndexingFileIds((prev) => removeFromSet(prev, fileId));
     },
 
