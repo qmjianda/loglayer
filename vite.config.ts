@@ -25,6 +25,18 @@ export default defineConfig(() => ({
   build: {
     outDir: '../dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/[\\/]react(?:-dom)?[\\/]/.test(id) || /[\\/]scheduler[\\/]/.test(id)) {
+            return 'react-vendor';
+          }
+          if (/[\\/]dockview(?:-react)?[\\/]/.test(id)) return 'dockview';
+          return 'vendor';
+        },
+      },
+    },
   },
   resolve: {
     alias: {
@@ -35,5 +47,8 @@ export default defineConfig(() => ({
     environment: 'jsdom',
     globals: true,
     include: ['src/**/*.test.{ts,tsx}'],
+    // 限制并发，避免高核机器一次启动过多 worker 导致 CI 随机超时。
+    pool: 'threads',
+    maxWorkers: 4,
   },
 }));

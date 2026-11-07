@@ -45,7 +45,6 @@ def test_get_directory_contents():
     assert "size" in items[0], "项目应该有 size 字段"
 
     print("\n✅ 测试 1 通过!")
-    return True
 
 
 def test_windows_drives():
@@ -58,7 +57,7 @@ def test_windows_drives():
 
     if platform.system() != "Windows":
         print("⏭ 跳过 (非 Windows 系统)")
-        return True
+        return
 
     # 测试 C:\ 和 D:\
     for drive in ["C:\\", "D:\\"]:
@@ -93,7 +92,7 @@ def test_api_endpoint():
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
         print("⚠️ 服务器未运行，跳过 API 测试")
         print("  请运行: python backend/main.py")
-        return True
+        return
 
     # 测试 GET /api/list_directory
     print("\n测试 GET /api/list_directory:")
@@ -130,7 +129,6 @@ def test_api_endpoint():
     print(f"  (--no-ui 模式下应为 false)")
 
     print("\n✅ 测试 3 通过!")
-    return True
 
 
 def main():

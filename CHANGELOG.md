@@ -1,9 +1,39 @@
 # Changelog
 
-本仓库采用 Conventional Commits 风格提交前缀（Feat:/Fix:/Perf:/Refactor:/Docs: 等），
-由 git-cliff 自动生成。版本号与 package.json / backend/__init__.py 手工同步。
+本仓库采用 Conventional Commits 风格提交前缀（Feat:/Fix:/Perf:/Refactor:/Docs: 等）。
+首发版本说明按当前可发布能力整理；后续版本可使用 git-cliff 生成，版本号与
+package.json / backend/__init__.py 手工同步。
 
-## [unreleased]
+## [0.1.0] - 2026-11-07
+
+首个公开版本。当前产品形态为本地 FastAPI 服务 + 浏览器前端，不包含内嵌桌面壳。
+
+### Features
+
+- 大文件行偏移索引与虚拟化日志查看。
+- 基于 ripgrep 的当前文件搜索：文本、正则、大小写和全字匹配。
+- 高亮/过滤两种搜索模式，以及搜索历史和匹配导航。
+- 过滤、等级、范围、时间、相对时间、替换、高亮、行背景和书签图层。
+- 书签备注、F2/Shift+F2 导航、JSON 导出和工作区持久化。
+- 本地文件监视提示、诊断浮层、FastAPI `/docs` 和 WebSocket `/ws`。
+- Docker、源码离线包和 PyInstaller 独立程序打包路径。
+
+### Release checks
+
+- Backend: 219 pytest tests passed.
+- Frontend: 35 test files / 201 tests passed.
+- TypeScript build, ESLint, Prettier, Ruff and e2e environment checks passed.
+- Production frontend uses React/vendor code splitting for smaller initial application chunks.
+
+### Known limitations
+
+- 当前版本按 UTF-8 解码日志；非 UTF-8 文件可能出现替换字符。
+- 文件监视检测变化但不会自动重新索引追加内容。
+- PyInstaller 独立程序需要分别在 Windows 和 Linux 上构建。
+
+## Pre-release development history
+
+以下内容是首个公开版本之前的开发记录，不代表每项能力都仍作为当前用户功能提供。
 
 ### 🚀 Features
 

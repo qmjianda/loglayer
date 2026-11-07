@@ -15,46 +15,46 @@ const shortcutCategories: ShortcutCategory[] = [
     name: '导航',
     shortcuts: [
       { keys: 'Ctrl + G', description: '跳转到行' },
-      { keys: 'Ctrl + Home', description: '跳转到文件开头' },
-      { keys: 'Ctrl + End', description: '跳转到文件结尾' },
-      { keys: 'Page Up', description: '向上滚动一页' },
-      { keys: 'Page Down', description: '向下滚动一页' },
+      { keys: 'F2', description: '下一个书签' },
+      { keys: 'Shift + F2', description: '上一个书签' },
+      { keys: 'Ctrl + Enter', description: '跳转到当前高亮行' },
     ],
   },
   {
     name: '搜索',
     shortcuts: [
-      { keys: 'Ctrl + F', description: '打开搜索' },
+      { keys: 'Ctrl + F', description: '打开或聚焦查找框' },
       { keys: 'F3', description: '下一个匹配' },
       { keys: 'Shift + F3', description: '上一个匹配' },
       { keys: 'Ctrl + H', description: '搜索历史' },
+      { keys: 'Alt + C / W / R', description: '大小写 / 全字 / 正则' },
     ],
   },
   {
-    name: '编辑',
+    name: '选择与编辑',
     shortcuts: [
       { keys: 'Ctrl + C', description: '复制选中内容' },
-      { keys: 'Ctrl + A', description: '全选' },
-      { keys: 'Ctrl + Shift + L', description: '选中当前行' },
-      { keys: 'Alt + ↑', description: '向上移动选区' },
-      { keys: 'Alt + ↓', description: '向下移动选区' },
-      { keys: 'Ctrl + Enter', description: '跳转到选中行' },
+      { keys: 'Ctrl + A', description: '选择当前可视文本' },
+      { keys: 'Ctrl + Z', description: '撤销图层操作' },
+      { keys: 'Ctrl + Shift + Z / Y', description: '重做图层操作' },
     ],
   },
   {
     name: '命令',
     shortcuts: [
       { keys: 'Ctrl + Shift + P', description: '命令面板' },
-      { keys: 'Ctrl + O', description: '打开文件' },
+      { keys: 'Ctrl + O', description: '打开文件/文件夹选择器' },
+      { keys: 'Ctrl + Shift + O', description: '打开文件夹选择器' },
       { keys: 'Ctrl + B', description: '切换侧边栏' },
       { keys: 'Ctrl + ,', description: '打开设置' },
     ],
   },
   {
-    name: '图层',
+    name: '应用功能',
     shortcuts: [
-      { keys: 'Ctrl + Shift + L', description: '新建图层' },
-      { keys: 'Ctrl + D', description: '收藏当前行' },
+      { keys: 'Ctrl + Shift + T', description: '开始或停止文件监视' },
+      { keys: 'Ctrl + Shift + H', description: '高亮选中的文本' },
+      { keys: 'Ctrl + Shift + D', description: '诊断浮层' },
     ],
   },
 ];
@@ -84,7 +84,10 @@ export const KeyboardShortcutsPanel: React.FC<KeyboardShortcutsPanelProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-theme-subtle">
-          <h2 className="text-sm font-semibold text-white">键盘快捷键</h2>
+          <div>
+            <h2 className="text-sm font-semibold text-white">键盘快捷键</h2>
+            <p className="text-[10px] text-gray-500 mt-0.5">macOS 请将 Ctrl 替换为 Command</p>
+          </div>
           <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path

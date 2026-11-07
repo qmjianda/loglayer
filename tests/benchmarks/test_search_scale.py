@@ -51,7 +51,7 @@ def test_search_scale():
         print(
             f"FAIL: Expected {expected_matches} matches, got {results.get('matchCount')}"
         )
-        return False
+        assert False, f"Expected {expected_matches} matches, got {results.get('matchCount')}"
 
     print("Verifying rank-to-index lookup...")
 
@@ -83,7 +83,7 @@ def test_search_scale():
     except Exception as e:
         print(f"Warning: Could not delete test file: {e}")
 
-    return success
+    assert success, "rank/range lookup returned unexpected indices"
 
 
 if __name__ == "__main__":

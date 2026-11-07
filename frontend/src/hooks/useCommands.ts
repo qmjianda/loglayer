@@ -43,7 +43,7 @@ export const useCommands = ({
   const commands: Command[] = [
     {
       id: 'file.open',
-      label: '打开文件',
+      label: '浏览并打开',
       shortcut: 'Ctrl+O',
       category: '文件',
       action: handleOpenFolder,

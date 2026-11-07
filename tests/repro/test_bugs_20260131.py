@@ -31,7 +31,7 @@ def test_empty_file():
 
     if test_file.exists():
         test_file.unlink()
-    return success
+    assert success, f"Empty file line count mismatch: {results.get('lineCount')}"
 
 
 def test_stats_worker_termination():
@@ -66,7 +66,7 @@ def test_stats_worker_termination():
 
     if test_file.exists():
         test_file.unlink()
-    return not is_running
+    assert not is_running, "StatsWorker should stop after stop() + wait()"
 
 
 if __name__ == "__main__":
